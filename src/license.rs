@@ -34,17 +34,18 @@ impl License {
     }
 
     pub fn verify(&self) -> Result<Vec<u8>, Error> {
-        // Check if the scheme is None
         if self.scheme.is_none() {
             return Err(Error::LicenseNotSigned);
         }
-
-        // Create a new verifier using the public key
-        // Note: We assume that there's a global PUBLIC_KEY constant or similar
-        let verifier = Verifier::new(PUBLIC_KEY.to_string());
-
-        // Verify the license
-        verifier.verify_license(self)
+        if PUBLIC_KEY.is_none() {
+            return Err(Error::PublicKeyMissing);
+        }
+        if let Some(public_key) = PUBLIC_KEY.clone() {
+            let verifier = Verifier::new(public_key);
+            verifier.verify_license(self)
+        } else {
+            Err(Error::PublicKeyMissing)
+        }
     }
 
     pub async fn activate(

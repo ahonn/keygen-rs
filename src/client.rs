@@ -1,4 +1,8 @@
 use crate::errors::Error;
+use crate::{
+    ACCOUNT, API_PREFIX, API_URL, API_VERSION, ENVIRONMENT, LICENSE_KEY, PUBLIC_KEY, TOKEN,
+    USER_AGENT as KEYGEN_USER_AGENT,
+};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
@@ -20,9 +24,10 @@ pub struct ClientOptions {
     pub license_key: Option<String>,
     pub token: Option<String>,
     pub public_key: Option<String>,
-    pub user_agent: String,
-    pub api_version: String,
+    pub user_agent: Option<String>,
     pub api_url: String,
+    pub api_version: String,
+    pub api_prefix: String,
 }
 
 pub struct Response<T> {
@@ -32,6 +37,20 @@ pub struct Response<T> {
 }
 
 impl Client {
+    pub fn default() -> Self {
+        Self::new(ClientOptions {
+            account: ACCOUNT.to_string(),
+            environment: ENVIRONMENT.clone(),
+            license_key: LICENSE_KEY.clone(),
+            token: TOKEN.clone(),
+            public_key: PUBLIC_KEY.clone(),
+            user_agent: KEYGEN_USER_AGENT.clone(),
+            api_url: API_URL.to_string(),
+            api_version: API_VERSION.to_string(),
+            api_prefix: API_PREFIX.to_string(),
+        })
+    }
+
     pub fn new(options: ClientOptions) -> Self {
         let client = ReqwestClient::builder()
             .timeout(Duration::from_secs(30))
@@ -98,7 +117,7 @@ impl Client {
         let mut url = Url::parse(&self.options.api_url)?;
         url.path_segments_mut()
             .map_err(|_| Error::InvalidUrl)?
-            .push("v1")
+            .push(self.options.api_prefix.as_str())
             .push("accounts")
             .push(&self.options.account)
             .extend(path.split('/'));
@@ -116,15 +135,9 @@ impl Client {
             CONTENT_TYPE,
             HeaderValue::from_static("application/vnd.api+json"),
         );
-        headers.insert(
-            USER_AGENT,
-            HeaderValue::from_str(&format!(
-                "keygen/{} sdk/{} rust/{}",
-                self.options.api_version,
-                SDK_VERSION,
-                env!("CARGO_PKG_VERSION")
-            ))?,
-        );
+        if let Some(user_agent) = &self.options.user_agent {
+            headers.insert(USER_AGENT, HeaderValue::from_str(user_agent)?);
+        }
 
         if let Some(env) = &self.options.environment {
             headers.insert("Keygen-Environment", HeaderValue::from_str(env)?);
@@ -292,9 +305,10 @@ mod tests {
             license_key: Some("test_license_key".to_string()),
             token: None,
             public_key: None,
-            user_agent: "test_user_agent".to_string(),
-            api_version: "1.0".to_string(),
+            user_agent: Some("test_user_agent".to_string()),
             api_url: server_url(),
+            api_version: "1.0".to_string(),
+            api_prefix: "v1".to_string(),
         })
     }
 

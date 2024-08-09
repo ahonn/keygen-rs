@@ -1,6 +1,5 @@
-use std::sync::Arc;
-use std::env;
 use lazy_static::lazy_static;
+use std::env;
 
 pub mod artifact;
 pub mod certificate;
@@ -24,35 +23,17 @@ pub mod webhook;
 pub use errors::Error;
 
 lazy_static! {
-    pub static ref PUBLIC_KEY: String = env::var("KEYGEN_PUBLIC_KEY").unwrap_or_default();
-}
-
-#[derive(Clone)]
-pub struct Keygen {
-    config: Arc<Config>,
-    client: Arc<client::Client>,
-}
-
-pub struct Config {
-    pub account: String,
-    pub product: String,
-    pub environment: Option<String>,
-    pub license_key: Option<String>,
-    pub token: Option<String>,
-    pub public_key: Option<String>,
-    pub user_agent: Option<String>,
-}
-
-impl Keygen {
-    pub fn new(config: Config) -> Self {
-        unimplemented!()
-    }
-
-    pub async fn validate(&self, fingerprints: &[String]) -> Result<license::License, Error> {
-        unimplemented!()
-    }
-
-    pub async fn upgrade(&self, options: upgrade::Options) -> Result<release::Release, Error> {
-        unimplemented!()
-    }
+    pub static ref API_URL: String =
+        env::var("KEYGEN_API_URL").unwrap_or("https://api.keygen.sh".to_string());
+    pub static ref API_VERSION: String =
+        env::var("KEYGEN_API_VERSION").unwrap_or("1.7".to_string());
+    pub static ref API_PREFIX: String = env::var("KEYGEN_API_PREFIX").unwrap_or("v1".to_string());
+    pub static ref ACCOUNT: String = env::var("KEYGEN_ACCOUNT").unwrap_or_default();
+    pub static ref PRODUCT: String = env::var("KEYGEN_PRODUCT").unwrap_or_default();
+    pub static ref PACKAGE: String = env::var("KEYGEN_PACKAGE").unwrap_or_default();
+    pub static ref ENVIRONMENT: Option<String> = env::var("KEYGEN_ENVIRONMENT").ok();
+    pub static ref LICENSE_KEY: Option<String> = env::var("KEYGEN_LICENSE_KEY").ok();
+    pub static ref TOKEN: Option<String> = env::var("KEYGEN_TOKEN").ok();
+    pub static ref PUBLIC_KEY: Option<String> = env::var("KEYGEN_PUBLIC_KEY").ok();
+    pub static ref USER_AGENT: Option<String> = env::var("KEYGEN_USER_AGENT").ok();
 }
