@@ -1,4 +1,6 @@
 use std::sync::Arc;
+use std::env;
+use lazy_static::lazy_static;
 
 pub mod artifact;
 pub mod certificate;
@@ -20,6 +22,10 @@ pub mod verifier;
 pub mod webhook;
 
 pub use errors::Error;
+
+lazy_static! {
+    pub static ref PUBLIC_KEY: String = env::var("KEYGEN_PUBLIC_KEY").unwrap_or_default();
+}
 
 #[derive(Clone)]
 pub struct Keygen {

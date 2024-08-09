@@ -6,6 +6,14 @@ use crate::entitlement::Entitlement;
 use crate::errors::Error;
 use crate::license_file::LicenseFile;
 use crate::machine::Machine;
+use crate::verifier::Verifier;
+use crate::PUBLIC_KEY;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SchemeCode {
+    #[serde(rename = "ED25519_SIGN")]
+    Ed25519Sign,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct License {
@@ -13,6 +21,7 @@ pub struct License {
     pub name: String,
     pub key: String,
     pub expiry: Option<DateTime<Utc>>,
+    pub scheme: Option<SchemeCode>,
     pub require_heartbeat: bool,
     pub last_validated: Option<DateTime<Utc>>,
     pub created: DateTime<Utc>,
@@ -25,7 +34,17 @@ impl License {
     }
 
     pub fn verify(&self) -> Result<Vec<u8>, Error> {
-        unimplemented!()
+        // Check if the scheme is None
+        if self.scheme.is_none() {
+            return Err(Error::LicenseNotSigned);
+        }
+
+        // Create a new verifier using the public key
+        // Note: We assume that there's a global PUBLIC_KEY constant or similar
+        let verifier = Verifier::new(PUBLIC_KEY.to_string());
+
+        // Verify the license
+        verifier.verify_license(self)
     }
 
     pub async fn activate(

@@ -5,14 +5,22 @@ use url::ParseError;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    // General errors
+    #[error("Unexpected error: {0}")]
+    UnexpectedError(String),
+
+    #[error("Invalid URL")]
+    InvalidUrl,
+
+    #[error("System clock is out of sync")]
+    SystemClockUnsynced,
+
+    // HTTP and API related errors
     #[error("API error: {0}")]
     ApiError(serde_json::Value),
 
     #[error("HTTP client error: {0}")]
     HttpClient(#[from] reqwest::Error),
-
-    #[error("Invalid URL")]
-    InvalidUrl,
 
     #[error("URL parse error: {0}")]
     UrlParse(#[from] ParseError),
@@ -36,6 +44,10 @@ pub enum Error {
         retry_after: u64,
     },
 
+    // Authentication and authorization errors
+    #[error("Not authorized")]
+    NotAuthorized,
+
     #[error("Token not allowed")]
     TokenNotAllowed,
 
@@ -48,6 +60,7 @@ pub enum Error {
     #[error("Token expired")]
     TokenExpired,
 
+    // License related errors
     #[error("License not allowed")]
     LicenseNotAllowed,
 
@@ -57,26 +70,51 @@ pub enum Error {
     #[error("License expired")]
     LicenseExpired,
 
-    #[error("Not authorized")]
-    NotAuthorized,
+    #[error("License key is missing")]
+    LicenseKeyMissing,
 
-    #[error("Unexpected error: {0}")]
-    UnexpectedError(String),
+    #[error("License scheme is missing")]
+    LicenseSchemeMissing,
 
-    #[error("Environment error")]
-    EnvironmentError,
+    #[error("License scheme is not supported")]
+    LicenseSchemeNotSupported,
 
-    #[error("Heartbeat dead")]
-    HeartbeatDead,
+    #[error("License is not signed")]
+    LicenseNotSigned,
 
+    #[error("License key is not genuine")]
+    LicenseKeyNotGenuine,
+
+    #[error("License key invalid")]
+    LicenseKeyInvalid,
+
+    #[error("License token invalid")]
+    LicenseTokenInvalid,
+
+    #[error("License has too many machines")]
+    LicenseTooManyMachines,
+
+    #[error("License has too many cores")]
+    LicenseTooManyCores,
+
+    #[error("License has too many processes")]
+    LicenseTooManyProcesses,
+
+    // Machine and component related errors
     #[error("Machine already activated")]
     MachineAlreadyActivated,
 
     #[error("Machine limit exceeded")]
     MachineLimitExceeded,
 
+    #[error("Machine no longer exists")]
+    MachineNotFound,
+
     #[error("Process limit exceeded")]
     ProcessLimitExceeded,
+
+    #[error("Process no longer exists")]
+    ProcessNotFound,
 
     #[error("Component conflict")]
     ComponentConflict,
@@ -84,11 +122,36 @@ pub enum Error {
     #[error("Component already activated")]
     ComponentAlreadyActivated,
 
-    #[error("License token invalid")]
-    LicenseTokenInvalid,
+    #[error("Component is not activated")]
+    ComponentNotActivated,
 
-    #[error("License key invalid")]
-    LicenseKeyInvalid,
+    // Other specific errors
+    #[error("Environment error")]
+    EnvironmentError,
+
+    #[error("Heartbeat dead")]
+    HeartbeatDead,
+
+    #[error("Heartbeat ping failed")]
+    HeartbeatPingFailed,
+
+    #[error("Heartbeat is required")]
+    HeartbeatRequired,
+
+    #[error("Public key is missing")]
+    PublicKeyMissing,
+
+    #[error("Public key is invalid")]
+    PublicKeyInvalid,
+
+    #[error("Validation fingerprint scope is missing")]
+    ValidationFingerprintMissing,
+
+    #[error("Validation components scope is missing")]
+    ValidationComponentsMissing,
+
+    #[error("Validation product scope is missing")]
+    ValidationProductMissing,
 
     #[error("Not found")]
     NotFound,
