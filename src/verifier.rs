@@ -144,6 +144,7 @@ mod tests {
             last_validated: None,
             created: Utc::now(),
             updated: Utc::now(),
+            last_validation: None,
         }
     }
 

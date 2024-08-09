@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Component {
@@ -8,5 +9,16 @@ pub struct Component {
     pub name: String,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
-    pub machine_id: String,
+}
+
+impl Component {
+    pub fn create_object(component: &Component) -> serde_json::Value {
+        json!({
+          "data": {
+            "id": component.id,
+            "type": "components",
+            "attributes": component
+          }
+        })
+    }
 }

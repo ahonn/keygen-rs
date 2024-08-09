@@ -64,6 +64,9 @@ pub enum Error {
     #[error("License not allowed")]
     LicenseNotAllowed,
 
+    #[error("License not activated")]
+    LicenseNotActivated,
+
     #[error("License suspended")]
     LicenseSuspended,
 

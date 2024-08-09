@@ -1,16 +1,11 @@
 use crate::errors::Error;
-use crate::{
-    ACCOUNT, API_PREFIX, API_URL, API_VERSION, ENVIRONMENT, LICENSE_KEY, PUBLIC_KEY, TOKEN,
-    USER_AGENT as KEYGEN_USER_AGENT,
-};
+use crate::Keygen;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use std::time::Duration;
 use url::Url;
-
-const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct Client {
     inner: ReqwestClient,
@@ -38,16 +33,17 @@ pub struct Response<T> {
 
 impl Client {
     pub fn default() -> Self {
+        let config = Keygen::get_config();
         Self::new(ClientOptions {
-            account: ACCOUNT.to_string(),
-            environment: ENVIRONMENT.clone(),
-            license_key: LICENSE_KEY.clone(),
-            token: TOKEN.clone(),
-            public_key: PUBLIC_KEY.clone(),
-            user_agent: KEYGEN_USER_AGENT.clone(),
-            api_url: API_URL.to_string(),
-            api_version: API_VERSION.to_string(),
-            api_prefix: API_PREFIX.to_string(),
+            account: config.account.to_string(),
+            environment: config.environment.clone(),
+            license_key: config.license_key.clone(),
+            token: config.token.clone(),
+            public_key: config.public_key.clone(),
+            user_agent: config.user_agent.clone(),
+            api_url: config.api_url.to_string(),
+            api_version: config.api_version.to_string(),
+            api_prefix: config.api_prefix.to_string(),
         })
     }
 
@@ -115,12 +111,20 @@ impl Client {
         params: Option<&T>,
     ) -> Result<Request, Error> {
         let mut url = Url::parse(&self.options.api_url)?;
-        url.path_segments_mut()
-            .map_err(|_| Error::InvalidUrl)?
-            .push(self.options.api_prefix.as_str())
-            .push("accounts")
-            .push(&self.options.account)
-            .extend(path.split('/'));
+
+        if self.options.api_url == "https://api.keygen.sh" {
+            url.path_segments_mut()
+                .map_err(|_| Error::InvalidUrl)?
+                .push(self.options.api_prefix.as_str())
+                .push("accounts")
+                .push(self.options.account.as_str())
+                .extend(path.split('/'));
+        } else {
+            url.path_segments_mut()
+                .map_err(|_| Error::InvalidUrl)?
+                .push(self.options.api_prefix.as_str())
+                .extend(path.split('/'));
+        }
 
         if method == reqwest::Method::GET {
             if let Some(params) = params {
@@ -314,7 +318,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_request() {
-        let _m = mock("GET", "/v1/accounts/test_account/test_path")
+        let _m = mock("GET", "/v1/test_path")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"data": {"id": "123", "type": "test"}}"#)
@@ -330,7 +334,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_post_request() {
-        let _m = mock("POST", "/v1/accounts/test_account/test_path")
+        let _m = mock("POST", "/v1/test_path")
             .with_status(201)
             .with_header("content-type", "application/json")
             .with_body(r#"{"data": {"id": "456", "type": "test"}}"#)
@@ -347,7 +351,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_put_request() {
-        let _m = mock("PUT", "/v1/accounts/test_account/test_path/123")
+        let _m = mock("PUT", "/v1/test_path/123")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(
@@ -367,7 +371,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_patch_request() {
-        let _m = mock("PATCH", "/v1/accounts/test_account/test_path/456")
+        let _m = mock("PATCH", "/v1/test_path/456")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(
@@ -387,7 +391,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_request() {
-        let _m = mock("DELETE", "/v1/accounts/test_account/test_path/789")
+        let _m = mock("DELETE", "/v1/test_path/789")
             .with_status(204)
             .create();
 
@@ -401,7 +405,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_error_handling() {
-        let _m = mock("GET", "/v1/accounts/test_account/test_path")
+        let _m = mock("GET", "/v1/test_path")
             .with_status(404)
             .with_header("content-type", "application/json")
             .with_body(r#"{"errors": [{"code": "NOT_FOUND", "detail": "Resource not found"}]}"#)
@@ -419,7 +423,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_rate_limit_error() {
-        let _m = mock("GET", "/v1/accounts/test_account/test_path")
+        let _m = mock("GET", "/v1/test_path")
             .with_status(429)
             .with_header("X-RateLimit-Window", "60")
             .with_header("Retry-After", "30")
