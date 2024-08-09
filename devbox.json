@@ -2,7 +2,11 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.11.0/.schema/devbox.schema.json",
   "packages": [
     "rustup@latest",
-    "libiconv@latest"
+    "libiconv@latest",
+    "darwin.apple_sdk.frameworks.Security",
+    "darwin.apple_sdk.frameworks.CoreServices",
+    "darwin.apple_sdk.frameworks.CoreFoundation",
+    "darwin.apple_sdk.frameworks.Foundation"
   ],
   "env": {
     "DEVBOX_COREPACK_ENABLED": "true"
@@ -13,12 +17,11 @@
       "mkdir -p $rustupHomeDir",
       "export RUSTUP_HOME=$rustupHomeDir",
       "export LIBRARY_PATH=$LIBRARY_PATH:\"${PROJECT_DIR}/.devbox/nix/profile/default/lib\"",
-      "rustup default stable",
-      "set -a; source .env; set +a"
+      "rustup default stable"
     ],
     "scripts": {
-      "test":       "cargo test -- --show-output",
-      "start":      "cargo run",
+      "test": "cargo test -- --show-output",
+      "start": "cargo run",
       "build-docs": "cargo doc"
     }
   }
