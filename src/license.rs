@@ -2,16 +2,17 @@ use std::env;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::client::Client;
 use crate::component::Component;
+use crate::config::get_config;
 use crate::entitlement::Entitlement;
 use crate::errors::Error;
-use crate::{get_config, reset_config};
 use crate::license_file::LicenseFile;
-use crate::machine::Machine;
+use crate::machine::{Machine, MachineResponse, MachinesResponse};
 use crate::verifier::Verifier;
+use crate::KeygenResponseData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SchemeCode {
@@ -22,7 +23,7 @@ pub enum SchemeCode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationResponse {
     pub meta: ValidationMeta,
-    pub data: LicenseData,
+    pub data: KeygenResponseData<LicenseAttributes>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,13 +41,6 @@ pub struct ValidationScope {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LicenseData {
-    pub id: String,
-    pub r#type: String,
-    pub attributes: LicenseAttributes,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LicenseAttributes {
     pub name: Option<String>,
     pub key: String,
@@ -61,10 +55,6 @@ pub struct License {
     pub key: String,
     pub expiry: Option<DateTime<Utc>>,
     pub scheme: Option<SchemeCode>,
-    pub require_heartbeat: bool,
-    pub last_validated: Option<DateTime<Utc>>,
-    pub created: DateTime<Utc>,
-    pub updated: DateTime<Utc>,
     #[serde(skip)]
     pub last_validation: Option<ValidationResponse>,
 }
@@ -75,7 +65,7 @@ pub struct CheckoutOptions {
 }
 
 impl License {
-    pub async fn validate(&mut self, fingerprints: &[String]) -> Result<ValidationResponse, Error> {
+    pub async fn validate(&mut self, fingerprints: &[String]) -> Result<License, Error> {
         let client = Client::default();
         let scope = License::build_scope(fingerprints);
         let params = json!({
@@ -88,19 +78,17 @@ impl License {
         let response = client
             .post(&format!("licenses/{}/actions/validate", self.id), &params)
             .await?;
-        let validation_response: ValidationResponse = serde_json::from_value(response.body)?;
-        self.last_validation = Some(validation_response.clone());
+        let validation: ValidationResponse = serde_json::from_value(response.body)?;
+        self.last_validation = Some(validation.clone());
 
-        if !validation_response.meta.valid {
-            return Err(self.handle_validation_code(&validation_response.meta.code));
+        if !validation.meta.valid {
+            return Err(self.handle_validation_code(&validation.meta.code));
         };
-        Ok(validation_response)
+        let license = self.clone();
+        Ok(license)
     }
 
-    pub async fn validate_key(
-        &mut self,
-        fingerprints: &[String],
-    ) -> Result<ValidationResponse, Error> {
+    pub async fn validate_key(&mut self, fingerprints: &[String]) -> Result<License, Error> {
         let client = Client::default();
         let scope = License::build_scope(fingerprints);
         let params = json!({
@@ -113,13 +101,14 @@ impl License {
         let response = client
             .post(&"licenses/actions/validate-key", &params)
             .await?;
-        let validation_response: ValidationResponse = serde_json::from_value(response.body)?;
-        self.last_validation = Some(validation_response.clone());
+        let validation: ValidationResponse = serde_json::from_value(response.body)?;
+        self.last_validation = Some(validation.clone());
 
-        if !validation_response.meta.valid {
-            return Err(self.handle_validation_code(&validation_response.meta.code));
+        if !validation.meta.valid {
+            return Err(self.handle_validation_code(&validation.meta.code));
         };
-        Ok(validation_response)
+        let license = self.clone();
+        Ok(license)
     }
 
     fn build_scope(fingerprints: &[String]) -> serde_json::Value {
@@ -162,7 +151,7 @@ impl License {
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_else(|_| String::from("unknown"));
 
-        let params = json!({
+        let mut params = json!({
           "data": {
             "type": "machines",
             "attributes": {
@@ -178,13 +167,22 @@ impl License {
                   "id": self.id
                 }
               },
-              "components": components.iter().map(|comp| Component::create_object(comp)).collect::<Vec<serde_json::Value>>()
             }
           }
         });
+        if components.len() > 0 {
+            params["data"]["relationships"]["components"] = json!(components
+                .iter()
+                .map(|comp| Component::create_object(comp))
+                .collect::<Vec<serde_json::Value>>());
+        }
 
         let response = client.post("machines", &params).await?;
-        let machine: Machine = serde_json::from_value(response.body)?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        let machine = Machine {
+            id: machine_response.data.id.clone(),
+            attributes: machine_response.data.attributes.clone(),
+        };
 
         Ok(machine)
     }
@@ -212,7 +210,15 @@ impl License {
                 Some(&json!({"limit": 100})),
             )
             .await?;
-        let machines: Vec<Machine> = serde_json::from_value(response.body)?;
+        let machines_response: MachinesResponse = serde_json::from_value(response.body)?;
+        let machines = machines_response
+            .data
+            .iter()
+            .map(|d| Machine {
+                id: d.id.clone(),
+                attributes: d.attributes.clone(),
+            })
+            .collect();
         Ok(machines)
     }
 
@@ -253,7 +259,7 @@ impl License {
     fn handle_validation_code(&self, code: &str) -> Error {
         match code {
             "FINGERPRINT_SCOPE_MISMATCH" | "NO_MACHINES" | "NO_MACHINE" => {
-                Error::LicenseNotActivated
+                Error::LicenseNotActivated(self.clone())
             }
             "EXPIRED" => Error::LicenseExpired,
             "SUSPENDED" => Error::LicenseSuspended,
@@ -278,8 +284,7 @@ impl License {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{set_config, KeygenConfig};
-    use chrono::Utc;
+    use crate::config::{reset_config, set_config, KeygenConfig};
     use mockito::{mock, server_url};
     use serde_json::json;
 
@@ -289,11 +294,7 @@ mod tests {
             name: "Test License".to_string(),
             key: "TEST-LICENSE-KEY".to_string(),
             expiry: None,
-            scheme: Some(SchemeCode::Ed25519Sign),
-            require_heartbeat: false,
-            last_validated: None,
-            created: Utc::now(),
-            updated: Utc::now(),
+            scheme: None,
             last_validation: None,
         }
     }
@@ -328,14 +329,11 @@ mod tests {
     #[tokio::test]
     async fn test_validate() {
         let mut license = create_test_license();
-        let _m = mock(
-            "POST",
-            "/v1/licenses/test_license_id/actions/validate",
-        )
-        .with_status(200)
-        .with_header("content-type", "application/json")
-        .with_body(get_mock_body())
-        .create();
+        let _m = mock("POST", "/v1/licenses/test_license_id/actions/validate")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(get_mock_body())
+            .create();
 
         set_config(KeygenConfig {
             api_url: server_url(),
@@ -359,14 +357,11 @@ mod tests {
     #[tokio::test]
     async fn test_validate_key() {
         let mut license = create_test_license();
-        let _m = mock(
-            "POST",
-            "/v1/licenses/actions/validate-key",
-        )
-        .with_status(200)
-        .with_header("content-type", "application/json")
-        .with_body(get_mock_body())
-        .create();
+        let _m = mock("POST", "/v1/licenses/actions/validate-key")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(get_mock_body())
+            .create();
 
         set_config(KeygenConfig {
             api_url: server_url(),

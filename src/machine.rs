@@ -1,57 +1,50 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::component::Component;
+use crate::client::Client;
 use crate::errors::Error;
-use crate::machine_file::MachineFile;
-use crate::process::Process;
+use crate::KeygenResponseData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Machine {
-    pub id: String,
+pub struct MachineAttributes {
     pub fingerprint: String,
-    pub name: String,
-    pub hostname: String,
-    pub platform: String,
-    pub cores: i32,
+    pub name: Option<String>,
+    pub platform: Option<String>,
+    pub hostname: Option<String>,
+    pub cores: Option<i32>,
+    #[serde(rename = "requireHeartbeat")]
     pub require_heartbeat: bool,
-    pub heartbeat_status: HeartbeatStatus,
-    pub heartbeat_duration: i32,
+    #[serde(rename = "heartbeatStatus")]
+    pub heartbeat_status: String,
+    #[serde(rename = "heartbeatDuration")]
+    pub heartbeat_duration: Option<i32>,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum HeartbeatStatus {
-    NotStarted,
-    Alive,
-    Dead,
-    Resurrected,
+pub struct MachineResponse {
+    pub data: KeygenResponseData<MachineAttributes>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MachinesResponse {
+    pub data: Vec<KeygenResponseData<MachineAttributes>>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Machine {
+    pub id: String,
+    pub attributes: MachineAttributes,
 }
 
 impl Machine {
     pub async fn deactivate(&self) -> Result<(), Error> {
-        unimplemented!()
-    }
-
-    pub async fn monitor(&self) -> Result<(), Error> {
-        unimplemented!()
-    }
-
-    pub async fn checkout(&self, options: &CheckoutOptions) -> Result<MachineFile, Error> {
-        unimplemented!()
-    }
-
-    pub async fn components(&self) -> Result<Vec<Component>, Error> {
-        unimplemented!()
-    }
-
-    pub async fn spawn(&self, pid: &str) -> Result<Process, Error> {
-        unimplemented!()
-    }
-
-    pub async fn processes(&self) -> Result<Vec<Process>, Error> {
-        unimplemented!()
+        let client = Client::default();
+        let _response = client
+            .delete::<(), serde_json::Value>(&format!("machines/{}", self.id), None::<&()>)
+            .await?;
+        Ok(())
     }
 }
 

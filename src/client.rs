@@ -1,5 +1,5 @@
 use crate::errors::Error;
-use crate::get_config;
+use crate::config::get_config;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
@@ -25,6 +25,7 @@ pub struct ClientOptions {
     pub api_prefix: String,
 }
 
+#[derive(Debug)]
 pub struct Response<T> {
     pub status: StatusCode,
     pub headers: HeaderMap,
@@ -167,9 +168,8 @@ impl Client {
         let mut request = self.inner.request(method.clone(), url).headers(headers);
 
         if method != reqwest::Method::GET && params.is_some() {
-            request = request.json(&json!({"data": params}));
+            request = request.json(&json!(params));
         }
-
         Ok(request.build()?)
     }
 

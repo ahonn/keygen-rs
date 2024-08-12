@@ -3,6 +3,8 @@ use serde_urlencoded::ser::Error as UrlEncodedError;
 use thiserror::Error;
 use url::ParseError;
 
+use crate::license::License;
+
 #[derive(Error, Debug)]
 pub enum Error {
     // General errors
@@ -65,7 +67,7 @@ pub enum Error {
     LicenseNotAllowed,
 
     #[error("License not activated")]
-    LicenseNotActivated,
+    LicenseNotActivated(License),
 
     #[error("License suspended")]
     LicenseSuspended,
