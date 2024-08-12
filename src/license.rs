@@ -8,10 +8,10 @@ use crate::client::Client;
 use crate::component::Component;
 use crate::entitlement::Entitlement;
 use crate::errors::Error;
+use crate::{get_config, reset_config};
 use crate::license_file::LicenseFile;
 use crate::machine::Machine;
 use crate::verifier::Verifier;
-use crate::Keygen;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SchemeCode {
@@ -123,7 +123,7 @@ impl License {
     }
 
     fn build_scope(fingerprints: &[String]) -> serde_json::Value {
-        let config = Keygen::get_config();
+        let config = get_config();
         let mut scope = json!({
             "product": config.product.to_string(),
         });
@@ -143,7 +143,7 @@ impl License {
         if self.scheme.is_none() {
             return Err(Error::LicenseNotSigned);
         }
-        let config = Keygen::get_config();
+        let config = get_config();
         if let Some(public_key) = config.public_key {
             let verifier = Verifier::new(public_key);
             verifier.verify_license(self)
@@ -278,7 +278,7 @@ impl License {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::KeygenConfig;
+    use crate::{set_config, KeygenConfig};
     use chrono::Utc;
     use mockito::{mock, server_url};
     use serde_json::json;
@@ -337,7 +337,7 @@ mod tests {
         .with_body(get_mock_body())
         .create();
 
-        Keygen::set_config(KeygenConfig {
+        set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -353,7 +353,7 @@ mod tests {
             .await;
         println!("{:?}", result);
         assert!(result.is_ok());
-        Keygen::reset_config();
+        reset_config();
     }
 
     #[tokio::test]
@@ -368,7 +368,7 @@ mod tests {
         .with_body(get_mock_body())
         .create();
 
-        Keygen::set_config(KeygenConfig {
+        set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -385,7 +385,7 @@ mod tests {
             .await;
         println!("{:?}", result);
         assert!(result.is_ok());
-        Keygen::reset_config();
+        reset_config();
     }
 
     #[test]

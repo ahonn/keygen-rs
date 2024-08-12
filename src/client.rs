@@ -1,5 +1,5 @@
 use crate::errors::Error;
-use crate::Keygen;
+use crate::get_config;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
@@ -33,7 +33,7 @@ pub struct Response<T> {
 
 impl Client {
     pub fn default() -> Self {
-        let config = Keygen::get_config();
+        let config = get_config();
         Self::new(ClientOptions {
             account: config.account.to_string(),
             environment: config.environment.clone(),
