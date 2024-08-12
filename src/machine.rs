@@ -23,12 +23,12 @@ pub struct MachineAttributes {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineResponse {
+pub(crate) struct MachineResponse {
     pub data: KeygenResponseData<MachineAttributes>
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachinesResponse {
+pub(crate) struct MachinesResponse {
     pub data: Vec<KeygenResponseData<MachineAttributes>>
 }
 

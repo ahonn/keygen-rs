@@ -2,7 +2,7 @@ use std::env;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::client::Client;
 use crate::component::Component;
@@ -21,13 +21,13 @@ pub enum SchemeCode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidationResponse {
+pub(crate) struct ValidationResponse {
     pub meta: ValidationMeta,
     pub data: KeygenResponseData<LicenseAttributes>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidationMeta {
+pub(crate) struct ValidationMeta {
     pub ts: DateTime<Utc>,
     pub valid: bool,
     pub detail: String,
@@ -36,12 +36,12 @@ pub struct ValidationMeta {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidationScope {
+pub(crate) struct ValidationScope {
     pub fingerprint: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LicenseAttributes {
+pub(crate) struct LicenseAttributes {
     pub name: Option<String>,
     pub key: String,
     pub expiry: Option<DateTime<Utc>>,
@@ -51,12 +51,8 @@ pub struct LicenseAttributes {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct License {
     pub id: String,
-    pub name: String,
-    pub key: String,
-    pub expiry: Option<DateTime<Utc>>,
     pub scheme: Option<SchemeCode>,
-    #[serde(skip)]
-    pub last_validation: Option<ValidationResponse>,
+    pub attributes: LicenseAttributes,
 }
 
 pub struct CheckoutOptions {
@@ -65,7 +61,7 @@ pub struct CheckoutOptions {
 }
 
 impl License {
-    pub async fn validate(&mut self, fingerprints: &[String]) -> Result<License, Error> {
+    pub async fn validate(self, fingerprints: &[String]) -> Result<License, Error> {
         let client = Client::default();
         let scope = License::build_scope(fingerprints);
         let params = json!({
@@ -79,21 +75,24 @@ impl License {
             .post(&format!("licenses/{}/actions/validate", self.id), &params)
             .await?;
         let validation: ValidationResponse = serde_json::from_value(response.body)?;
-        self.last_validation = Some(validation.clone());
 
         if !validation.meta.valid {
             return Err(self.handle_validation_code(&validation.meta.code));
         };
-        let license = self.clone();
+        let license = License {
+            id: validation.data.id.clone(),
+            scheme: self.scheme,
+            attributes: validation.data.attributes.clone(),
+        };
         Ok(license)
     }
 
-    pub async fn validate_key(&mut self, fingerprints: &[String]) -> Result<License, Error> {
+    pub async fn validate_key(self, fingerprints: &[String]) -> Result<License, Error> {
         let client = Client::default();
         let scope = License::build_scope(fingerprints);
         let params = json!({
             "meta": {
-                "key": self.key.clone(),
+                "key": self.attributes.key.clone(),
                 "scope": scope
             }
         });
@@ -102,12 +101,15 @@ impl License {
             .post(&"licenses/actions/validate-key", &params)
             .await?;
         let validation: ValidationResponse = serde_json::from_value(response.body)?;
-        self.last_validation = Some(validation.clone());
 
         if !validation.meta.valid {
             return Err(self.handle_validation_code(&validation.meta.code));
         };
-        let license = self.clone();
+        let license = License {
+            id: validation.data.id.clone(),
+            scheme: self.scheme,
+            attributes: validation.data.attributes.clone(),
+        };
         Ok(license)
     }
 
@@ -291,11 +293,13 @@ mod tests {
     fn create_test_license() -> License {
         License {
             id: "test_license_id".to_string(),
-            name: "Test License".to_string(),
-            key: "TEST-LICENSE-KEY".to_string(),
-            expiry: None,
             scheme: None,
-            last_validation: None,
+            attributes: LicenseAttributes {
+                name: Some("Test License".to_string()),
+                key: "TEST-LICENSE-KEY".to_string(),
+                expiry: None,
+                status: "valid".to_string(),
+            },
         }
     }
 
@@ -328,7 +332,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate() {
-        let mut license = create_test_license();
+        let license = create_test_license();
         let _m = mock("POST", "/v1/licenses/test_license_id/actions/validate")
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -356,7 +360,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_key() {
-        let mut license = create_test_license();
+        let license = create_test_license();
         let _m = mock("POST", "/v1/licenses/actions/validate-key")
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -387,6 +391,7 @@ mod tests {
     fn test_verify() {
         let mut license = create_test_license();
 
+        license.scheme = Some(SchemeCode::Ed25519Sign);
         let result = license.verify();
         assert!(matches!(result, Err(Error::PublicKeyMissing)));
 

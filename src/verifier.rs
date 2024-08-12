@@ -23,14 +23,14 @@ impl Verifier {
     }
 
     pub fn verify_license(&self, license: &License) -> Result<Vec<u8>, Error> {
-        if license.key.is_empty() {
+        if license.attributes.key.is_empty() {
             return Err(Error::LicenseKeyMissing);
         }
         if license.scheme.is_none() {
             return Err(Error::LicenseSchemeMissing);
         }
         match license.scheme.as_ref().unwrap() {
-            SchemeCode::Ed25519Sign => self.verify_key(&license.key),
+            SchemeCode::Ed25519Sign => self.verify_key(&license.attributes.key),
         }
     }
 
@@ -99,9 +99,8 @@ impl Verifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::license::SchemeCode;
+    use crate::license::{LicenseAttributes, SchemeCode};
     use base64::engine::general_purpose;
-    use chrono::Utc;
     use ed25519_dalek::{Keypair, Signer};
     use rand::rngs::OsRng;
     use serde_json::json;
@@ -137,14 +136,12 @@ mod tests {
         License {
             id: String::new(),
             scheme: Some(SchemeCode::Ed25519Sign),
-            key: key.to_string(),
-            name: String::new(),
-            expiry: None,
-            require_heartbeat: false,
-            last_validated: None,
-            created: Utc::now(),
-            updated: Utc::now(),
-            last_validation: None,
+            attributes: LicenseAttributes {
+                name: Some("Test License".to_string()),
+                key: key.to_string(),
+                expiry: None,
+                status: "valid".to_string(),
+            },
         }
     }
 
@@ -163,7 +160,7 @@ mod tests {
         let (public_key, _) = generate_valid_keys();
         let verifier = Verifier::new(public_key);
         let mut license = create_test_license("");
-        license.key = String::new();
+        license.attributes.key = String::new();
 
         let result = verifier.verify_license(&license);
         assert!(matches!(result, Err(Error::LicenseKeyMissing)));
