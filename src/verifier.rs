@@ -31,6 +31,8 @@ impl Verifier {
         }
         match license.scheme.as_ref().unwrap() {
             SchemeCode::Ed25519Sign => self.verify_key(&license.attributes.key),
+            #[allow(unreachable_patterns)]
+            _ => Err(Error::LicenseSchemeUnsupported),
         }
     }
 
@@ -140,7 +142,7 @@ mod tests {
                 name: Some("Test License".to_string()),
                 key: key.to_string(),
                 expiry: None,
-                status: "valid".to_string(),
+                status: None,
             },
         }
     }

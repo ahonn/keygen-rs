@@ -3,13 +3,14 @@ use std::env;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use url::Url;
 
 use crate::client::Client;
 use crate::component::Component;
 use crate::config::get_config;
-use crate::entitlement::Entitlement;
+use crate::entitlement::{Entitlement, EntitlementsResponse};
 use crate::errors::Error;
-use crate::license_file::LicenseFile;
+use crate::license_file::{LicenseFile, LicenseFileResponse};
 use crate::machine::{Machine, MachineResponse, MachinesResponse};
 use crate::verifier::Verifier;
 use crate::KeygenResponseData;
@@ -41,11 +42,11 @@ pub(crate) struct ValidationScope {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct LicenseAttributes {
-    pub name: Option<String>,
+pub struct LicenseAttributes {
     pub key: String,
+    pub name: Option<String>,
     pub expiry: Option<DateTime<Utc>>,
-    pub status: String,
+    pub status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,7 +73,11 @@ impl License {
         });
 
         let response = client
-            .post(&format!("licenses/{}/actions/validate", self.id), &params)
+            .post(
+                &format!("licenses/{}/actions/validate", self.id),
+                Some(&params),
+                None::<&()>,
+            )
             .await?;
         let validation: ValidationResponse = serde_json::from_value(response.body)?;
 
@@ -98,7 +103,7 @@ impl License {
         });
 
         let response = client
-            .post(&"licenses/actions/validate-key", &params)
+            .post(&"licenses/actions/validate-key", Some(&params), None::<&()>)
             .await?;
         let validation: ValidationResponse = serde_json::from_value(response.body)?;
 
@@ -179,7 +184,7 @@ impl License {
                 .collect::<Vec<serde_json::Value>>());
         }
 
-        let response = client.post("machines", &params).await?;
+        let response = client.post("machines", Some(&params), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         let machine = Machine {
             id: machine_response.data.id.clone(),
@@ -232,29 +237,46 @@ impl License {
                 Some(&json!({"limit": 100})),
             )
             .await?;
-        let entitlements: Vec<Entitlement> = serde_json::from_value(response.body)?;
+        let entitlements_response: EntitlementsResponse = serde_json::from_value(response.body)?;
+        let entitlements = entitlements_response
+            .data
+            .iter()
+            .map(|d| Entitlement {
+                id: d.id.clone(),
+                attributes: d.attributes.clone(),
+            })
+            .collect();
         Ok(entitlements)
     }
 
     pub async fn checkout(&self, options: &CheckoutOptions) -> Result<LicenseFile, Error> {
         let client = Client::default();
-        let mut params = json!({
-            "encrypt": true,
+        let mut query = json!({
+            "encrypt": 1,
             "include": "entitlements"
         });
 
         if let Some(ttl) = options.ttl {
-            params["ttl"] = json!(ttl.num_seconds());
+            query["ttl"] = json!(ttl.num_seconds());
         }
 
         if let Some(ref include) = options.include {
-            params["include"] = json!(include.join(","));
+            query["include"] = json!(include.join(","));
         }
 
         let response = client
-            .post(&format!("licenses/{}/actions/check-out", self.id), &params)
+            .post(
+                &format!("licenses/{}/actions/check-out", self.id),
+                None::<&()>,
+                Some(&query),
+            )
             .await?;
-        let license_file: LicenseFile = serde_json::from_value(response.body)?;
+        let license_file_response: LicenseFileResponse = serde_json::from_value(response.body)?;
+        let license_file = LicenseFile {
+            id: license_file_response.data.id.clone(),
+            license_id: self.id.clone(),
+            attributes: license_file_response.data.attributes.clone(),
+        };
         Ok(license_file)
     }
 
@@ -298,7 +320,7 @@ mod tests {
                 name: Some("Test License".to_string()),
                 key: "TEST-LICENSE-KEY".to_string(),
                 expiry: None,
-                status: "valid".to_string(),
+                status: None,
             },
         }
     }

@@ -1,5 +1,5 @@
-use crate::errors::Error;
 use crate::config::get_config;
+use crate::errors::Error;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
@@ -60,13 +60,16 @@ impl Client {
         }
     }
 
-    pub async fn post<T, U>(&self, path: &str, params: &T) -> Result<Response<U>, Error>
-    where
-        T: Serialize + ?Sized,
-        U: DeserializeOwned,
-    {
-        self.send(self.new_request(reqwest::Method::POST, path, Some(params))?)
-            .await
+    pub fn set_query<T: Serialize + ?Sized>(
+        &self,
+        request: Request,
+        query: &T,
+    ) -> Result<Request, Error> {
+        let mut request = request;
+        let query_string = serde_urlencoded::to_string(query)?;
+        let url = request.url_mut();
+        url.set_query(Some(&query_string));
+        Ok(request)
     }
 
     pub async fn get<T, U>(&self, path: &str, params: Option<&T>) -> Result<Response<U>, Error>
@@ -78,22 +81,58 @@ impl Client {
             .await
     }
 
-    pub async fn put<T, U>(&self, path: &str, params: &T) -> Result<Response<U>, Error>
+    pub async fn post<T, U, Q>(
+        &self,
+        path: &str,
+        body: Option<&T>,
+        query: Option<&Q>,
+    ) -> Result<Response<U>, Error>
     where
         T: Serialize + ?Sized,
         U: DeserializeOwned,
+        Q: Serialize + ?Sized,
     {
-        self.send(self.new_request(reqwest::Method::PUT, path, Some(params))?)
-            .await
+        let mut request = self.new_request(reqwest::Method::POST, path, body)?;
+        if let Some(q) = query {
+            request = self.set_query(request, q)?;
+        }
+        self.send(request).await
     }
 
-    pub async fn patch<T, U>(&self, path: &str, params: &T) -> Result<Response<U>, Error>
+    pub async fn put<T, U, Q>(
+        &self,
+        path: &str,
+        body: Option<&T>,
+        query: Option<&Q>,
+    ) -> Result<Response<U>, Error>
     where
         T: Serialize + ?Sized,
         U: DeserializeOwned,
+        Q: Serialize + ?Sized,
     {
-        self.send(self.new_request(reqwest::Method::PATCH, path, Some(params))?)
-            .await
+        let mut request = self.new_request(reqwest::Method::PUT, path, body)?;
+        if let Some(q) = query {
+            request = self.set_query(request, q)?;
+        }
+        self.send(request).await
+    }
+
+    pub async fn patch<T, U, Q>(
+        &self,
+        path: &str,
+        body: Option<&T>,
+        query: Option<&Q>,
+    ) -> Result<Response<U>, Error>
+    where
+        T: Serialize + ?Sized,
+        U: DeserializeOwned,
+        Q: Serialize + ?Sized,
+    {
+        let mut request = self.new_request(reqwest::Method::PATCH, path, body)?;
+        if let Some(q) = query {
+            request = self.set_query(request, q)?;
+        }
+        self.send(request).await
     }
 
     pub async fn delete<T, U>(&self, path: &str, params: Option<&T>) -> Result<Response<U>, Error>
@@ -136,10 +175,12 @@ impl Client {
 
         let mut headers = HeaderMap::new();
         headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.api+json"));
-        headers.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_static("application/vnd.api+json"),
-        );
+        if params.is_some() {
+            headers.insert(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/vnd.api+json"),
+            );
+        }
         if let Some(user_agent) = &self.options.user_agent {
             headers.insert(USER_AGENT, HeaderValue::from_str(user_agent)?);
         }
@@ -174,6 +215,7 @@ impl Client {
     }
 
     async fn send<U: DeserializeOwned>(&self, request: Request) -> Result<Response<U>, Error> {
+        println!("{:?}", request);
         let response = self.inner.execute(request).await?;
 
         let status = response.status();
@@ -342,8 +384,10 @@ mod tests {
 
         let client = create_test_client();
         let params = json!({"name": "Test"});
-        let response: Response<serde_json::Value> =
-            client.post("test_path", &params).await.unwrap();
+        let response: Response<serde_json::Value> = client
+            .post("test_path", Some(&params), None::<&()>)
+            .await
+            .unwrap();
 
         assert_eq!(response.status, StatusCode::CREATED);
         assert_eq!(response.body["data"]["id"], "456");
@@ -361,8 +405,10 @@ mod tests {
 
         let client = create_test_client();
         let params = json!({"name": "Updated"});
-        let response: Response<serde_json::Value> =
-            client.put("test_path/123", &params).await.unwrap();
+        let response: Response<serde_json::Value> = client
+            .put("test_path/123", Some(&params), None::<&()>)
+            .await
+            .unwrap();
 
         assert_eq!(response.status, StatusCode::OK);
         assert_eq!(response.body["data"]["id"], "123");
@@ -381,8 +427,10 @@ mod tests {
 
         let client = create_test_client();
         let params = json!({"status": "active"});
-        let response: Response<serde_json::Value> =
-            client.patch("test_path/456", &params).await.unwrap();
+        let response: Response<serde_json::Value> = client
+            .patch("test_path/456", Some(&params), None::<&()>)
+            .await
+            .unwrap();
 
         assert_eq!(response.status, StatusCode::OK);
         assert_eq!(response.body["data"]["id"], "456");

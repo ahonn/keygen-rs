@@ -105,6 +105,9 @@ pub enum Error {
     #[error("License has too many processes")]
     LicenseTooManyProcesses,
 
+    #[error("License scheme unsupported")]
+    LicenseSchemeUnsupported,
+
     // Machine and component related errors
     #[error("Machine already activated")]
     MachineAlreadyActivated,
