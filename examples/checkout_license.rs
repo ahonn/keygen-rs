@@ -17,6 +17,7 @@ async fn main() -> Result<(), Error> {
         public_key: Some(env::var("KEYGEN_PUBLIC_KEY").expect("KEYGEN_PUBLIC_KEY must be set")),
         ..KeygenConfig::default()
     });
+    let config = config::get_config();
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     if let Ok(license) = keygen_rs::validate(&[fingerprint]).await {
@@ -25,7 +26,8 @@ async fn main() -> Result<(), Error> {
         include: None,
       };
       let license_file = license.checkout(&options).await?;
-      println!("License checkout successful: {:?}", license_file);
+      let dataset = license_file.decrypt(&config.license_key.unwrap())?;
+      println!("License checkout successful: {:?}", dataset);
     } else {
         println!("License validation failed");
     };

@@ -215,7 +215,6 @@ impl Client {
     }
 
     async fn send<U: DeserializeOwned>(&self, request: Request) -> Result<Response<U>, Error> {
-        println!("{:?}", request);
         let response = self.inner.execute(request).await?;
 
         let status = response.status();

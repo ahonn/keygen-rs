@@ -3,7 +3,6 @@ use std::env;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use url::Url;
 
 use crate::client::Client;
 use crate::component::Component;
@@ -22,8 +21,8 @@ pub enum SchemeCode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ValidationResponse {
-    pub meta: ValidationMeta,
+pub struct LicenseResponse<M> {
+    pub meta: Option<M>,
     pub data: KeygenResponseData<LicenseAttributes>,
 }
 
@@ -53,7 +52,10 @@ pub struct LicenseAttributes {
 pub struct License {
     pub id: String,
     pub scheme: Option<SchemeCode>,
-    pub attributes: LicenseAttributes,
+    pub key: String,
+    pub name: Option<String>,
+    pub expiry: Option<DateTime<Utc>>,
+    pub status: Option<String>,
 }
 
 pub struct CheckoutOptions {
@@ -62,6 +64,28 @@ pub struct CheckoutOptions {
 }
 
 impl License {
+    pub(crate) fn from<M>(response: LicenseResponse<M>) -> License {
+        License {
+            id: response.data.id,
+            scheme: None,
+            key: response.data.attributes.key,
+            name: response.data.attributes.name,
+            expiry: response.data.attributes.expiry,
+            status: response.data.attributes.status,
+        }
+    }
+
+    pub(crate) fn from_signed_key(scheme: SchemeCode, signed_key: &str) -> License {
+        License {
+            id: String::new(),
+            scheme: Some(scheme),
+            key: signed_key.to_string(),
+            name: None,
+            expiry: None,
+            status: None,
+        }
+    }
+
     pub async fn validate(self, fingerprints: &[String]) -> Result<License, Error> {
         let client = Client::default();
         let scope = License::build_scope(fingerprints);
@@ -79,16 +103,12 @@ impl License {
                 None::<&()>,
             )
             .await?;
-        let validation: ValidationResponse = serde_json::from_value(response.body)?;
-
-        if !validation.meta.valid {
-            return Err(self.handle_validation_code(&validation.meta.code));
+        let validation: LicenseResponse<ValidationMeta> = serde_json::from_value(response.body)?;
+        let meta = validation.meta.clone().unwrap();
+        if !meta.valid {
+            return Err(self.handle_validation_code(&meta.code));
         };
-        let license = License {
-            id: validation.data.id.clone(),
-            scheme: self.scheme,
-            attributes: validation.data.attributes.clone(),
-        };
+        let license = License::from(validation);
         Ok(license)
     }
 
@@ -97,7 +117,7 @@ impl License {
         let scope = License::build_scope(fingerprints);
         let params = json!({
             "meta": {
-                "key": self.attributes.key.clone(),
+                "key": self.key.clone(),
                 "scope": scope
             }
         });
@@ -105,16 +125,12 @@ impl License {
         let response = client
             .post(&"licenses/actions/validate-key", Some(&params), None::<&()>)
             .await?;
-        let validation: ValidationResponse = serde_json::from_value(response.body)?;
-
-        if !validation.meta.valid {
-            return Err(self.handle_validation_code(&validation.meta.code));
+        let validation: LicenseResponse<ValidationMeta> = serde_json::from_value(response.body)?;
+        let meta = validation.meta.clone().unwrap();
+        if !meta.valid {
+            return Err(self.handle_validation_code(&meta.code));
         };
-        let license = License {
-            id: validation.data.id.clone(),
-            scheme: self.scheme,
-            attributes: validation.data.attributes.clone(),
-        };
+        let license = License::from(validation);
         Ok(license)
     }
 
@@ -316,12 +332,10 @@ mod tests {
         License {
             id: "test_license_id".to_string(),
             scheme: None,
-            attributes: LicenseAttributes {
-                name: Some("Test License".to_string()),
-                key: "TEST-LICENSE-KEY".to_string(),
-                expiry: None,
-                status: None,
-            },
+            name: Some("Test License".to_string()),
+            key: "TEST-LICENSE-KEY".to_string(),
+            expiry: None,
+            status: None,
         }
     }
 
@@ -375,7 +389,6 @@ mod tests {
                 "comp2".to_string(),
             ])
             .await;
-        println!("{:?}", result);
         assert!(result.is_ok());
         reset_config();
     }
@@ -404,7 +417,6 @@ mod tests {
                 "comp2".to_string(),
             ])
             .await;
-        println!("{:?}", result);
         assert!(result.is_ok());
         reset_config();
     }

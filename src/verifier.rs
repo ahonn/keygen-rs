@@ -23,14 +23,14 @@ impl Verifier {
     }
 
     pub fn verify_license(&self, license: &License) -> Result<Vec<u8>, Error> {
-        if license.attributes.key.is_empty() {
+        if license.key.is_empty() {
             return Err(Error::LicenseKeyMissing);
         }
         if license.scheme.is_none() {
             return Err(Error::LicenseSchemeMissing);
         }
         match license.scheme.as_ref().unwrap() {
-            SchemeCode::Ed25519Sign => self.verify_key(&license.attributes.key),
+            SchemeCode::Ed25519Sign => self.verify_key(&license.key),
             #[allow(unreachable_patterns)]
             _ => Err(Error::LicenseSchemeUnsupported),
         }
@@ -138,12 +138,10 @@ mod tests {
         License {
             id: String::new(),
             scheme: Some(SchemeCode::Ed25519Sign),
-            attributes: LicenseAttributes {
-                name: Some("Test License".to_string()),
-                key: key.to_string(),
-                expiry: None,
-                status: None,
-            },
+            name: Some("Test License".to_string()),
+            key: key.to_string(),
+            expiry: None,
+            status: None,
         }
     }
 
@@ -162,7 +160,7 @@ mod tests {
         let (public_key, _) = generate_valid_keys();
         let verifier = Verifier::new(public_key);
         let mut license = create_test_license("");
-        license.attributes.key = String::new();
+        license.key = String::new();
 
         let result = verifier.verify_license(&license);
         assert!(matches!(result, Err(Error::LicenseKeyMissing)));

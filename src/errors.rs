@@ -17,6 +17,9 @@ pub enum Error {
     #[error("System clock is out of sync")]
     SystemClockUnsynced,
 
+    #[error("Decryption error: {0}")]
+    DecryptionError(String),
+
     // HTTP and API related errors
     #[error("API error: {0}")]
     ApiError(serde_json::Value),
@@ -107,6 +110,18 @@ pub enum Error {
 
     #[error("License scheme unsupported")]
     LicenseSchemeUnsupported,
+
+    #[error("License file invalid")]
+    LicenseFileInvalid,
+
+    #[error("License file not supported")]
+    LicenseFileNotSupported,
+
+    #[error("License file not encrypted")]
+    LicenseFileNotEncrypted,
+
+    #[error("License file expired")]
+    LicenseFileExpired,
 
     // Machine and component related errors
     #[error("Machine already activated")]
