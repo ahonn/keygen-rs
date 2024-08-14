@@ -101,7 +101,7 @@ impl Verifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::license::{LicenseAttributes, SchemeCode};
+    use crate::license::SchemeCode;
     use base64::engine::general_purpose;
     use ed25519_dalek::{Keypair, Signer};
     use rand::rngs::OsRng;
@@ -114,10 +114,9 @@ mod tests {
         let public_key = hex::encode(keypair.public.as_bytes());
 
         let payload = json!({
-            "iss": "keygen",
-            "aud": "demo",
-            "iat": 1620000000,
-            "exp": 1720000000
+          "lic": "TEST-LICENSE-KEY",
+          "exp": "2025-12-31",
+          "iss": "keygen",
         });
 
         let payload_encoded = general_purpose::URL_SAFE.encode(payload.to_string());

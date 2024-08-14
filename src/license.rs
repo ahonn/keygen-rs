@@ -64,14 +64,14 @@ pub struct CheckoutOptions {
 }
 
 impl License {
-    pub(crate) fn from<M>(response: LicenseResponse<M>) -> License {
+    pub(crate) fn from(data: KeygenResponseData<LicenseAttributes>) -> License {
         License {
-            id: response.data.id,
+            id: data.id,
             scheme: None,
-            key: response.data.attributes.key,
-            name: response.data.attributes.name,
-            expiry: response.data.attributes.expiry,
-            status: response.data.attributes.status,
+            key: data.attributes.key,
+            name: data.attributes.name,
+            expiry: data.attributes.expiry,
+            status: data.attributes.status,
         }
     }
 
@@ -108,7 +108,7 @@ impl License {
         if !meta.valid {
             return Err(self.handle_validation_code(&meta.code));
         };
-        let license = License::from(validation);
+        let license = License::from(validation.data);
         Ok(license)
     }
 
@@ -130,7 +130,7 @@ impl License {
         if !meta.valid {
             return Err(self.handle_validation_code(&meta.code));
         };
-        let license = License::from(validation);
+        let license = License::from(validation.data);
         Ok(license)
     }
 
@@ -202,11 +202,7 @@ impl License {
 
         let response = client.post("machines", Some(&params), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
-        let machine = Machine {
-            id: machine_response.data.id.clone(),
-            attributes: machine_response.data.attributes.clone(),
-        };
-
+        let machine = Machine::from(machine_response.data);
         Ok(machine)
     }
 
@@ -237,10 +233,7 @@ impl License {
         let machines = machines_response
             .data
             .iter()
-            .map(|d| Machine {
-                id: d.id.clone(),
-                attributes: d.attributes.clone(),
-            })
+            .map(|d| Machine::from(d.clone()))
             .collect();
         Ok(machines)
     }
@@ -288,11 +281,7 @@ impl License {
             )
             .await?;
         let license_file_response: LicenseFileResponse = serde_json::from_value(response.body)?;
-        let license_file = LicenseFile {
-            id: license_file_response.data.id.clone(),
-            license_id: self.id.clone(),
-            attributes: license_file_response.data.attributes.clone(),
-        };
+        let license_file = LicenseFile::from(license_file_response.data);
         Ok(license_file)
     }
 

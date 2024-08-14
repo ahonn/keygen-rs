@@ -1,9 +1,13 @@
 use base64::{engine::general_purpose, Engine};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::{
-    certificate::Certificate, decryptor::Decryptor, errors::Error, license::LicenseAttributes,
+    certificate::Certificate,
+    decryptor::Decryptor,
+    errors::Error,
+    license::{License, LicenseAttributes},
     KeygenResponseData,
 };
 
@@ -29,18 +33,32 @@ pub struct LicenseFileMeta {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LicenseFileDataset {
-    pub data: KeygenResponseData<LicenseAttributes>,
-    pub meta: LicenseFileMeta,
+    pub license: License,
+    pub issued: DateTime<Utc>,
+    pub expiry: DateTime<Utc>,
+    pub ttl: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LicenseFile {
     pub id: String,
-    pub license_id: String,
-    pub attributes: LicenseFileAttributes,
+    pub certificate: String,
+    pub issued: DateTime<Utc>,
+    pub expiry: DateTime<Utc>,
+    pub ttl: i32,
 }
 
 impl LicenseFile {
+    pub(crate) fn from(data: KeygenResponseData<LicenseFileAttributes>) -> LicenseFile {
+        LicenseFile {
+            id: data.id,
+            certificate: data.attributes.certificate,
+            issued: data.attributes.issued,
+            expiry: data.attributes.expiry,
+            ttl: data.attributes.ttl,
+        }
+    }
+
     pub fn decrypt(&self, key: &str) -> Result<LicenseFileDataset, Error> {
         let cert = self.certificate()?;
 
@@ -54,24 +72,37 @@ impl LicenseFile {
 
         let decryptor = Decryptor::new(key.to_string());
         let data = decryptor.decrypt_certificate(&cert)?;
-        let dataset: LicenseFileDataset =
+        let dataset: Value =
             serde_json::from_slice(&data).map_err(|_| Error::LicenseFileInvalid)?;
+
+        let data: KeygenResponseData<LicenseAttributes> =
+            serde_json::from_value(dataset["data"].clone())
+                .map_err(|_| Error::LicenseFileInvalid)?;
+        let meta: LicenseFileMeta = serde_json::from_value(dataset["meta"].clone())
+            .map_err(|_| Error::LicenseFileInvalid)?;
+        let license = License::from(data);
 
         let config = crate::config::get_config();
         if let Some(max_clock_drift) = config.max_clock_drift {
-            if Utc::now().signed_duration_since(dataset.meta.issued) > max_clock_drift {
+            if Utc::now().signed_duration_since(meta.issued) > max_clock_drift {
                 return Err(Error::SystemClockUnsynced);
             }
         }
-        if dataset.meta.ttl != 0 && Utc::now() > dataset.meta.expiry {
+        if meta.ttl != 0 && Utc::now() > meta.expiry {
             return Err(Error::LicenseFileExpired);
         }
 
+        let dataset = LicenseFileDataset {
+            license,
+            issued: meta.issued,
+            expiry: meta.expiry,
+            ttl: meta.ttl,
+        };
         Ok(dataset)
     }
 
     fn certificate(&self) -> Result<Certificate, Error> {
-        let payload = self.attributes.certificate.trim();
+        let payload = self.certificate.trim();
         let payload = payload
             .strip_prefix("-----BEGIN LICENSE FILE-----")
             .and_then(|s| s.strip_suffix("-----END LICENSE FILE-----"))

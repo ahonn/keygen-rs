@@ -33,11 +33,11 @@ pub async fn validate(fingerprints: &[String]) -> Result<License, Error> {
     let client = Client::default();
     let response = client.get("me", None::<&()>).await?;
     let profile: LicenseResponse<()> = serde_json::from_value(response.body)?;
-    let license = License::from(profile);
+    let license = License::from(profile.data);
     Ok(license.validate_key(fingerprints).await?)
 }
 
-pub async fn verify(scheme: SchemeCode, signed_key: &str) -> Result<Vec<u8>, Error> {
+pub fn verify(scheme: SchemeCode, signed_key: &str) -> Result<Vec<u8>, Error> {
     let license = License::from_signed_key(scheme, signed_key);
     license.verify()
 }
