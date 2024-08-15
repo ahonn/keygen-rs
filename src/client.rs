@@ -18,7 +18,6 @@ pub struct ClientOptions {
     pub environment: Option<String>,
     pub license_key: Option<String>,
     pub token: Option<String>,
-    pub public_key: Option<String>,
     pub user_agent: Option<String>,
     pub api_url: String,
     pub api_version: String,
@@ -27,7 +26,9 @@ pub struct ClientOptions {
 
 #[derive(Debug)]
 pub struct Response<T> {
+    #[allow(dead_code)]
     pub status: StatusCode,
+    #[allow(dead_code)]
     pub headers: HeaderMap,
     pub body: T,
 }
@@ -40,7 +41,6 @@ impl Client {
             environment: config.environment.clone(),
             license_key: config.license_key.clone(),
             token: config.token.clone(),
-            public_key: config.public_key.clone(),
             user_agent: config.user_agent.clone(),
             api_url: config.api_url.to_string(),
             api_version: config.api_version.to_string(),
@@ -99,6 +99,7 @@ impl Client {
         self.send(request).await
     }
 
+    #[allow(dead_code)]
     pub async fn put<T, U, Q>(
         &self,
         path: &str,
@@ -117,6 +118,7 @@ impl Client {
         self.send(request).await
     }
 
+    #[allow(dead_code)]
     pub async fn patch<T, U, Q>(
         &self,
         path: &str,
@@ -349,7 +351,6 @@ mod tests {
             environment: None,
             license_key: Some("test_license_key".to_string()),
             token: None,
-            public_key: None,
             user_agent: Some("test_user_agent".to_string()),
             api_url: server_url(),
             api_version: "1.0".to_string(),

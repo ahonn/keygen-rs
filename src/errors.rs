@@ -123,6 +123,9 @@ pub enum Error {
     #[error("License file expired")]
     LicenseFileExpired,
 
+    #[error("License file not genuine")]
+    LicenseFileNotGenuine,
+
     // Machine and component related errors
     #[error("Machine already activated")]
     MachineAlreadyActivated,

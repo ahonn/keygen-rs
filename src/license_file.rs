@@ -4,11 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    certificate::Certificate,
-    decryptor::Decryptor,
-    errors::Error,
-    license::{License, LicenseAttributes},
-    KeygenResponseData,
+    certificate::Certificate, config::get_config, decryptor::Decryptor, errors::Error, license::{License, LicenseAttributes}, verifier::Verifier, KeygenResponseData
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,6 +55,17 @@ impl LicenseFile {
         }
     }
 
+    pub fn verify(&self) -> Result<(), Error> {
+        let config = get_config();
+
+        if let Some(public_key) = config.public_key {
+            let verifier = Verifier::new(public_key);
+            verifier.verify_license_file(self)
+        } else {
+            Err(Error::PublicKeyMissing)
+        }
+    }
+
     pub fn decrypt(&self, key: &str) -> Result<LicenseFileDataset, Error> {
         let cert = self.certificate()?;
 
@@ -101,7 +108,7 @@ impl LicenseFile {
         Ok(dataset)
     }
 
-    fn certificate(&self) -> Result<Certificate, Error> {
+    pub(crate) fn certificate(&self) -> Result<Certificate, Error> {
         let payload = self.certificate.trim();
         let payload = payload
             .strip_prefix("-----BEGIN LICENSE FILE-----")

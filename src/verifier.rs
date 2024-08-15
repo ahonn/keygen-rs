@@ -1,7 +1,6 @@
 use crate::errors::Error;
 use crate::license::{License, SchemeCode};
 use crate::license_file::LicenseFile;
-use crate::machine_file::MachineFile;
 use base64::{engine::general_purpose, Engine as _};
 use ed25519_dalek::{PublicKey, Signature, Verifier as Ed25519Verifier};
 
@@ -14,12 +13,31 @@ impl Verifier {
         Self { public_key }
     }
 
-    pub fn verify_license_file(&self, license_file: &LicenseFile) -> Result<(), Error> {
-        unimplemented!()
-    }
+    pub fn verify_license_file(&self, lic: &LicenseFile) -> Result<(), Error> {
+        let cert = lic.certificate()?;
 
-    pub fn verify_machine_file(&self, machine_file: &MachineFile) -> Result<(), Error> {
-        unimplemented!()
+        match cert.alg.as_str() {
+            "aes-256-gcm+ed25519" | "base64+ed25519" => {
+                let public_key = self.public_key_bytes()?;
+
+                let msg = format!("license/{}", cert.enc).into_bytes();
+                let sig = general_purpose::STANDARD
+                    .decode(&cert.sig)
+                    .map_err(|_| Error::LicenseFileNotGenuine)?;
+
+                let public_key =
+                    PublicKey::from_bytes(&public_key).map_err(|_| Error::LicenseFileNotGenuine)?;
+                let signature =
+                    Signature::from_bytes(&sig).map_err(|_| Error::LicenseFileNotGenuine)?;
+
+                if public_key.verify(&msg, &signature).is_ok() {
+                    Ok(())
+                } else {
+                    Err(Error::LicenseFileNotGenuine)
+                }
+            }
+            _ => Err(Error::LicenseFileNotSupported),
+        }
     }
 
     pub fn verify_license(&self, license: &License) -> Result<Vec<u8>, Error> {
@@ -79,7 +97,6 @@ impl Verifier {
         }
 
         let key = hex::decode(&self.public_key).map_err(|_| Error::PublicKeyInvalid)?;
-
         if key.len() != 32 {
             return Err(Error::PublicKeyInvalid);
         }
@@ -87,14 +104,6 @@ impl Verifier {
         let mut bytes = [0u8; 32];
         bytes.copy_from_slice(&key);
         Ok(bytes)
-    }
-
-    pub fn verify_request(&self, request: &reqwest::Request) -> Result<(), Error> {
-        unimplemented!()
-    }
-
-    pub fn verify_response(&self, response: &reqwest::Response) -> Result<(), Error> {
-        unimplemented!()
     }
 }
 

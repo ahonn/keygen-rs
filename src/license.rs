@@ -250,10 +250,7 @@ impl License {
         let entitlements = entitlements_response
             .data
             .iter()
-            .map(|d| Entitlement {
-                id: d.id.clone(),
-                attributes: d.attributes.clone(),
-            })
+            .map(|d| Entitlement::from(d.clone()))
             .collect();
         Ok(entitlements)
     }

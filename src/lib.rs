@@ -3,24 +3,17 @@ use errors::Error;
 use license::{License, LicenseResponse, SchemeCode};
 use serde::{Deserialize, Serialize};
 
-pub(crate) mod artifact;
-pub(crate) mod certificate;
-pub(crate) mod client;
 pub mod component;
 pub mod config;
-pub(crate) mod decryptor;
-pub(crate) mod entitlement;
 pub mod errors;
 pub mod license;
-pub(crate) mod license_file;
-pub(crate) mod log;
 pub mod machine;
-pub(crate) mod machine_file;
-pub(crate) mod process;
-pub(crate) mod release;
-pub(crate) mod upgrade;
+pub(crate) mod decryptor;
 pub(crate) mod verifier;
-pub(crate) mod webhook;
+pub(crate) mod entitlement;
+pub(crate) mod certificate;
+pub(crate) mod client;
+pub(crate) mod license_file;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeygenResponseData<T> {

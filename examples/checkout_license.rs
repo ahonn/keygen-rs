@@ -28,6 +28,8 @@ async fn main() -> Result<(), Error> {
       let license_file = license.checkout(&options).await?;
       let dataset = license_file.decrypt(&config.license_key.unwrap())?;
       println!("License checkout successful: {:?}", dataset);
+      let _ = license_file.verify()?;
+      println!("License file verification successful");
     } else {
         println!("License validation failed");
     };
