@@ -1,7 +1,7 @@
 use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
-    errors::Error, license::CheckoutOptions,
+    errors::Error, license::LicenseCheckoutOpts,
 };
 use std::env;
 
@@ -21,7 +21,7 @@ async fn main() -> Result<(), Error> {
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     if let Ok(license) = keygen_rs::validate(&[fingerprint]).await {
-      let options = CheckoutOptions {
+      let options = LicenseCheckoutOpts {
         ttl: Some(chrono::Duration::days(7)),
         include: None,
       };

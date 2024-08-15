@@ -21,7 +21,7 @@ pub enum SchemeCode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LicenseResponse<M> {
+pub(crate) struct LicenseResponse<M> {
     pub meta: Option<M>,
     pub data: KeygenResponseData<LicenseAttributes>,
 }
@@ -41,7 +41,7 @@ pub(crate) struct ValidationScope {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LicenseAttributes {
+pub(crate) struct LicenseAttributes {
     pub key: String,
     pub name: Option<String>,
     pub expiry: Option<DateTime<Utc>>,
@@ -58,7 +58,7 @@ pub struct License {
     pub status: Option<String>,
 }
 
-pub struct CheckoutOptions {
+pub struct LicenseCheckoutOpts {
     pub ttl: Option<chrono::Duration>,
     pub include: Option<Vec<String>>,
 }
@@ -255,7 +255,7 @@ impl License {
         Ok(entitlements)
     }
 
-    pub async fn checkout(&self, options: &CheckoutOptions) -> Result<LicenseFile, Error> {
+    pub async fn checkout(&self, options: &LicenseCheckoutOpts) -> Result<LicenseFile, Error> {
         let client = Client::default();
         let mut query = json!({
             "encrypt": 1,

@@ -6,7 +6,7 @@ use crate::errors::Error;
 use crate::KeygenResponseData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineAttributes {
+pub(crate) struct MachineAttributes {
     pub fingerprint: String,
     pub name: Option<String>,
     pub platform: Option<String>,
@@ -74,8 +74,4 @@ impl Machine {
             .await?;
         Ok(())
     }
-}
-
-pub struct CheckoutOptions {
-    // Define checkout options here
 }

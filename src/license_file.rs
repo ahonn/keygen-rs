@@ -4,7 +4,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    certificate::Certificate, config::get_config, decryptor::Decryptor, errors::Error, license::{License, LicenseAttributes}, verifier::Verifier, KeygenResponseData
+    certificate::Certificate,
+    config::get_config,
+    decryptor::Decryptor,
+    errors::Error,
+    license::{License, LicenseAttributes},
+    verifier::Verifier,
+    KeygenResponseData,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,3 +133,4 @@ impl LicenseFile {
         Ok(cert)
     }
 }
+
