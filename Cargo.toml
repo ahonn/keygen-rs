@@ -3,6 +3,9 @@ name = "keygen-rs"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+members = [".", "packages/tauri-plugin"]
+
 [dependencies]
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1.0", features = ["full"] }
