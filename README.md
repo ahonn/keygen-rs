@@ -5,6 +5,13 @@
 
 The `keygen-rs` crate allows Rust programs to license using the [keygen.sh](https://keygen.sh) service.
 
+### Sponsored by
+<a href="https://keygen.sh?via=keygen-rs">
+  <div>
+    <img src="https://keygen.sh/images/logo-pill.png" width="200" alt="Keygen">
+  </div>
+</a>
+
 ## Installing
 
 Add this to your `Cargo.toml`:
