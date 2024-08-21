@@ -14,7 +14,7 @@ pub struct KeygenConfig {
     pub token: Option<String>,
     pub public_key: Option<String>,
     pub user_agent: Option<String>,
-    pub max_clock_drift: Option<chrono::Duration>,
+    pub max_clock_drift: Option<i64>,
 }
 
 impl Default for KeygenConfig {
@@ -31,7 +31,7 @@ impl Default for KeygenConfig {
             token: None,
             public_key: None,
             user_agent: None,
-            max_clock_drift: Some(chrono::Duration::minutes(5)),
+            max_clock_drift: Some(5),
         }
     }
 }
@@ -104,7 +104,7 @@ pub fn set_user_agent(user_agent: &str) {
     current_config.user_agent = Some(user_agent.to_string());
 }
 
-pub fn set_max_clock_drift(max_clock_drift: chrono::Duration) {
+pub fn set_max_clock_drift(max_clock_drift: i64) {
     let mut current_config = KEYGEN_CONFIG.write().unwrap();
     current_config.max_clock_drift = Some(max_clock_drift);
 }

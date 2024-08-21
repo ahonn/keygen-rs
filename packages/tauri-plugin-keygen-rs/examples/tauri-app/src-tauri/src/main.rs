@@ -10,7 +10,6 @@ fn greet(name: &str) -> String {
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![greet])
-        .plugin(tauri_plugin_keygen_rs::init())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

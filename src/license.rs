@@ -106,7 +106,7 @@ impl License {
         let validation: LicenseResponse<ValidationMeta> = serde_json::from_value(response.body)?;
         let meta = validation.meta.clone().unwrap();
         if !meta.valid {
-            return Err(self.handle_validation_code(&meta.code));
+            return Err(self.handle_validation_code(&meta));
         };
         let license = License::from(validation.data);
         Ok(license)
@@ -128,7 +128,7 @@ impl License {
         let validation: LicenseResponse<ValidationMeta> = serde_json::from_value(response.body)?;
         let meta = validation.meta.clone().unwrap();
         if !meta.valid {
-            return Err(self.handle_validation_code(&meta.code));
+            return Err(self.handle_validation_code(&meta));
         };
         let license = License::from(validation.data);
         Ok(license)
@@ -282,27 +282,33 @@ impl License {
         Ok(license_file)
     }
 
-    fn handle_validation_code(&self, code: &str) -> Error {
-        match code {
+    fn handle_validation_code(&self, meta: &ValidationMeta) -> Error {
+        let code = meta.code.clone();
+        let detail = meta.detail.clone();
+        match code.as_str() {
             "FINGERPRINT_SCOPE_MISMATCH" | "NO_MACHINES" | "NO_MACHINE" => {
-                Error::LicenseNotActivated(self.clone())
+                Error::LicenseNotActivated {
+                    code,
+                    detail,
+                    license: self.clone(),
+                }
             }
-            "EXPIRED" => Error::LicenseExpired,
-            "SUSPENDED" => Error::LicenseSuspended,
-            "TOO_MANY_MACHINES" => Error::LicenseTooManyMachines,
-            "TOO_MANY_CORES" => Error::LicenseTooManyCores,
-            "TOO_MANY_PROCESSES" => Error::LicenseTooManyProcesses,
+            "EXPIRED" => Error::LicenseExpired { code, detail },
+            "SUSPENDED" => Error::LicenseSuspended { code, detail },
+            "TOO_MANY_MACHINES" => Error::LicenseTooManyMachines { code, detail },
+            "TOO_MANY_CORES" => Error::LicenseTooManyCores { code, detail },
+            "TOO_MANY_PROCESSES" => Error::LicenseTooManyProcesses { code, detail },
             "FINGERPRINT_SCOPE_REQUIRED" | "FINGERPRINT_SCOPE_EMPTY" => {
-                Error::ValidationFingerprintMissing
+                Error::ValidationFingerprintMissing { code, detail }
             }
             "COMPONENTS_SCOPE_REQUIRED" | "COMPONENTS_SCOPE_EMPTY" => {
-                Error::ValidationComponentsMissing
+                Error::ValidationComponentsMissing { code, detail }
             }
-            "COMPONENTS_SCOPE_MISMATCH" => Error::ComponentNotActivated,
-            "HEARTBEAT_NOT_STARTED" => Error::HeartbeatRequired,
-            "HEARTBEAT_DEAD" => Error::HeartbeatDead,
-            "PRODUCT_SCOPE_REQUIRED" | "PRODUCT_SCOPE_EMPTY" => Error::ValidationProductMissing,
-            _ => Error::LicenseKeyInvalid,
+            "COMPONENTS_SCOPE_MISMATCH" => Error::ComponentNotActivated { code, detail },
+            "HEARTBEAT_NOT_STARTED" => Error::HeartbeatRequired { code, detail },
+            "HEARTBEAT_DEAD" => Error::HeartbeatDead { code, detail },
+            "PRODUCT_SCOPE_REQUIRED" | "PRODUCT_SCOPE_EMPTY" => Error::ValidationProductMissing { code, detail },
+            _ => Error::LicenseKeyInvalid { code, detail },
         }
     }
 }

@@ -25,7 +25,7 @@ pub(crate) struct KeygenResponseData<T> {
 /// Validates a license key
 ///
 /// # Exampled
-/// ```rust
+/// ```
 /// #[tokio::main]
 /// async fn main() -> Result<(), Error> {
 ///     dotenv().ok();
@@ -58,7 +58,7 @@ pub async fn validate(fingerprints: &[String]) -> Result<License, Error> {
 /// - Ed25519Sign
 ///
 /// # Exampled
-/// ```rust
+/// ```
 /// #[tokio::main]
 /// async fn main() {
 ///     dotenv().ok();

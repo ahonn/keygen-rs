@@ -34,3 +34,6 @@ num_cpus = "1.16.0"
 dotenv = "0.15.0"
 machine-uid = "0.5.2"
 aes-gcm = "0.9.4"
+
+[lib]
+doctest = false

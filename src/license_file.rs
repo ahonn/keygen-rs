@@ -97,7 +97,9 @@ impl LicenseFile {
 
         let config = crate::config::get_config();
         if let Some(max_clock_drift) = config.max_clock_drift {
-            if Utc::now().signed_duration_since(meta.issued) > max_clock_drift {
+            if Utc::now().signed_duration_since(meta.issued)
+                > chrono::Duration::minutes(max_clock_drift)
+            {
                 return Err(Error::SystemClockUnsynced);
             }
         }
@@ -133,4 +135,3 @@ impl LicenseFile {
         Ok(cert)
     }
 }
-
