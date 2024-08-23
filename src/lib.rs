@@ -7,15 +7,15 @@ pub(crate) mod certificate;
 pub(crate) mod client;
 pub(crate) mod decryptor;
 pub(crate) mod entitlement;
-pub(crate) mod license_file;
-pub(crate) mod machine_file;
 pub(crate) mod verifier;
 
 pub mod component;
 pub mod config;
 pub mod errors;
 pub mod license;
+pub mod license_file;
 pub mod machine;
+pub mod machine_file;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenResponseData<T> {
@@ -46,12 +46,12 @@ pub(crate) struct KeygenResponseData<T> {
 ///     Ok(())
 /// }
 /// ```
-pub async fn validate(fingerprints: &[String]) -> Result<License, Error> {
+pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Result<License, Error> {
     let client = Client::default();
     let response = client.get("me", None::<&()>).await?;
     let profile: LicenseResponse<()> = serde_json::from_value(response.body)?;
     let license = License::from(profile.data);
-    Ok(license.validate_key(fingerprints).await?)
+    Ok(license.validate_key(fingerprints, entitlements).await?)
 }
 
 /// Verifies a signed key based on a given scheme

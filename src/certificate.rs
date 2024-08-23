@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::KeygenResponseData;
+use crate::{errors::Error, KeygenResponseData};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Certificate {
@@ -28,4 +28,19 @@ pub struct CertificateFileAttributes {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct CartificateFileResponse {
     pub data: KeygenResponseData<CertificateFileAttributes>,
+}
+
+pub fn validate_certificate_meta(meta: &CertificateFileMeta) -> Result<(), Error> {
+    let config = crate::config::get_config();
+    if let Some(max_clock_drift) = config.max_clock_drift {
+        if Utc::now().signed_duration_since(meta.issued)
+            > chrono::Duration::minutes(max_clock_drift)
+        {
+            return Err(Error::SystemClockUnsynced);
+        }
+    }
+    if meta.ttl != 0 && Utc::now() > meta.expiry {
+        return Err(Error::CerificateFileExpired);
+    }
+    Ok(())
 }

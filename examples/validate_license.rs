@@ -19,7 +19,7 @@ async fn main() -> Result<(), Error> {
     });
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    let license = keygen_rs::validate(&[fingerprint]).await?;
+    let license = keygen_rs::validate(&[fingerprint], &[]).await?;
     println!("License validated successfully: {:?}", license);
 
     Ok(())

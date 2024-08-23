@@ -7,6 +7,7 @@
   "main": "webview-dist/index.js",
   "types": "webview-dist/index.d.ts",
   "scripts": {
+    "dev": "rollup -c ./webview-src/rollup.config.js --watch",
     "build": "rollup -c ./webview-src/rollup.config.js",
     "prepublishOnly": "pnpm build",
     "pretest": "pnpm build"

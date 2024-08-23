@@ -21,7 +21,7 @@ async fn main() -> Result<(), Error> {
     let config = config::get_config();
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Ok(license) = keygen_rs::validate(&[fingerprint]).await {
+    if let Ok(license) = keygen_rs::validate(&[fingerprint], &[]).await {
         let options = LicenseCheckoutOpts {
             ttl: Some(chrono::Duration::days(7).num_seconds()),
             include: None,

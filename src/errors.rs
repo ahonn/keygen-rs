@@ -77,6 +77,9 @@ pub enum Error {
     #[error("{0}")]
     CertificateFileNotSupported(String),
 
+    #[error("Cerificate file expired")]
+    CerificateFileExpired,
+
     #[error("License file invalid: {0}")]
     LicenseFileInvalid(String),
 
@@ -100,6 +103,9 @@ pub enum Error {
 
     #[error("Machine file not supported")]
     MachineFileNotSupported(String),
+
+    #[error("License file expired")]
+    MachineFileExpired,
 
     #[error("API error: {detail}")]
     KeygenApiError {

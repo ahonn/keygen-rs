@@ -52,6 +52,7 @@ pub(crate) struct LicenseAttributes {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct License {
     pub id: String,
+    #[serde(skip_serializing)]
     pub scheme: Option<SchemeCode>,
     pub key: String,
     pub name: Option<String>,
@@ -87,9 +88,13 @@ impl License {
         }
     }
 
-    pub async fn validate(self, fingerprints: &[String]) -> Result<License, Error> {
+    pub async fn validate(
+        self,
+        fingerprints: &[String],
+        entitlements: &[String],
+    ) -> Result<License, Error> {
         let client = Client::default();
-        let scope = License::build_scope(fingerprints);
+        let scope = License::build_scope(fingerprints, entitlements);
         let params = json!({
             "meta": {
                 "nonce": chrono::Utc::now().timestamp(),
@@ -113,9 +118,13 @@ impl License {
         Ok(license)
     }
 
-    pub async fn validate_key(self, fingerprints: &[String]) -> Result<License, Error> {
+    pub async fn validate_key(
+        self,
+        fingerprints: &[String],
+        entitlements: &[String],
+    ) -> Result<License, Error> {
         let client = Client::default();
-        let scope = License::build_scope(fingerprints);
+        let scope = License::build_scope(fingerprints, entitlements);
         let params = json!({
             "meta": {
                 "key": self.key.clone(),
@@ -135,7 +144,7 @@ impl License {
         Ok(license)
     }
 
-    fn build_scope(fingerprints: &[String]) -> serde_json::Value {
+    fn build_scope(fingerprints: &[String], entitlements: &[String]) -> serde_json::Value {
         let config = get_config();
         let mut scope = json!({
             "product": config.product.to_string(),
@@ -145,6 +154,9 @@ impl License {
             if fingerprints.len() > 1 {
                 scope["components"] = json!(fingerprints[1..].to_vec());
             }
+        }
+        if !entitlements.is_empty() {
+            scope["entitlements"] = json!(entitlements);
         }
         if let Some(env) = config.environment.as_ref() {
             scope["environment"] = json!(env);
@@ -383,11 +395,14 @@ mod tests {
         });
 
         let result = license
-            .validate(&[
-                "test_fingerprint".to_string(),
-                "comp1".to_string(),
-                "comp2".to_string(),
-            ])
+            .validate(
+                &[
+                    "test_fingerprint".to_string(),
+                    "comp1".to_string(),
+                    "comp2".to_string(),
+                ],
+                &[],
+            )
             .await;
         assert!(result.is_ok());
         reset_config();
@@ -411,11 +426,14 @@ mod tests {
         });
 
         let result = license
-            .validate_key(&[
-                "test_fingerprint".to_string(),
-                "comp1".to_string(),
-                "comp2".to_string(),
-            ])
+            .validate_key(
+                &[
+                    "test_fingerprint".to_string(),
+                    "comp1".to_string(),
+                    "comp2".to_string(),
+                ],
+                &[],
+            )
             .await;
         assert!(result.is_ok());
         reset_config();

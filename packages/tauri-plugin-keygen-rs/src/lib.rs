@@ -6,11 +6,13 @@ use tauri::{
     plugin::{Builder as PluginBuilder, TauriPlugin},
     Manager, Runtime,
 };
+use tokio::sync::Mutex;
 
 mod commands;
 pub mod error;
 pub mod license;
 pub mod machine;
+mod utils;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -71,20 +73,22 @@ impl Builder {
                 commands::get_license,
                 commands::validate_key,
                 commands::activate,
-                commands::deactivate
+                commands::deactivate,
+                commands::checkout_license
             ])
-            .setup(move |app| {
-                let app_name = app.package_info().name.clone();
-                let app_version = app.package_info().version.to_string();
+            .setup(move |app_handle| {
+                let app_name = app_handle.package_info().name.clone();
+                let app_version = app_handle.package_info().version.to_string();
 
                 let machine_state = MachineState::new(app_name, app_version);
-                app.manage(machine_state);
+                app_handle.manage(Mutex::new(machine_state));
 
-                if let Ok(license_state) = LicenseState::load(app) {
-                    app.manage(license_state);
+                let license_state = if let Ok(license_state) = LicenseState::load(app_handle) {
+                    license_state
                 } else {
-                    app.manage(LicenseState::default());
+                    LicenseState::default()
                 };
+                app_handle.manage(Mutex::new(license_state));
                 Ok(())
             })
             .build()

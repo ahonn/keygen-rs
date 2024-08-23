@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    certificate::{Certificate, CertificateFileAttributes, CertificateFileMeta},
+    certificate::{
+        validate_certificate_meta, Certificate, CertificateFileAttributes, CertificateFileMeta,
+    },
     config::get_config,
     decryptor::Decryptor,
     errors::Error,
@@ -52,6 +54,17 @@ impl MachineFile {
         }
     }
 
+    pub fn from_certificate(content: &str, key: &str) -> Result<MachineFile, Error> {
+        let dataset = Self::_decrypt(key, content)?;
+        Ok(MachineFile {
+            id: dataset.machine.id.clone(),
+            certificate: content.to_string(),
+            issued: dataset.issued,
+            expiry: dataset.expiry,
+            ttl: dataset.ttl,
+        })
+    }
+
     pub fn verify(&self) -> Result<(), Error> {
         let config = get_config();
 
@@ -64,7 +77,15 @@ impl MachineFile {
     }
 
     pub fn decrypt(&self, key: &str) -> Result<MachineFileDataset, Error> {
-        let cert = self.certificate()?;
+        Self::_decrypt(key, &self.certificate)
+    }
+
+    pub fn certificate(&self) -> Result<Certificate, Error> {
+        Self::_certificate(self.certificate.clone())
+    }
+
+    fn _decrypt(key: &str, content: &str) -> Result<MachineFileDataset, Error> {
+        let cert = Self::_certificate(content.to_string())?;
 
         match cert.alg.as_str() {
             "aes-256-gcm+rsa-pss-sha256" | "aes-256-gcm+rsa-sha256" => {
@@ -81,17 +102,12 @@ impl MachineFile {
 
         let meta: CertificateFileMeta = serde_json::from_value(dataset["meta"].clone())
             .map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
-        let config = crate::config::get_config();
-        if let Some(max_clock_drift) = config.max_clock_drift {
-            if Utc::now().signed_duration_since(meta.issued)
-                > chrono::Duration::minutes(max_clock_drift)
-            {
-                return Err(Error::SystemClockUnsynced);
-            }
-        }
-        if meta.ttl != 0 && Utc::now() > meta.expiry {
-            return Err(Error::MachineFileInvalid("Machine file has expired".into()));
-        }
+        if let Err(err) = validate_certificate_meta(&meta) {
+            match err {
+                Error::CerificateFileExpired => Error::MachineFileExpired,
+                _ => err,
+            };
+        };
 
         let machine_data: KeygenResponseData<MachineAttributes> =
             serde_json::from_value(dataset["data"].clone())
@@ -121,8 +137,8 @@ impl MachineFile {
         Ok(dataset)
     }
 
-    pub(crate) fn certificate(&self) -> Result<Certificate, Error> {
-        let payload = self.certificate.trim();
+    fn _certificate(certificate: String) -> Result<Certificate, Error> {
+        let payload = certificate.trim();
         let payload = payload
             .strip_prefix("-----BEGIN MACHINE FILE-----")
             .and_then(|s| s.strip_suffix("-----END MACHINE FILE-----"))
