@@ -13,6 +13,7 @@ pub struct KeygenConfig {
     pub license_key: Option<String>,
     pub token: Option<String>,
     pub public_key: Option<String>,
+    pub platform: Option<String>,
     pub user_agent: Option<String>,
     pub max_clock_drift: Option<i64>,
 }
@@ -31,6 +32,7 @@ impl Default for KeygenConfig {
             token: None,
             public_key: None,
             user_agent: None,
+            platform: None,
             max_clock_drift: Some(5),
         }
     }
@@ -97,6 +99,11 @@ pub fn set_token(token: &str) {
 pub fn set_public_key(public_key: &str) {
     let mut current_config = KEYGEN_CONFIG.write().unwrap();
     current_config.public_key = Some(public_key.to_string());
+}
+
+pub fn set_platform(platform: &str) {
+    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+    current_config.platform = Some(platform.to_string());
 }
 
 pub fn set_user_agent(user_agent: &str) {

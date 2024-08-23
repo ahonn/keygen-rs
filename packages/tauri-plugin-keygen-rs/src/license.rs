@@ -1,20 +1,54 @@
 use std::{fs, path::PathBuf};
 
-use crate::{errors::Error, Result};
+use crate::{error::Error, Result};
+use keygen_rs::{component::Component, license::License, machine::Machine};
 use tauri::{AppHandle, Runtime};
 
 #[derive(Debug, Clone, Default)]
 pub struct LicenseState {
-    pub license: Option<keygen_rs::license::License>,
+    pub(crate) license: Option<License>,
 }
 
 impl LicenseState {
+    pub fn get_license(&self) -> Option<License> {
+        self.license.clone()
+    }
+
+    pub async fn validate_key(&mut self, key: &str, fingerprints: &[String]) -> Result<License> {
+        keygen_rs::config::set_license_key(key);
+        let license = keygen_rs::validate(fingerprints)
+            .await
+            .map_err(|e| Error::KeygenError(e))?;
+        self.license = Some(license.clone());
+        Ok(license)
+    }
+
+    pub async fn activate_machine(
+        &self,
+        fingerprint: &String,
+        components: &[Component],
+    ) -> Result<Machine> {
+        if let Some(license) = &self.license {
+            let machine = license.activate(fingerprint, components).await?;
+            Ok(machine)
+        } else {
+            Err(Error::NoLicenseError)
+        }
+    }
+
+    pub async fn deactivate_machine(&self, fingerprint: &String) -> Result<()> {
+        if let Some(license) = &self.license {
+            license.deactivate(fingerprint).await?;
+            Ok(())
+        } else {
+            Err(Error::NoLicenseError)
+        }
+    }
+
     pub(crate) fn load<R: Runtime>(app: &AppHandle<R>) -> Result<Self> {
         if let Some(license_key) = Self::get_cached_license_key(app)? {
             keygen_rs::config::set_license_key(&license_key);
-            Ok(Self {
-                license: None,
-            })
+            Ok(Self { license: None })
         } else {
             Ok(Self { license: None })
         }

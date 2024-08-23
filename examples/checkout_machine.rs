@@ -2,6 +2,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
+    machine::MachineCheckoutOpts,
 };
 use std::env;
 
@@ -17,11 +18,25 @@ async fn main() -> Result<(), Error> {
         public_key: Some(env::var("KEYGEN_PUBLIC_KEY").expect("KEYGEN_PUBLIC_KEY must be set")),
         ..KeygenConfig::default()
     });
+    let config = config::get_config();
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     if let Ok(license) = keygen_rs::validate(&[fingerprint.clone()]).await {
-        let _ = license.deactivate(&fingerprint).await?;
-        println!("License deactivated successfully");
+        let machine = license.machine(&fingerprint).await?;
+        let options = MachineCheckoutOpts {
+            ttl: Some(chrono::Duration::days(7).num_seconds()),
+            include: None,
+        };
+        let machine_file = machine.checkout(&options).await?;
+        if machine_file.verify().is_ok() {
+            // the encryption secret for a machine file is the license key concatenated with the machine fingerprint
+            // https://keygen.sh/docs/api/cryptography/#cryptographic-lic-decrypt
+            let key = format!("{}{}", config.license_key.unwrap(), machine.fingerprint);
+            let dataset = machine_file.decrypt(&key)?;
+            println!("Machine checkout successful: {:?}", dataset);
+        }
+    } else {
+        println!("License validation failed");
     };
 
     Ok(())

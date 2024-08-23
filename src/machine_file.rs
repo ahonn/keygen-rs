@@ -8,21 +8,23 @@ use crate::{
     config::get_config,
     decryptor::Decryptor,
     errors::Error,
-    license::{License, LicenseAttributes},
+    license::License,
+    machine::{Machine, MachineAttributes},
     verifier::Verifier,
     KeygenResponseData,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LicenseFileDataset {
+pub struct MachineFileDataset {
     pub license: License,
+    pub machine: Machine,
     pub issued: DateTime<Utc>,
     pub expiry: DateTime<Utc>,
     pub ttl: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LicenseFile {
+pub struct MachineFile {
     pub id: String,
     pub certificate: String,
     pub issued: DateTime<Utc>,
@@ -30,9 +32,9 @@ pub struct LicenseFile {
     pub ttl: i32,
 }
 
-impl Into<LicenseFile> for CertificateFileAttributes {
-    fn into(self) -> LicenseFile {
-        LicenseFile {
+impl Into<MachineFile> for CertificateFileAttributes {
+    fn into(self) -> MachineFile {
+        MachineFile {
             id: "".into(),
             certificate: self.certificate,
             issued: self.issued,
@@ -42,9 +44,9 @@ impl Into<LicenseFile> for CertificateFileAttributes {
     }
 }
 
-impl LicenseFile {
-    pub(crate) fn from(data: KeygenResponseData<CertificateFileAttributes>) -> LicenseFile {
-        LicenseFile {
+impl MachineFile {
+    pub(crate) fn from(data: KeygenResponseData<CertificateFileAttributes>) -> MachineFile {
+        MachineFile {
             id: data.id,
             ..data.attributes.into()
         }
@@ -55,13 +57,13 @@ impl LicenseFile {
 
         if let Some(public_key) = config.public_key {
             let verifier = Verifier::new(public_key);
-            verifier.verify_license_file(self)
+            verifier.verify_machine_file(self)
         } else {
             Err(Error::PublicKeyMissing)
         }
     }
 
-    pub fn decrypt(&self, key: &str) -> Result<LicenseFileDataset, Error> {
+    pub fn decrypt(&self, key: &str) -> Result<MachineFileDataset, Error> {
         let cert = self.certificate()?;
 
         match cert.alg.as_str() {
@@ -75,11 +77,10 @@ impl LicenseFile {
         let decryptor = Decryptor::new(key.to_string());
         let data = decryptor.decrypt_certificate(&cert)?;
         let dataset: Value =
-            serde_json::from_slice(&data).map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
+            serde_json::from_slice(&data).map_err(|e| Error::MachineFileInvalid(e.to_string()))?;
 
         let meta: CertificateFileMeta = serde_json::from_value(dataset["meta"].clone())
             .map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
-
         let config = crate::config::get_config();
         if let Some(max_clock_drift) = config.max_clock_drift {
             if Utc::now().signed_duration_since(meta.issued)
@@ -89,16 +90,30 @@ impl LicenseFile {
             }
         }
         if meta.ttl != 0 && Utc::now() > meta.expiry {
-            return Err(Error::LicenseFileExpired);
+            return Err(Error::MachineFileInvalid("Machine file has expired".into()));
         }
 
-        let data: KeygenResponseData<LicenseAttributes> =
+        let machine_data: KeygenResponseData<MachineAttributes> =
             serde_json::from_value(dataset["data"].clone())
-                .map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
-        let license = License::from(data);
+                .map_err(|e| Error::MachineFileInvalid(e.to_string()))?;
+        let machine = Machine::from(machine_data);
 
-        let dataset = LicenseFileDataset {
+        // Find type = "licenses" element in dataset["included"] array
+        let license_data = dataset["included"]
+            .as_array()
+            .ok_or(Error::MachineFileInvalid(
+                "Included data is not an array".into(),
+            ))?
+            .iter()
+            .find(|v| v["type"] == "licenses")
+            .ok_or(Error::MachineFileInvalid(
+                "No license data found in included data".into(),
+            ))?;
+        let license = License::from(serde_json::from_value(license_data.clone())?);
+
+        let dataset = MachineFileDataset {
             license,
+            machine,
             issued: meta.issued,
             expiry: meta.expiry,
             ttl: meta.ttl,
@@ -109,20 +124,20 @@ impl LicenseFile {
     pub(crate) fn certificate(&self) -> Result<Certificate, Error> {
         let payload = self.certificate.trim();
         let payload = payload
-            .strip_prefix("-----BEGIN LICENSE FILE-----")
-            .and_then(|s| s.strip_suffix("-----END LICENSE FILE-----"))
-            .ok_or(Error::LicenseFileInvalid(
-                "Invalid license file format".into(),
+            .strip_prefix("-----BEGIN MACHINE FILE-----")
+            .and_then(|s| s.strip_suffix("-----END MACHINE FILE-----"))
+            .ok_or(Error::MachineFileInvalid(
+                "Invalid machine file format".into(),
             ))?
             .trim()
             .replace("\n", "");
 
         let decoded = general_purpose::STANDARD
             .decode(payload)
-            .map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
+            .map_err(|e| Error::MachineFileInvalid(e.to_string()))?;
 
         let cert: Certificate = serde_json::from_slice(&decoded)
-            .map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
+            .map_err(|e| Error::MachineFileInvalid(e.to_string()))?;
 
         Ok(cert)
     }

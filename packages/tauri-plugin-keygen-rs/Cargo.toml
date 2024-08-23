@@ -8,7 +8,10 @@ rust-version = "1.60"
 exclude = ["/examples", "/webview-dist", "/webview-src", "node_modules"]
 
 [dependencies]
-tauri = { version = "1.7.0" }
+tauri = { version = "1.7.0", features = ["os-api"] }
 serde = "1.0"
 thiserror = "1.0"
+tokio = { version = "1.33.0", features = ["sync"] }
+machine-uid = "0.5.1"
+whoami = "1.5.1"
 keygen-rs = { path = "../.." }

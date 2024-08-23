@@ -49,8 +49,8 @@ async fn main() {
 
     println!("Signed key: {:?}", signed_key);
     if let Ok(data) = keygen_rs::verify(SchemeCode::Ed25519Sign, &signed_key) {
-      println!("License verified: {:?}", String::from_utf8_lossy(&data));
+        println!("License verified: {:?}", String::from_utf8_lossy(&data));
     } else {
-      println!("License verification failed");
+        println!("License verification failed");
     }
 }

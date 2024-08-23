@@ -5,15 +5,17 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) mod certificate;
 pub(crate) mod client;
-pub mod component;
-pub mod config;
 pub(crate) mod decryptor;
 pub(crate) mod entitlement;
+pub(crate) mod license_file;
+pub(crate) mod machine_file;
+pub(crate) mod verifier;
+
+pub mod component;
+pub mod config;
 pub mod errors;
 pub mod license;
-pub(crate) mod license_file;
 pub mod machine;
-pub(crate) mod verifier;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenResponseData<T> {

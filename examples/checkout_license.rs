@@ -1,7 +1,8 @@
 use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
-    errors::Error, license::LicenseCheckoutOpts,
+    errors::Error,
+    license::LicenseCheckoutOpts,
 };
 use std::env;
 
@@ -21,15 +22,15 @@ async fn main() -> Result<(), Error> {
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     if let Ok(license) = keygen_rs::validate(&[fingerprint]).await {
-      let options = LicenseCheckoutOpts {
-        ttl: Some(chrono::Duration::days(7)),
-        include: None,
-      };
-      let license_file = license.checkout(&options).await?;
-      let dataset = license_file.decrypt(&config.license_key.unwrap())?;
-      println!("License checkout successful: {:?}", dataset);
-      let _ = license_file.verify()?;
-      println!("License file verification successful");
+        let options = LicenseCheckoutOpts {
+            ttl: Some(chrono::Duration::days(7).num_seconds()),
+            include: None,
+        };
+        let license_file = license.checkout(&options).await?;
+        if license_file.verify().is_ok() {
+            let dataset = license_file.decrypt(&config.license_key.unwrap())?;
+            println!("License checkout successful: {:?}", dataset);
+        }
     } else {
         println!("License validation failed");
     };

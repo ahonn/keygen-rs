@@ -1,14 +1,16 @@
-use errors::Error;
+use error::Error;
 use keygen_rs::config::KeygenConfig;
 use license::LicenseState;
+use machine::MachineState;
 use tauri::{
     plugin::{Builder as PluginBuilder, TauriPlugin},
     Manager, Runtime,
 };
 
 mod commands;
-mod errors;
-mod license;
+pub mod error;
+pub mod license;
+pub mod machine;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -65,8 +67,19 @@ impl Builder {
         });
 
         PluginBuilder::new("keygen-rs")
-            .invoke_handler(tauri::generate_handler![commands::get_license_key,])
+            .invoke_handler(tauri::generate_handler![
+                commands::get_license,
+                commands::validate_key,
+                commands::activate,
+                commands::deactivate
+            ])
             .setup(move |app| {
+                let app_name = app.package_info().name.clone();
+                let app_version = app.package_info().version.to_string();
+
+                let machine_state = MachineState::new(app_name, app_version);
+                app.manage(machine_state);
+
                 if let Ok(license_state) = LicenseState::load(app) {
                     app.manage(license_state);
                 } else {

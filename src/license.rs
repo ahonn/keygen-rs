@@ -4,12 +4,13 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::certificate::CartificateFileResponse;
 use crate::client::Client;
 use crate::component::Component;
 use crate::config::get_config;
 use crate::entitlement::{Entitlement, EntitlementsResponse};
 use crate::errors::Error;
-use crate::license_file::{LicenseFile, LicenseFileResponse};
+use crate::license_file::LicenseFile;
 use crate::machine::{Machine, MachineResponse, MachinesResponse};
 use crate::verifier::Verifier;
 use crate::KeygenResponseData;
@@ -59,7 +60,7 @@ pub struct License {
 }
 
 pub struct LicenseCheckoutOpts {
-    pub ttl: Option<chrono::Duration>,
+    pub ttl: Option<i64>,
     pub include: Option<Vec<String>>,
 }
 
@@ -169,10 +170,14 @@ impl License {
         fingerprint: &str,
         components: &[Component],
     ) -> Result<Machine, Error> {
+        let config = get_config();
         let client = Client::default();
         let hostname = hostname::get()
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_else(|_| String::from("unknown"));
+        let platform = config
+            .platform
+            .or_else(|| Some(format!("{}/{}", env::consts::OS, env::consts::ARCH)));
 
         let mut params = json!({
           "data": {
@@ -181,7 +186,7 @@ impl License {
               "fingerprint": fingerprint,
               "cores": num_cpus::get(),
               "hostname": hostname,
-              "platform": format!("{}/{}", env::consts::OS, env::consts::ARCH),
+              "platform": platform,
             },
             "relationships": {
               "license": {
@@ -217,7 +222,8 @@ impl License {
     pub async fn machine(&self, id: &str) -> Result<Machine, Error> {
         let client = Client::default();
         let response = client.get(&format!("machines/{}", id), None::<&()>).await?;
-        let machine: Machine = serde_json::from_value(response.body)?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        let machine = Machine::from(machine_response.data);
         Ok(machine)
     }
 
@@ -263,7 +269,7 @@ impl License {
         });
 
         if let Some(ttl) = options.ttl {
-            query["ttl"] = json!(ttl.num_seconds());
+            query["ttl"] = ttl.into();
         }
 
         if let Some(ref include) = options.include {
@@ -277,7 +283,7 @@ impl License {
                 Some(&query),
             )
             .await?;
-        let license_file_response: LicenseFileResponse = serde_json::from_value(response.body)?;
+        let license_file_response: CartificateFileResponse = serde_json::from_value(response.body)?;
         let license_file = LicenseFile::from(license_file_response.data);
         Ok(license_file)
     }
@@ -307,7 +313,9 @@ impl License {
             "COMPONENTS_SCOPE_MISMATCH" => Error::ComponentNotActivated { code, detail },
             "HEARTBEAT_NOT_STARTED" => Error::HeartbeatRequired { code, detail },
             "HEARTBEAT_DEAD" => Error::HeartbeatDead { code, detail },
-            "PRODUCT_SCOPE_REQUIRED" | "PRODUCT_SCOPE_EMPTY" => Error::ValidationProductMissing { code, detail },
+            "PRODUCT_SCOPE_REQUIRED" | "PRODUCT_SCOPE_EMPTY" => {
+                Error::ValidationProductMissing { code, detail }
+            }
             _ => Error::LicenseKeyInvalid { code, detail },
         }
     }

@@ -68,11 +68,23 @@ pub enum Error {
     #[error("License scheme unsupported")]
     LicenseSchemeUnsupported,
 
-    #[error("License file invalid")]
-    LicenseFileInvalid,
+    #[error("{0}")]
+    CerificateFileInvalid(String),
 
-    #[error("License file not supported")]
-    LicenseFileNotSupported,
+    #[error("{0}")]
+    CertificateFileNotGenuine(String),
+
+    #[error("{0}")]
+    CertificateFileNotSupported(String),
+
+    #[error("License file invalid: {0}")]
+    LicenseFileInvalid(String),
+
+    #[error("License file not genuine: {0}")]
+    LicenseFileNotGenuine(String),
+
+    #[error("License file not supported: {0}")]
+    LicenseFileNotSupported(String),
 
     #[error("License file not encrypted")]
     LicenseFileNotEncrypted,
@@ -80,8 +92,14 @@ pub enum Error {
     #[error("License file expired")]
     LicenseFileExpired,
 
-    #[error("License file not genuine")]
-    LicenseFileNotGenuine,
+    #[error("Machine file invalid")]
+    MachineFileInvalid(String),
+
+    #[error("Machine file not genuine")]
+    MachineFileNotGenuine(String),
+
+    #[error("Machine file not supported")]
+    MachineFileNotSupported(String),
 
     #[error("API error: {detail}")]
     KeygenApiError {
