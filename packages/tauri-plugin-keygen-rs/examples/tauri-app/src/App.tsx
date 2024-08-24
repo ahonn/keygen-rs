@@ -3,6 +3,7 @@ import {
   checkout,
   deactivate,
   getLicense,
+  getLicenseKey,
   KeygenError,
   KeygenLicense,
   validateKey,
@@ -15,10 +16,12 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    getLicenseKey().then((key) => {
+      setKey(key);
+    });
     getLicense().then((license) => {
       if (license) {
         setLicense(license);
-        setKey(license.key);
       }
     });
   }, []);

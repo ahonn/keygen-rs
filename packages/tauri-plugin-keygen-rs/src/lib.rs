@@ -4,7 +4,7 @@ use license::LicenseState;
 use machine::MachineState;
 use tauri::{
     plugin::{Builder as PluginBuilder, TauriPlugin},
-    Manager, Runtime,
+    Manager, Runtime, State,
 };
 use tokio::sync::Mutex;
 
@@ -15,6 +15,21 @@ pub mod machine;
 mod utils;
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub trait AppHandleExt {
+    fn get_license_state(&self) -> State<'_, Mutex<LicenseState>>;
+    fn get_machine_state(&self) -> State<'_, Mutex<MachineState>>;
+}
+
+impl<R: Runtime> AppHandleExt for tauri::AppHandle<R> {
+    fn get_license_state(&self) -> State<'_, Mutex<LicenseState>> {
+        self.state::<Mutex<LicenseState>>()
+    }
+
+    fn get_machine_state(&self) -> State<'_, Mutex<MachineState>> {
+        self.state::<Mutex<MachineState>>()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Builder {
@@ -71,6 +86,7 @@ impl Builder {
         PluginBuilder::new("keygen-rs")
             .invoke_handler(tauri::generate_handler![
                 commands::get_license,
+                commands::get_license_key,
                 commands::validate_key,
                 commands::activate,
                 commands::deactivate,

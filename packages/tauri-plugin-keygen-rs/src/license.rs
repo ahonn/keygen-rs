@@ -16,14 +16,11 @@ use tauri::{AppHandle, Runtime};
 
 #[derive(Debug, Clone, Default)]
 pub struct LicenseState {
-    pub(crate) license: Option<License>,
+    pub key: Option<String>,
+    pub license: Option<License>,
 }
 
 impl LicenseState {
-    pub fn get_license(&self) -> Option<License> {
-        self.license.clone()
-    }
-
     pub async fn validate_key<R: Runtime>(
         &mut self,
         app_handle: &AppHandle<R>,
@@ -67,9 +64,14 @@ impl LicenseState {
         }
     }
 
-    pub async fn deactivate(&self, fingerprint: &String) -> Result<()> {
+    pub async fn deactivate<R: Runtime>(
+        &self,
+        app_handle: &AppHandle<R>,
+        fingerprint: &String,
+    ) -> Result<()> {
         if let Some(license) = &self.license {
             license.deactivate(fingerprint).await?;
+            Self::remove_license_file(app_handle)?;
             Ok(())
         } else {
             Err(Error::NoLicenseError)
@@ -92,14 +94,23 @@ impl LicenseState {
 
     pub(crate) fn load<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Self> {
         if let Some(license_key) = Self::load_license_key_cache(app_handle)? {
+            keygen_rs::config::set_license_key(&license_key);
             if let Some(license_file) = Self::load_license_file(app_handle, &license_key)? {
                 let dataset = license_file.decrypt(&license_key)?;
                 return Ok(Self {
+                    key: Some(license_key),
                     license: Some(dataset.license),
                 });
             }
+            return Ok(Self {
+                key: Some(license_key),
+                license: None,
+            });
         }
-        Ok(Self { license: None })
+        Ok(Self {
+            key: None,
+            license: None,
+        })
     }
 
     fn get_license_key_cache_path<R: Runtime>(app_handle: &AppHandle<R>) -> Result<PathBuf> {
@@ -121,7 +132,7 @@ impl LicenseState {
         app_handle: &AppHandle<R>,
         license: &License,
     ) -> Result<()> {
-        let path = Self::get_license_file_path(app_handle)?;
+        let path = Self::get_license_key_cache_path(app_handle)?;
         let mut file = File::create(&path)?;
         file.write_all(license.key.as_bytes())?;
         Ok(())
@@ -153,6 +164,14 @@ impl LicenseState {
         let path = Self::get_license_file_path(app_handle)?;
         let mut file = File::create(path)?;
         file.write_all(license_file.certificate.as_bytes())?;
+        Ok(())
+    }
+
+    fn remove_license_file<R: Runtime>(app_handle: &AppHandle<R>) -> Result<()> {
+        let path = Self::get_license_file_path(app_handle)?;
+        if path.exists() {
+            fs::remove_file(path)?;
+        }
         Ok(())
     }
 }

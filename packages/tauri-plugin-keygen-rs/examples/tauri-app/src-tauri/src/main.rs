@@ -1,6 +1,7 @@
 use std::env;
 
 use dotenv::dotenv;
+use tauri_plugin_keygen_rs::AppHandleExt;
 
 fn main() {
     dotenv().ok();
@@ -17,6 +18,20 @@ fn main() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![])
+        .setup(|app| {
+            let app_handle = app.handle();
+
+            tauri::async_runtime::block_on(async move {
+                let license_state = app_handle.get_license_state();
+                let license_state = license_state.lock().await;
+                println!("License: {:?}", license_state.license);
+
+                let machine_state = app_handle.get_machine_state();
+                let machine_state = machine_state.lock().await;
+                println!("Machine: {:?}", machine_state);
+            });
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

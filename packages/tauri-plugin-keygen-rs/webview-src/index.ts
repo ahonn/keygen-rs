@@ -29,6 +29,19 @@ function isInvokeError(err: any): err is InvokeError {
   return typeof err === 'object' && err?.hasOwnProperty('code');
 }
 
+export async function getLicenseKey(): Promise<string> {
+  try {
+    const key = await invoke('plugin:keygen-rs|get_license_key');
+    return key as string;
+  } catch (err) {
+    if (isInvokeError(err)) {
+      const { code, detail } = err;
+      throw new KeygenError(code, detail);
+    }
+    throw new KeygenError('ERROR', (err as Error).message);
+  }
+}
+
 export async function getLicense(): Promise<KeygenLicense> {
   try {
     const license = await invoke('plugin:keygen-rs|get_license');

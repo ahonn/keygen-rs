@@ -12,7 +12,7 @@ export default {
   },
   plugins: [
     nodeResolve(),
-    // terser(),
+    terser(),
     typescript({
       tsconfig: './webview-src/tsconfig.json',
       moduleResolution: 'node'
