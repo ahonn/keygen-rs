@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
-  checkout,
+  checkoutLicense,
+  checkoutMachine,
   deactivate,
   getLicense,
   getLicenseKey,
@@ -49,7 +50,16 @@ function App() {
   const handleCheckoutLicense = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     try {
-      await checkout();
+      await checkoutLicense();
+    } catch (err) {
+      setError((err as KeygenError).detail);
+    }
+  };
+
+  const handleCheckoutMachine = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    try {
+      await checkoutMachine();
     } catch (err) {
       setError((err as KeygenError).detail);
     }
@@ -58,9 +68,10 @@ function App() {
   return (
     <div className="container">
       <div>
-        <div className="row">
+        <div>
           <input
             id="license-key"
+            style={{ width: '400px' }}
             value={key}
             onChange={(e) => setKey(e.currentTarget.value)}
             disabled={license !== null}
@@ -69,10 +80,13 @@ function App() {
           {license ? (
             <div className="row">
               <button onClick={handleDeactivate}>Deactivate</button>
-              <button onClick={handleCheckoutLicense}>Checkout</button>
+              <button onClick={handleCheckoutLicense}>Checkout License</button>
+              <button onClick={handleCheckoutMachine}>Checkout Machine</button>
             </div>
           ) : (
-            <button onClick={handleActivate}>Activate</button>
+            <div className="row">
+              <button onClick={handleActivate}>Activate</button>
+            </div>
           )}
         </div>
         {error && <div className="error">{error}</div>}

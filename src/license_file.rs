@@ -52,7 +52,7 @@ impl LicenseFile {
         }
     }
 
-    pub fn from_certificate(key: &str, content: &str) -> Result<LicenseFile, Error> {
+    pub fn from_cert(key: &str, content: &str) -> Result<LicenseFile, Error> {
         let dataset = Self::_decrypt(key, content)?;
         let meta = CertificateFileMeta {
             issued: dataset.issued,

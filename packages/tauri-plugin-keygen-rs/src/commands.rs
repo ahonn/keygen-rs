@@ -1,9 +1,7 @@
 use crate::{error::InvokeError, AppHandleExt};
 
 use keygen_rs::{
-    component::Component,
-    license::{License, LicenseCheckoutOpts},
-    license_file::LicenseFile,
+    component::Component, license::{License, LicenseCheckoutOpts}, license_file::LicenseFile, machine::MachineCheckoutOpts, machine_file::MachineFile
 };
 use tauri::{command, AppHandle, Runtime};
 
@@ -63,16 +61,15 @@ pub async fn activate<R: Runtime>(
     let license_state = license_state.lock().await;
 
     let machine_state = app_handle.get_machine_state();
-    let mut machine_state = machine_state.lock().await;
+    let machine_state = machine_state.lock().await;
 
-    let machine = license_state
+    license_state
         .activate(
             &app_handle,
             &machine_state.fingerprint,
             &components.unwrap_or(vec![]),
         )
         .await?;
-    machine_state.machine = Some(machine.clone());
     Ok(())
 }
 
@@ -102,4 +99,18 @@ pub async fn checkout_license<R: Runtime>(
     let options = LicenseCheckoutOpts { ttl, include };
     let license_file = license_state.checkout(&app_handle, &options).await?;
     Ok(license_file)
+}
+
+#[command]
+pub async fn checkout_machine<R: Runtime>(
+    ttl: Option<i64>,
+    include: Option<Vec<String>>,
+    app_handle: AppHandle<R>,
+) -> Result<MachineFile> {
+    let machine_state = app_handle.get_machine_state();
+    let machine_state = machine_state.lock().await;
+
+    let options = MachineCheckoutOpts { ttl, include };
+    let machine_file = machine_state.checkout(&app_handle, &options).await?;
+    Ok(machine_file)
 }

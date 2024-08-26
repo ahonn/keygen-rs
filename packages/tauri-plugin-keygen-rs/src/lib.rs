@@ -90,7 +90,8 @@ impl Builder {
                 commands::validate_key,
                 commands::activate,
                 commands::deactivate,
-                commands::checkout_license
+                commands::checkout_license,
+                commands::checkout_machine
             ])
             .setup(move |app_handle| {
                 let app_name = app_handle.package_info().name.clone();
@@ -99,11 +100,14 @@ impl Builder {
                 let machine_state = MachineState::new(app_name, app_version);
                 app_handle.manage(Mutex::new(machine_state));
 
-                let license_state = if let Ok(license_state) = LicenseState::load(app_handle) {
-                    license_state
-                } else {
-                    LicenseState::default()
+                let license_state = match LicenseState::load(app_handle) {
+                    Ok(license_state) => license_state,
+                    Err(e) => {
+                      println!("Error loading license state: {:?}", e);
+                      LicenseState::default()
+                    },
                 };
+
                 app_handle.manage(Mutex::new(license_state));
                 Ok(())
             })

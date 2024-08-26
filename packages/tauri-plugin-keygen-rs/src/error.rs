@@ -15,6 +15,9 @@ pub enum Error {
 
     #[error("No license found")]
     NoLicenseError,
+
+    #[error("No machine found")]
+    NoMachineError,
 }
 
 #[derive(Debug, Serialize)]

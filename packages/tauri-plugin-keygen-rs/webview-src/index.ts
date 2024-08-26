@@ -93,9 +93,24 @@ export async function deactivate() {
   }
 }
 
-export async function checkout(ttl?: number, include?: string[]) {
+export async function checkoutLicense(ttl?: number, include?: string[]) {
   try {
     await invoke('plugin:keygen-rs|checkout_license', {
+      ttl,
+      include,
+    });
+  } catch (err) {
+    if (isInvokeError(err)) {
+      const { code, detail } = err;
+      throw new KeygenError(code, detail);
+    }
+    throw new KeygenError('ERROR', (err as Error).message);
+  }
+}
+
+export async function checkoutMachine(ttl?: number, include?: string[]) {
+  try {
+    await invoke('plugin:keygen-rs|checkout_machine', {
       ttl,
       include,
     });

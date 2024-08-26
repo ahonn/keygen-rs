@@ -4,7 +4,9 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{error::Error, utils::get_app_keygen_path, Result};
+use crate::{
+    error::Error, machine::MachineState, utils::get_app_keygen_path, AppHandleExt, Result,
+};
 use keygen_rs::{
     component::Component,
     errors::Error as KeygenError,
@@ -32,9 +34,7 @@ impl LicenseState {
         let license = keygen_rs::validate(fingerprints, entitlements).await;
         if let Ok(license) = license {
             self.license = Some(license.clone());
-            if Self::load_license_key_cache(app_handle)?.is_none() {
-                Self::save_license_key_cache(app_handle, &license)?;
-            };
+            Self::save_license_key_cache(app_handle, &license)?;
             Ok(license)
         } else {
             let error = license.unwrap_err();
@@ -72,6 +72,7 @@ impl LicenseState {
         if let Some(license) = &self.license {
             license.deactivate(fingerprint).await?;
             Self::remove_license_file(app_handle)?;
+            MachineState::remove_machine_file(app_handle)?;
             Ok(())
         } else {
             Err(Error::NoLicenseError)
@@ -95,12 +96,26 @@ impl LicenseState {
     pub(crate) fn load<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Self> {
         if let Some(license_key) = Self::load_license_key_cache(app_handle)? {
             keygen_rs::config::set_license_key(&license_key);
+            // attempt to load the license file
             if let Some(license_file) = Self::load_license_file(app_handle, &license_key)? {
                 let dataset = license_file.decrypt(&license_key)?;
                 return Ok(Self {
                     key: Some(license_key),
                     license: Some(dataset.license),
                 });
+            }
+            // attempt to load the machine file
+            let fingerprint = MachineState::get_fingerprint();
+            let key = format!("{}{}", &license_key, fingerprint);
+            if let Some(machine_file) = MachineState::load_machine_file(app_handle, &key)? {
+                let dataset = machine_file.decrypt(&key)?;
+                if dataset.license.key == license_key && dataset.machine.fingerprint == fingerprint
+                {
+                    return Ok(Self {
+                        key: Some(license_key),
+                        license: Some(dataset.license),
+                    });
+                }
             }
             return Ok(Self {
                 key: Some(license_key),
@@ -153,7 +168,7 @@ impl LicenseState {
             return Ok(None);
         }
         let content = fs::read_to_string(path)?;
-        let license_file = LicenseFile::from_certificate(key, &content)?;
+        let license_file = LicenseFile::from_cert(key, &content)?;
         Ok(Some(license_file))
     }
 

@@ -54,7 +54,7 @@ impl MachineFile {
         }
     }
 
-    pub fn from_certificate(content: &str, key: &str) -> Result<MachineFile, Error> {
+    pub fn from_cert(key: &str, content: &str) -> Result<MachineFile, Error> {
         let dataset = Self::_decrypt(key, content)?;
         Ok(MachineFile {
             id: dataset.machine.id.clone(),
