@@ -77,7 +77,7 @@ function App() {
             disabled={license !== null}
             placeholder="Enter a license key..."
           />
-          {license ? (
+          {license?.valid ? (
             <div className="row">
               <button onClick={handleDeactivate}>Deactivate</button>
               <button onClick={handleCheckoutLicense}>Checkout License</button>

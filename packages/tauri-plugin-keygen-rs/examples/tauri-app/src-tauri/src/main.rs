@@ -29,6 +29,10 @@ fn main() {
                 let machine_state = app_handle.get_machine_state();
                 let machine_state = machine_state.lock().await;
                 println!("Machine: {:?}", machine_state);
+
+                tauri_plugin_keygen_rs::add_license_listener(|state| {
+                    println!("License state change: {:?}", state);
+                }).await;
             });
             Ok(())
         })

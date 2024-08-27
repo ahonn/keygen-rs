@@ -25,6 +25,13 @@ pub struct LicenseState {
 }
 
 impl LicenseState {
+    async fn set_valid(&mut self, valid: bool) {
+      if self.valid != valid {
+        self.valid = valid;
+        notify_license_listeners(self).await;
+      }
+    }
+
     pub async fn validate_key<R: Runtime>(
         &mut self,
         app_handle: &AppHandle<R>,
@@ -36,15 +43,12 @@ impl LicenseState {
         let license = keygen_rs::validate(fingerprints, entitlements).await;
         if let Ok(license) = license {
             self.license = Some(license.clone());
-            self.valid = true;
-            notify_license_listeners(self).await;
             Self::save_license_key_cache(app_handle, &license)?;
+            self.set_valid(true).await;
             Ok(license)
         } else {
-            self.valid = false;
-            notify_license_listeners(self).await;
-
             let error = license.unwrap_err();
+            self.set_valid(false).await;
             match error {
                 KeygenError::LicenseNotActivated { ref license, .. } => {
                     self.license = Some(license.clone());
@@ -65,10 +69,8 @@ impl LicenseState {
         if let Some(license) = &self.license {
             log::info!("Activating license for {}", fingerprint);
             let machine = license.activate(fingerprint, components).await?;
-            self.valid = true;
-            notify_license_listeners(self).await;
-
             Self::save_license_key_cache(app_handle, &license)?;
+            self.set_valid(true).await;
             Ok(machine)
         } else {
             Err(Error::NoLicenseError)
@@ -83,11 +85,9 @@ impl LicenseState {
         if let Some(license) = &self.license {
             log::info!("Deactivating license for {}", fingerprint);
             license.deactivate(fingerprint).await?;
-            self.valid = false;
-            notify_license_listeners(self).await;
-
             Self::remove_license_file(app_handle)?;
             MachineState::remove_machine_file(app_handle)?;
+            self.set_valid(false).await;
             Ok(())
         } else {
             Err(Error::NoLicenseError)

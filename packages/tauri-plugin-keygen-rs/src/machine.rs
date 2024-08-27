@@ -4,10 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use keygen_rs::{
-    machine::{Machine, MachineCheckoutOpts},
-    machine_file::MachineFile,
-};
+use keygen_rs::{machine::MachineCheckoutOpts, machine_file::MachineFile};
 use tauri::{api::os::locale, webview_version, AppHandle, Runtime};
 
 use crate::{error::Error, utils::get_app_keygen_path, AppHandleExt, Result};
