@@ -1,8 +1,8 @@
 [package]
 name = "tauri-plugin-keygen-rs"
-version = "0.0.0"
-authors = ["You"]
-description = ""
+version = "0.1.0"
+authors = ["ahonn"]
+description = "Tauri plugin for Keygen.sh licensing, based on keygen-rs"
 edition = "2021"
 rust-version = "1.60"
 exclude = ["/examples", "/webview-dist", "/webview-src", "node_modules"]
