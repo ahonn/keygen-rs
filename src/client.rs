@@ -2,6 +2,7 @@ use crate::config::get_config;
 use crate::errors::Error;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
+use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use std::time::Duration;
@@ -31,6 +32,12 @@ pub struct Response<T> {
     #[allow(dead_code)]
     pub headers: HeaderMap,
     pub body: T,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ErrorMeta {
+    pub code: String,
+    pub detail: String,
 }
 
 impl Client {
@@ -300,41 +307,67 @@ impl Client {
     }
 
     fn handle_forbidden_error(&self, body: &serde_json::Value) -> Error {
-        // Handle authorization errors
-        if let Some(code) = body["errors"][0]["code"].as_str() {
-            match code {
-                "TOKEN_NOT_ALLOWED" => Error::TokenNotAllowed,
-                "TOKEN_FORMAT_INVALID" => Error::TokenFormatInvalid,
-                "TOKEN_INVALID" => Error::TokenInvalid,
-                "TOKEN_EXPIRED" => Error::TokenExpired,
-                "LICENSE_NOT_ALLOWED" => Error::LicenseNotAllowed,
-                "LICENSE_SUSPENDED" => Error::LicenseSuspended,
-                "LICENSE_EXPIRED" => Error::LicenseExpired,
-                _ => Error::NotAuthorized,
+        let meta: Result<ErrorMeta, serde_json::Error> =
+            serde_json::from_value(body["errors"][0].clone());
+        if let Ok(meta) = meta {
+            let detail = meta.detail.clone();
+            let code = meta.code.clone();
+            match code.as_str() {
+                "TOKEN_NOT_ALLOWED" => Error::TokenNotAllowed { code, detail },
+                "TOKEN_FORMAT_INVALID" => Error::TokenFormatInvalid { code, detail },
+                "TOKEN_INVALID" => Error::TokenInvalid { code, detail },
+                "TOKEN_EXPIRED" => Error::TokenExpired { code, detail },
+                "LICENSE_NOT_ALLOWED" => Error::LicenseNotAllowed { code, detail },
+                "LICENSE_SUSPENDED" => Error::LicenseSuspended { code, detail },
+                "LICENSE_EXPIRED" => Error::LicenseExpired { code, detail },
+                _ => Error::KeygenApiError {
+                    code: code.clone(),
+                    detail: detail.clone(),
+                    body: body.clone(),
+                },
             }
         } else {
-            Error::NotAuthorized
+            Error::KeygenApiError {
+                code: "API_ERROR".to_string(),
+                detail: "Unknown error".to_string(),
+                body: body.clone(),
+            }
         }
     }
 
     fn handle_other_error(&self, body: &serde_json::Value) -> Error {
-        // Handle other errors
-        if let Some(code) = body["errors"][0]["code"].as_str() {
-            match code {
-                "ENVIRONMENT_NOT_SUPPORTED" | "ENVIRONMENT_INVALID" => Error::EnvironmentError,
-                "MACHINE_HEARTBEAT_DEAD" | "PROCESS_HEARTBEAT_DEAD" => Error::HeartbeatDead,
-                "FINGERPRINT_TAKEN" => Error::MachineAlreadyActivated,
-                "MACHINE_LIMIT_EXCEEDED" => Error::MachineLimitExceeded,
-                "MACHINE_PROCESS_LIMIT_EXCEEDED" => Error::ProcessLimitExceeded,
-                "COMPONENTS_FINGERPRINT_CONFLICT" => Error::ComponentConflict,
-                "COMPONENTS_FINGERPRINT_TAKEN" => Error::ComponentAlreadyActivated,
-                "TOKEN_INVALID" => Error::LicenseTokenInvalid,
-                "LICENSE_INVALID" => Error::LicenseKeyInvalid,
-                "NOT_FOUND" => Error::NotFound,
-                _ => Error::ApiError(body.clone()),
+        let meta: Result<ErrorMeta, serde_json::Error> =
+            serde_json::from_value(body["errors"][0].clone());
+        if let Ok(meta) = meta {
+            let detail = meta.detail.clone();
+            let code = meta.code.clone();
+            match code.as_str() {
+                "ENVIRONMENT_NOT_SUPPORTED" | "ENVIRONMENT_INVALID" => {
+                    Error::EnvironmentError { code, detail }
+                }
+                "MACHINE_HEARTBEAT_DEAD" | "PROCESS_HEARTBEAT_DEAD" => {
+                    Error::HeartbeatDead { code, detail }
+                }
+                "FINGERPRINT_TAKEN" => Error::MachineAlreadyActivated { code, detail },
+                "MACHINE_LIMIT_EXCEEDED" => Error::MachineLimitExceeded { code, detail },
+                "MACHINE_PROCESS_LIMIT_EXCEEDED" => Error::ProcessLimitExceeded { code, detail },
+                "COMPONENTS_FINGERPRINT_CONFLICT" => Error::ComponentConflict { code, detail },
+                "COMPONENTS_FINGERPRINT_TAKEN" => Error::ComponentAlreadyActivated { code, detail },
+                "TOKEN_INVALID" => Error::LicenseTokenInvalid { code, detail },
+                "LICENSE_INVALID" => Error::LicenseKeyInvalid { code, detail },
+                "NOT_FOUND" => Error::NotFound { code, detail },
+                _ => Error::KeygenApiError {
+                    code: code.clone(),
+                    detail: detail.clone(),
+                    body: body.clone(),
+                },
             }
         } else {
-            Error::ApiError(body.clone())
+            Error::KeygenApiError {
+                code: "API_ERROR".to_string(),
+                detail: "Unknown error".to_string(),
+                body: body.clone(),
+            }
         }
     }
 }
@@ -464,7 +497,7 @@ mod tests {
             client.get("test_path", None::<&()>).await;
 
         match result {
-            Err(Error::NotFound) => {}
+            Err(Error::NotFound { .. }) => {}
             _ => panic!("Expected NotFound error"),
         }
     }

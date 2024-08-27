@@ -19,9 +19,9 @@ async fn main() -> Result<(), Error> {
     });
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Ok(license) = keygen_rs::validate(&[fingerprint.clone()]).await {
-      let _ = license.deactivate(&fingerprint).await?;
-      println!("License deactivated successfully");
+    if let Ok(license) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
+        let _ = license.deactivate(&fingerprint).await?;
+        println!("License deactivated successfully");
     };
 
     Ok(())

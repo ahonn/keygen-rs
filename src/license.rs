@@ -4,12 +4,13 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::certificate::CartificateFileResponse;
 use crate::client::Client;
 use crate::component::Component;
 use crate::config::get_config;
 use crate::entitlement::{Entitlement, EntitlementsResponse};
 use crate::errors::Error;
-use crate::license_file::{LicenseFile, LicenseFileResponse};
+use crate::license_file::LicenseFile;
 use crate::machine::{Machine, MachineResponse, MachinesResponse};
 use crate::verifier::Verifier;
 use crate::KeygenResponseData;
@@ -51,6 +52,7 @@ pub(crate) struct LicenseAttributes {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct License {
     pub id: String,
+    #[serde(skip_serializing)]
     pub scheme: Option<SchemeCode>,
     pub key: String,
     pub name: Option<String>,
@@ -59,7 +61,7 @@ pub struct License {
 }
 
 pub struct LicenseCheckoutOpts {
-    pub ttl: Option<chrono::Duration>,
+    pub ttl: Option<i64>,
     pub include: Option<Vec<String>>,
 }
 
@@ -86,9 +88,13 @@ impl License {
         }
     }
 
-    pub async fn validate(self, fingerprints: &[String]) -> Result<License, Error> {
+    pub async fn validate(
+        self,
+        fingerprints: &[String],
+        entitlements: &[String],
+    ) -> Result<License, Error> {
         let client = Client::default();
-        let scope = License::build_scope(fingerprints);
+        let scope = License::build_scope(fingerprints, entitlements);
         let params = json!({
             "meta": {
                 "nonce": chrono::Utc::now().timestamp(),
@@ -106,15 +112,19 @@ impl License {
         let validation: LicenseResponse<ValidationMeta> = serde_json::from_value(response.body)?;
         let meta = validation.meta.clone().unwrap();
         if !meta.valid {
-            return Err(self.handle_validation_code(&meta.code));
+            return Err(self.handle_validation_code(&meta));
         };
         let license = License::from(validation.data);
         Ok(license)
     }
 
-    pub async fn validate_key(self, fingerprints: &[String]) -> Result<License, Error> {
+    pub async fn validate_key(
+        self,
+        fingerprints: &[String],
+        entitlements: &[String],
+    ) -> Result<License, Error> {
         let client = Client::default();
-        let scope = License::build_scope(fingerprints);
+        let scope = License::build_scope(fingerprints, entitlements);
         let params = json!({
             "meta": {
                 "key": self.key.clone(),
@@ -128,13 +138,13 @@ impl License {
         let validation: LicenseResponse<ValidationMeta> = serde_json::from_value(response.body)?;
         let meta = validation.meta.clone().unwrap();
         if !meta.valid {
-            return Err(self.handle_validation_code(&meta.code));
+            return Err(self.handle_validation_code(&meta));
         };
         let license = License::from(validation.data);
         Ok(license)
     }
 
-    fn build_scope(fingerprints: &[String]) -> serde_json::Value {
+    fn build_scope(fingerprints: &[String], entitlements: &[String]) -> serde_json::Value {
         let config = get_config();
         let mut scope = json!({
             "product": config.product.to_string(),
@@ -144,6 +154,9 @@ impl License {
             if fingerprints.len() > 1 {
                 scope["components"] = json!(fingerprints[1..].to_vec());
             }
+        }
+        if !entitlements.is_empty() {
+            scope["entitlements"] = json!(entitlements);
         }
         if let Some(env) = config.environment.as_ref() {
             scope["environment"] = json!(env);
@@ -169,10 +182,14 @@ impl License {
         fingerprint: &str,
         components: &[Component],
     ) -> Result<Machine, Error> {
+        let config = get_config();
         let client = Client::default();
         let hostname = hostname::get()
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_else(|_| String::from("unknown"));
+        let platform = config
+            .platform
+            .or_else(|| Some(format!("{}/{}", env::consts::OS, env::consts::ARCH)));
 
         let mut params = json!({
           "data": {
@@ -181,7 +198,7 @@ impl License {
               "fingerprint": fingerprint,
               "cores": num_cpus::get(),
               "hostname": hostname,
-              "platform": format!("{}/{}", env::consts::OS, env::consts::ARCH),
+              "platform": platform,
             },
             "relationships": {
               "license": {
@@ -217,7 +234,8 @@ impl License {
     pub async fn machine(&self, id: &str) -> Result<Machine, Error> {
         let client = Client::default();
         let response = client.get(&format!("machines/{}", id), None::<&()>).await?;
-        let machine: Machine = serde_json::from_value(response.body)?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        let machine = Machine::from(machine_response.data);
         Ok(machine)
     }
 
@@ -263,7 +281,7 @@ impl License {
         });
 
         if let Some(ttl) = options.ttl {
-            query["ttl"] = json!(ttl.num_seconds());
+            query["ttl"] = ttl.into();
         }
 
         if let Some(ref include) = options.include {
@@ -277,32 +295,40 @@ impl License {
                 Some(&query),
             )
             .await?;
-        let license_file_response: LicenseFileResponse = serde_json::from_value(response.body)?;
+        let license_file_response: CartificateFileResponse = serde_json::from_value(response.body)?;
         let license_file = LicenseFile::from(license_file_response.data);
         Ok(license_file)
     }
 
-    fn handle_validation_code(&self, code: &str) -> Error {
-        match code {
+    fn handle_validation_code(&self, meta: &ValidationMeta) -> Error {
+        let code = meta.code.clone();
+        let detail = meta.detail.clone();
+        match code.as_str() {
             "FINGERPRINT_SCOPE_MISMATCH" | "NO_MACHINES" | "NO_MACHINE" => {
-                Error::LicenseNotActivated(self.clone())
+                Error::LicenseNotActivated {
+                    code,
+                    detail,
+                    license: self.clone(),
+                }
             }
-            "EXPIRED" => Error::LicenseExpired,
-            "SUSPENDED" => Error::LicenseSuspended,
-            "TOO_MANY_MACHINES" => Error::LicenseTooManyMachines,
-            "TOO_MANY_CORES" => Error::LicenseTooManyCores,
-            "TOO_MANY_PROCESSES" => Error::LicenseTooManyProcesses,
+            "EXPIRED" => Error::LicenseExpired { code, detail },
+            "SUSPENDED" => Error::LicenseSuspended { code, detail },
+            "TOO_MANY_MACHINES" => Error::LicenseTooManyMachines { code, detail },
+            "TOO_MANY_CORES" => Error::LicenseTooManyCores { code, detail },
+            "TOO_MANY_PROCESSES" => Error::LicenseTooManyProcesses { code, detail },
             "FINGERPRINT_SCOPE_REQUIRED" | "FINGERPRINT_SCOPE_EMPTY" => {
-                Error::ValidationFingerprintMissing
+                Error::ValidationFingerprintMissing { code, detail }
             }
             "COMPONENTS_SCOPE_REQUIRED" | "COMPONENTS_SCOPE_EMPTY" => {
-                Error::ValidationComponentsMissing
+                Error::ValidationComponentsMissing { code, detail }
             }
-            "COMPONENTS_SCOPE_MISMATCH" => Error::ComponentNotActivated,
-            "HEARTBEAT_NOT_STARTED" => Error::HeartbeatRequired,
-            "HEARTBEAT_DEAD" => Error::HeartbeatDead,
-            "PRODUCT_SCOPE_REQUIRED" | "PRODUCT_SCOPE_EMPTY" => Error::ValidationProductMissing,
-            _ => Error::LicenseKeyInvalid,
+            "COMPONENTS_SCOPE_MISMATCH" => Error::ComponentNotActivated { code, detail },
+            "HEARTBEAT_NOT_STARTED" => Error::HeartbeatRequired { code, detail },
+            "HEARTBEAT_DEAD" => Error::HeartbeatDead { code, detail },
+            "PRODUCT_SCOPE_REQUIRED" | "PRODUCT_SCOPE_EMPTY" => {
+                Error::ValidationProductMissing { code, detail }
+            }
+            _ => Error::LicenseKeyInvalid { code, detail },
         }
     }
 }
@@ -369,11 +395,14 @@ mod tests {
         });
 
         let result = license
-            .validate(&[
-                "test_fingerprint".to_string(),
-                "comp1".to_string(),
-                "comp2".to_string(),
-            ])
+            .validate(
+                &[
+                    "test_fingerprint".to_string(),
+                    "comp1".to_string(),
+                    "comp2".to_string(),
+                ],
+                &[],
+            )
             .await;
         assert!(result.is_ok());
         reset_config();
@@ -397,11 +426,14 @@ mod tests {
         });
 
         let result = license
-            .validate_key(&[
-                "test_fingerprint".to_string(),
-                "comp1".to_string(),
-                "comp2".to_string(),
-            ])
+            .validate_key(
+                &[
+                    "test_fingerprint".to_string(),
+                    "comp1".to_string(),
+                    "comp2".to_string(),
+                ],
+                &[],
+            )
             .await;
         assert!(result.is_ok());
         reset_config();

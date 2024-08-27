@@ -1,6 +1,8 @@
+use crate::certificate::Certificate;
 use crate::errors::Error;
 use crate::license::{License, SchemeCode};
 use crate::license_file::LicenseFile;
+use crate::machine_file::MachineFile;
 use base64::{engine::general_purpose, Engine as _};
 use ed25519_dalek::{PublicKey, Signature, Verifier as Ed25519Verifier};
 
@@ -13,31 +15,36 @@ impl Verifier {
         Self { public_key }
     }
 
+    pub fn verify_machine_file(&self, lic: &MachineFile) -> Result<(), Error> {
+        let cert = lic.certificate()?;
+        if let Err(e) = self.verify_certificate(&cert, "machine") {
+            match e {
+                Error::CertificateFileNotGenuine(msg) => {
+                    return Err(Error::MachineFileNotGenuine(msg))
+                }
+                Error::CertificateFileNotSupported(msg) => {
+                    return Err(Error::MachineFileNotSupported(msg))
+                }
+                _ => return Err(e),
+            }
+        }
+        Ok(())
+    }
+
     pub fn verify_license_file(&self, lic: &LicenseFile) -> Result<(), Error> {
         let cert = lic.certificate()?;
-
-        match cert.alg.as_str() {
-            "aes-256-gcm+ed25519" | "base64+ed25519" => {
-                let public_key = self.public_key_bytes()?;
-
-                let msg = format!("license/{}", cert.enc).into_bytes();
-                let sig = general_purpose::STANDARD
-                    .decode(&cert.sig)
-                    .map_err(|_| Error::LicenseFileNotGenuine)?;
-
-                let public_key =
-                    PublicKey::from_bytes(&public_key).map_err(|_| Error::LicenseFileNotGenuine)?;
-                let signature =
-                    Signature::from_bytes(&sig).map_err(|_| Error::LicenseFileNotGenuine)?;
-
-                if public_key.verify(&msg, &signature).is_ok() {
-                    Ok(())
-                } else {
-                    Err(Error::LicenseFileNotGenuine)
+        if let Err(e) = self.verify_certificate(&cert, "license") {
+            match e {
+                Error::CertificateFileNotGenuine(msg) => {
+                    return Err(Error::LicenseFileNotGenuine(msg))
                 }
+                Error::CertificateFileNotSupported(msg) => {
+                    return Err(Error::LicenseFileNotSupported(msg))
+                }
+                _ => return Err(e),
             }
-            _ => Err(Error::LicenseFileNotSupported),
         }
+        Ok(())
     }
 
     pub fn verify_license(&self, license: &License) -> Result<Vec<u8>, Error> {
@@ -51,6 +58,30 @@ impl Verifier {
             SchemeCode::Ed25519Sign => self.verify_key(&license.key),
             #[allow(unreachable_patterns)]
             _ => Err(Error::LicenseSchemeUnsupported),
+        }
+    }
+
+    fn verify_certificate(&self, cert: &Certificate, prefix: &str) -> Result<(), Error> {
+        match cert.alg.as_str() {
+            "aes-256-gcm+ed25519" | "base64+ed25519" => {
+                let public_key = self.public_key_bytes()?;
+
+                let msg = format!("{}/{}", prefix, cert.enc).into_bytes();
+                let sig = general_purpose::STANDARD
+                    .decode(&cert.sig)
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
+
+                let public_key = PublicKey::from_bytes(&public_key)
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
+                let signature = Signature::from_bytes(&sig)
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
+
+                if let Err(e) = public_key.verify(&msg, &signature) {
+                    return Err(Error::CertificateFileNotGenuine(e.to_string()));
+                };
+                Ok(())
+            }
+            _ => Err(Error::CertificateFileNotSupported(cert.alg.clone())),
         }
     }
 

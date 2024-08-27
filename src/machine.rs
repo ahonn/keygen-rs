@@ -1,8 +1,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
+use crate::certificate::CartificateFileResponse;
 use crate::client::Client;
 use crate::errors::Error;
+use crate::machine_file::MachineFile;
 use crate::KeygenResponseData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,20 +53,25 @@ pub struct Machine {
     pub updated: DateTime<Utc>,
 }
 
+pub struct MachineCheckoutOpts {
+    pub ttl: Option<i64>,
+    pub include: Option<Vec<String>>,
+}
+
 impl Machine {
     pub(crate) fn from(data: KeygenResponseData<MachineAttributes>) -> Machine {
         Machine {
-          id: data.id,
-          fingerprint: data.attributes.fingerprint,
-          name: data.attributes.name,
-          platform: data.attributes.platform,
-          hostname: data.attributes.hostname,
-          cores: data.attributes.cores,
-          require_heartbeat: data.attributes.require_heartbeat,
-          heartbeat_status: data.attributes.heartbeat_status,
-          heartbeat_duration: data.attributes.heartbeat_duration,
-          created: data.attributes.created,
-          updated: data.attributes.updated,
+            id: data.id,
+            fingerprint: data.attributes.fingerprint,
+            name: data.attributes.name,
+            platform: data.attributes.platform,
+            hostname: data.attributes.hostname,
+            cores: data.attributes.cores,
+            require_heartbeat: data.attributes.require_heartbeat,
+            heartbeat_status: data.attributes.heartbeat_status,
+            heartbeat_duration: data.attributes.heartbeat_duration,
+            created: data.attributes.created,
+            updated: data.attributes.updated,
         }
     }
 
@@ -73,5 +81,33 @@ impl Machine {
             .delete::<(), serde_json::Value>(&format!("machines/{}", self.id), None::<&()>)
             .await?;
         Ok(())
+    }
+
+    pub async fn checkout(&self, options: &MachineCheckoutOpts) -> Result<MachineFile, Error> {
+        let client = Client::default();
+        let mut query = json!({
+            "encrypt": 1,
+            "include": "license.entitlements"
+        });
+
+        if let Some(ttl) = options.ttl {
+            query["ttl"] = ttl.into();
+        }
+
+        if let Some(ref include) = options.include {
+            query["include"] = json!(include.join(","));
+        }
+
+        let response = client
+            .post(
+                &format!("machines/{}/actions/check-out", self.id),
+                None::<&()>,
+                Some(&query),
+            )
+            .await?;
+
+        let machine_file_response: CartificateFileResponse = serde_json::from_value(response.body)?;
+        let machine_file = MachineFile::from(machine_file_response.data);
+        Ok(machine_file)
     }
 }

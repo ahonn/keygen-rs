@@ -1,9 +1,15 @@
 [package]
 name = "keygen-rs"
-version = "0.1.0"
+version = "0.2.0"
 description = "Unofficial Keygen SDK for Rust. Integrate license activation and offline licensing."
 license = "MIT"
 edition = "2021"
+
+[workspace]
+members = [
+  ".",
+  "./packages/tauri-plugin-keygen-rs"
+]
 
 [dependencies]
 reqwest = { version = "0.11", features = ["json"] }
@@ -26,5 +32,8 @@ rand = "0.7.3"
 hostname = "0.4.0"
 num_cpus = "1.16.0"
 dotenv = "0.15.0"
-machine-uid = "0.5.2"
-aes-gcm = "0.9.4"
+machine-uid = "0.5.1"
+aes-gcm = "0.9"
+
+[lib]
+doctest = false
