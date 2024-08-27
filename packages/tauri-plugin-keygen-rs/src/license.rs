@@ -5,7 +5,8 @@ use std::{
 };
 
 use crate::{
-    error::Error, machine::MachineState, utils::get_app_keygen_path, AppHandleExt, Result,
+    error::Error, machine::MachineState, notify_license_listeners, utils::get_app_keygen_path,
+    Result,
 };
 use keygen_rs::{
     component::Component,
@@ -20,6 +21,7 @@ use tauri::{AppHandle, Runtime};
 pub struct LicenseState {
     pub key: Option<String>,
     pub license: Option<License>,
+    pub valid: bool,
 }
 
 impl LicenseState {
@@ -34,9 +36,14 @@ impl LicenseState {
         let license = keygen_rs::validate(fingerprints, entitlements).await;
         if let Ok(license) = license {
             self.license = Some(license.clone());
+            self.valid = true;
+            notify_license_listeners(self).await;
             Self::save_license_key_cache(app_handle, &license)?;
             Ok(license)
         } else {
+            self.valid = false;
+            notify_license_listeners(self).await;
+
             let error = license.unwrap_err();
             match error {
                 KeygenError::LicenseNotActivated { ref license, .. } => {
@@ -50,13 +57,17 @@ impl LicenseState {
     }
 
     pub async fn activate<R: Runtime>(
-        &self,
+        &mut self,
         app_handle: &AppHandle<R>,
         fingerprint: &String,
         components: &[Component],
     ) -> Result<Machine> {
         if let Some(license) = &self.license {
+            log::info!("Activating license for {}", fingerprint);
             let machine = license.activate(fingerprint, components).await?;
+            self.valid = true;
+            notify_license_listeners(self).await;
+
             Self::save_license_key_cache(app_handle, &license)?;
             Ok(machine)
         } else {
@@ -65,12 +76,16 @@ impl LicenseState {
     }
 
     pub async fn deactivate<R: Runtime>(
-        &self,
+        &mut self,
         app_handle: &AppHandle<R>,
         fingerprint: &String,
     ) -> Result<()> {
         if let Some(license) = &self.license {
+            log::info!("Deactivating license for {}", fingerprint);
             license.deactivate(fingerprint).await?;
+            self.valid = false;
+            notify_license_listeners(self).await;
+
             Self::remove_license_file(app_handle)?;
             MachineState::remove_machine_file(app_handle)?;
             Ok(())
@@ -85,6 +100,7 @@ impl LicenseState {
         options: &LicenseCheckoutOpts,
     ) -> Result<LicenseFile> {
         if let Some(license) = &self.license {
+            log::info!("Checking out license file: {}", license.key);
             let license_file = license.checkout(options).await?;
             Self::save_license_file(app_handle, &license_file)?;
             Ok(license_file)
@@ -95,13 +111,16 @@ impl LicenseState {
 
     pub(crate) fn load<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Self> {
         if let Some(license_key) = Self::load_license_key_cache(app_handle)? {
+            log::info!("License key found in cache: {}", license_key);
             keygen_rs::config::set_license_key(&license_key);
             // attempt to load the license file
             if let Some(license_file) = Self::load_license_file(app_handle, &license_key)? {
                 let dataset = license_file.decrypt(&license_key)?;
+                log::info!("License file found in cache: {:?}", dataset);
                 return Ok(Self {
                     key: Some(license_key),
                     license: Some(dataset.license),
+                    valid: true,
                 });
             }
             // attempt to load the machine file
@@ -109,22 +128,26 @@ impl LicenseState {
             let key = format!("{}{}", &license_key, fingerprint);
             if let Some(machine_file) = MachineState::load_machine_file(app_handle, &key)? {
                 let dataset = machine_file.decrypt(&key)?;
+                log::info!("Machine file found in cache: {:?}", dataset);
                 if dataset.license.key == license_key && dataset.machine.fingerprint == fingerprint
                 {
                     return Ok(Self {
                         key: Some(license_key),
                         license: Some(dataset.license),
+                        valid: true,
                     });
                 }
             }
             return Ok(Self {
                 key: Some(license_key),
                 license: None,
+                valid: false,
             });
         }
         Ok(Self {
             key: None,
             license: None,
+            valid: false,
         })
     }
 

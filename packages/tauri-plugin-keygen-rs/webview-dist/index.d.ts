@@ -4,6 +4,7 @@ export interface KeygenLicense {
     name: string;
     expiry: string;
     status: string;
+    valid: boolean;
 }
 export declare class KeygenError extends Error {
     code: string;

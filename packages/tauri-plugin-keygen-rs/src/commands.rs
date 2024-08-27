@@ -1,7 +1,11 @@
 use crate::{error::InvokeError, AppHandleExt};
 
 use keygen_rs::{
-    component::Component, license::{License, LicenseCheckoutOpts}, license_file::LicenseFile, machine::MachineCheckoutOpts, machine_file::MachineFile
+    component::Component,
+    license::{License, LicenseCheckoutOpts},
+    license_file::LicenseFile,
+    machine::MachineCheckoutOpts,
+    machine_file::MachineFile,
 };
 use tauri::{command, AppHandle, Runtime};
 
@@ -12,6 +16,13 @@ pub async fn get_license<R: Runtime>(app_handle: AppHandle<R>) -> Result<Option<
     let license_state = app_handle.get_license_state();
     let license_state = license_state.lock().await;
     Ok(license_state.license.clone())
+}
+
+#[command]
+pub async fn is_license_valid<R: Runtime>(app_handle: AppHandle<R>) -> Result<bool> {
+    let license_state = app_handle.get_license_state();
+    let license_state = license_state.lock().await;
+    Ok(license_state.valid)
 }
 
 #[command]
@@ -58,7 +69,7 @@ pub async fn activate<R: Runtime>(
     app_handle: AppHandle<R>,
 ) -> Result<()> {
     let license_state = app_handle.get_license_state();
-    let license_state = license_state.lock().await;
+    let mut license_state = license_state.lock().await;
 
     let machine_state = app_handle.get_machine_state();
     let machine_state = machine_state.lock().await;
@@ -76,7 +87,7 @@ pub async fn activate<R: Runtime>(
 #[command]
 pub async fn deactivate<R: Runtime>(app_handle: AppHandle<R>) -> Result<()> {
     let license_state = app_handle.get_license_state();
-    let license_state = license_state.lock().await;
+    let mut license_state = license_state.lock().await;
 
     let machine_state = app_handle.get_machine_state();
     let machine_state = machine_state.lock().await;

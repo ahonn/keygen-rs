@@ -6,6 +6,7 @@ export interface KeygenLicense {
   name: string;
   expiry: string;
   status: string;
+  valid: boolean;
 }
 
 interface InvokeError {
@@ -29,6 +30,13 @@ function isInvokeError(err: any): err is InvokeError {
   return typeof err === 'object' && err?.hasOwnProperty('code');
 }
 
+function createKeygenLicense(license: Omit<KeygenLicense, 'valid'>, valid: boolean) {
+  return {
+    ...license,
+    valid,
+  } as KeygenLicense;
+}
+
 export async function getLicenseKey(): Promise<string> {
   try {
     const key = await invoke('plugin:keygen-rs|get_license_key');
@@ -44,8 +52,11 @@ export async function getLicenseKey(): Promise<string> {
 
 export async function getLicense(): Promise<KeygenLicense> {
   try {
-    const license = await invoke('plugin:keygen-rs|get_license');
-    return license as KeygenLicense;
+    const [license, valid] = await Promise.all([
+      invoke<Omit<KeygenLicense, 'valid'>>('plugin:keygen-rs|get_license'),
+      invoke<boolean>('plugin:keygen-rs|is_license_valid'),
+    ]);
+    return createKeygenLicense(license, valid);
   } catch (err) {
     if (isInvokeError(err)) {
       const { code, detail } = err;
@@ -57,11 +68,11 @@ export async function getLicense(): Promise<KeygenLicense> {
 
 export async function validateKey(key: string, entitlements?: string[]): Promise<KeygenLicense> {
   try {
-    const license: KeygenLicense = await invoke('plugin:keygen-rs|validate_key', {
+    const license = await invoke<Omit<KeygenLicense, 'valid'>>('plugin:keygen-rs|validate_key', {
       key,
       entitlements,
     });
-    return license;
+    return createKeygenLicense(license, true);
   } catch (err) {
     if (isInvokeError(err)) {
       const { code, detail } = err;
@@ -71,11 +82,11 @@ export async function validateKey(key: string, entitlements?: string[]): Promise
       }
 
       await invoke('plugin:keygen-rs|activate', {});
-      const license = await invoke('plugin:keygen-rs|validate_key', {
+      const license = await invoke<Omit<KeygenLicense, 'valid'>>('plugin:keygen-rs|validate_key', {
         key,
         entitlements,
       });
-      return license as KeygenLicense;
+      return createKeygenLicense(license, true);
     }
     throw new KeygenError('ERROR', (err as Error).message);
   }

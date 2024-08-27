@@ -70,6 +70,7 @@ impl MachineState {
         let license_state = app_handle.get_license_state();
         let license_state = license_state.lock().await;
         if let Some(license) = &license_state.license {
+            log::info!("Checking out machine file: {}", self.fingerprint);
             let machine = license.machine(&self.fingerprint).await?;
             let machine_file = machine.checkout(options).await?;
             Self::save_machine_file(app_handle, &machine_file)?;

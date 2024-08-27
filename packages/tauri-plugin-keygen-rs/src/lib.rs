@@ -1,5 +1,6 @@
 use error::Error;
 use keygen_rs::config::KeygenConfig;
+use lazy_static::lazy_static;
 use license::LicenseState;
 use machine::MachineState;
 use tauri::{
@@ -10,11 +11,31 @@ use tokio::sync::Mutex;
 
 mod commands;
 pub mod error;
-pub mod license;
-pub mod machine;
+mod license;
+mod machine;
 mod utils;
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+lazy_static! {
+    static ref LISTENERS: Mutex<Vec<Box<dyn Fn(&LicenseState) + Send + Sync + 'static>>> =
+        Mutex::new(Vec::new());
+}
+
+pub async fn add_license_listener<F>(listener: F)
+where
+    F: Fn(&LicenseState) + Send + Sync + 'static,
+{
+    let mut listeners = LISTENERS.lock().await;
+    listeners.push(Box::new(listener));
+}
+
+pub(crate) async fn notify_license_listeners(state: &LicenseState) {
+    let listeners = LISTENERS.lock().await;
+    for listener in listeners.iter() {
+        listener(state);
+    }
+}
 
 pub trait AppHandleExt {
     fn get_license_state(&self) -> State<'_, Mutex<LicenseState>>;
@@ -31,7 +52,6 @@ impl<R: Runtime> AppHandleExt for tauri::AppHandle<R> {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct Builder {
     account: String,
     product: String,
@@ -86,6 +106,7 @@ impl Builder {
         PluginBuilder::new("keygen-rs")
             .invoke_handler(tauri::generate_handler![
                 commands::get_license,
+                commands::is_license_valid,
                 commands::get_license_key,
                 commands::validate_key,
                 commands::activate,
@@ -103,9 +124,9 @@ impl Builder {
                 let license_state = match LicenseState::load(app_handle) {
                     Ok(license_state) => license_state,
                     Err(e) => {
-                      println!("Error loading license state: {:?}", e);
-                      LicenseState::default()
-                    },
+                        println!("Error loading license state: {:?}", e);
+                        LicenseState::default()
+                    }
                 };
 
                 app_handle.manage(Mutex::new(license_state));

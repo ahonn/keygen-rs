@@ -3400,6 +3400,8 @@ name = "tauri-plugin-keygen-rs"
 version = "0.0.0"
 dependencies = [
  "keygen-rs",
+ "lazy_static",
+ "log",
  "machine-uid",
  "serde",
  "tauri",
