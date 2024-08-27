@@ -18,8 +18,13 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keygen-rs = "0.1.0"
+keygen-rs = "0.2.0"
 ```
+
+### Tauri Plugin
+
+A Tauri plugin for this SDK is available as `tauri-plugin-keygen-rs`.
+It provides an easy way to integrate Keygen licensing into your Tauri applications. For more information, check [the plugin's README](./packages/tauri-plugin-keygen-rs/README.md).
 
 ## Config
 
@@ -73,27 +78,32 @@ async fn main() -> Result<(), Error> {
 To activate a machine for a license:
 
 ```rust
-use keygen_rs::{config::{self, KeygenConfig}, errors::Error};
+use keygen_rs::{
+    config::{self, KeygenConfig},
+    errors::Error,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    dotenv().ok();
+
     config::set_config(KeygenConfig {
-        // ... (same configuration as above)
+        // ... (configuration)
     });
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Err(err) = keygen_rs::validate(&[fingerprint.clone()]).await {
+    if let Err(err) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
         match err {
-            Error::LicenseNotActivated(license) => {
+            Error::LicenseNotActivated { license, .. } => {
                 let machine = license.activate(&fingerprint, &[]).await?;
                 println!("License activated successfully: {:?}", machine);
-            },
+            }
             _ => {
                 println!("License validation failed: {:?}", err);
             }
         }
     } else {
-        println!("License already validated successfully");
+        println!("License validated successfully");
     }
 
     Ok(())
@@ -109,7 +119,7 @@ use keygen_rs::{config::{self, KeygenConfig}, license::SchemeCode};
 
 fn main() {
     config::set_config(KeygenConfig {
-        // ... (configuration with public_key set)
+        // ... (configuration)
     });
 
     let signed_key = "YOUR_SIGNED_LICENSE_KEY";
@@ -137,7 +147,7 @@ async fn main() -> Result<(), Error> {
     let fingerprint = machine_uid::get().unwrap_or("".into());
     match keygen_rs::validate(&[fingerprint.clone()]).await {
         Ok(license) => println!("License is valid: {:?}", license),
-        Err(Error::LicenseNotActivated(license)) => {
+        Err(Error::LicenseNotActivated { license, .. }) => {
             println!("License is not activated. Activating...");
             let machine = license.activate(&fingerprint, &[]).await?;
             println!("Machine activated: {:?}", machine);
