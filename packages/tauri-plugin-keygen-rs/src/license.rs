@@ -151,6 +151,43 @@ impl LicenseState {
         })
     }
 
+    fn load_license_file<R: Runtime>(
+        app_handle: &AppHandle<R>,
+        key: &str,
+    ) -> Result<Option<LicenseFile>> {
+        let path = Self::get_license_file_path(app_handle)?;
+        if !path.exists() {
+            return Ok(None);
+        }
+        let content = fs::read_to_string(path)?;
+        let license_file = LicenseFile::from_cert(key, &content)?;
+        Ok(Some(license_file))
+    }
+
+    fn remove_license_file<R: Runtime>(app_handle: &AppHandle<R>) -> Result<()> {
+        let path = Self::get_license_file_path(app_handle)?;
+        if path.exists() {
+            fs::remove_file(path)?;
+        }
+        Ok(())
+    }
+
+    fn get_license_file_path<R: Runtime>(app_handle: &AppHandle<R>) -> Result<PathBuf> {
+        let data_dir = get_app_keygen_path(app_handle)?;
+        let path = data_dir.join("license.lic");
+        Ok(path)
+    }
+
+    fn save_license_file<R: Runtime>(
+        app_handle: &AppHandle<R>,
+        license_file: &LicenseFile,
+    ) -> Result<()> {
+        let path = Self::get_license_file_path(app_handle)?;
+        let mut file = File::create(path)?;
+        file.write_all(license_file.certificate.as_bytes())?;
+        Ok(())
+    }
+
     fn get_license_key_cache_path<R: Runtime>(app_handle: &AppHandle<R>) -> Result<PathBuf> {
         let data_dir = get_app_keygen_path(app_handle)?;
         let path = data_dir.join("key");
@@ -173,43 +210,6 @@ impl LicenseState {
         let path = Self::get_license_key_cache_path(app_handle)?;
         let mut file = File::create(&path)?;
         file.write_all(license.key.as_bytes())?;
-        Ok(())
-    }
-
-    fn get_license_file_path<R: Runtime>(app_handle: &AppHandle<R>) -> Result<PathBuf> {
-        let data_dir = get_app_keygen_path(app_handle)?;
-        let path = data_dir.join("license.lic");
-        Ok(path)
-    }
-
-    fn load_license_file<R: Runtime>(
-        app_handle: &AppHandle<R>,
-        key: &str,
-    ) -> Result<Option<LicenseFile>> {
-        let path = Self::get_license_file_path(app_handle)?;
-        if !path.exists() {
-            return Ok(None);
-        }
-        let content = fs::read_to_string(path)?;
-        let license_file = LicenseFile::from_cert(key, &content)?;
-        Ok(Some(license_file))
-    }
-
-    fn save_license_file<R: Runtime>(
-        app_handle: &AppHandle<R>,
-        license_file: &LicenseFile,
-    ) -> Result<()> {
-        let path = Self::get_license_file_path(app_handle)?;
-        let mut file = File::create(path)?;
-        file.write_all(license_file.certificate.as_bytes())?;
-        Ok(())
-    }
-
-    fn remove_license_file<R: Runtime>(app_handle: &AppHandle<R>) -> Result<()> {
-        let path = Self::get_license_file_path(app_handle)?;
-        if path.exists() {
-            fs::remove_file(path)?;
-        }
         Ok(())
     }
 }

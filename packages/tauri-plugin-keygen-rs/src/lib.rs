@@ -11,8 +11,8 @@ use tokio::sync::Mutex;
 
 mod commands;
 pub mod error;
-mod license;
-mod machine;
+pub mod license;
+pub mod machine;
 mod utils;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -121,15 +121,41 @@ impl Builder {
                 let machine_state = MachineState::new(app_name, app_version);
                 app_handle.manage(Mutex::new(machine_state));
 
-                let license_state = match LicenseState::load(app_handle) {
-                    Ok(license_state) => license_state,
-                    Err(e) => {
-                        println!("Error loading license state: {:?}", e);
-                        LicenseState::default()
+                let license_state = LicenseState::load(app_handle);
+                match license_state {
+                    Ok(license_state) => {
+                        app_handle.manage(Mutex::new(license_state));
+                    }
+                    Err(err) => {
+                      if let Error::KeygenError(e) = err {
+                        match e {
+                          keygen_rs::errors::Error::LicenseFileExpired(dataset) => {
+                            let license = dataset.license.clone();
+                            let license_state = LicenseState {
+                                key: Some(license.key.clone()),
+                                license: Some(license),
+                                valid: false,
+                            };
+                            app_handle.manage(Mutex::new(license_state));
+                          }
+                          keygen_rs::errors::Error::MachineFileExpired(dataset) => {
+                            let license = dataset.license.clone();
+                            let license_state = LicenseState {
+                                key: Some(license.key.clone()),
+                                license: Some(license),
+                                valid: false,
+                            };
+                            app_handle.manage(Mutex::new(license_state));
+                          }
+                          _ => {
+                            let license_state = LicenseState::default();
+                            app_handle.manage(Mutex::new(license_state));
+                          }
+                        }
+                      }
                     }
                 };
 
-                app_handle.manage(Mutex::new(license_state));
                 Ok(())
             })
             .build()

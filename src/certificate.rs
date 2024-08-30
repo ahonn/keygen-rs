@@ -31,14 +31,14 @@ pub(crate) struct CartificateFileResponse {
 }
 
 pub fn validate_certificate_meta(meta: &CertificateFileMeta) -> Result<(), Error> {
-    let config = crate::config::get_config();
-    if let Some(max_clock_drift) = config.max_clock_drift {
-        if Utc::now().signed_duration_since(meta.issued)
-            > chrono::Duration::minutes(max_clock_drift)
-        {
-            return Err(Error::SystemClockUnsynced);
-        }
-    }
+    // let config = crate::config::get_config();
+
+    // if let Some(max_clock_drift) = config.max_clock_drift {
+    //     if Utc::now().signed_duration_since(meta.issued).num_minutes() > max_clock_drift {
+    //         return Err(Error::SystemClockUnsynced);
+    //     }
+    // }
+    
     if meta.ttl != 0 && Utc::now() > meta.expiry {
         return Err(Error::CerificateFileExpired);
     }

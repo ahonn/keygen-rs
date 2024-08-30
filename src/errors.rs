@@ -3,7 +3,7 @@ use serde_urlencoded::ser::Error as UrlEncodedError;
 use thiserror::Error;
 use url::ParseError;
 
-use crate::license::License;
+use crate::{license::License, license_file::LicenseFileDataset, machine_file::MachineFileDataset};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -93,7 +93,7 @@ pub enum Error {
     LicenseFileNotEncrypted,
 
     #[error("License file expired")]
-    LicenseFileExpired,
+    LicenseFileExpired(LicenseFileDataset),
 
     #[error("Machine file invalid")]
     MachineFileInvalid(String),
@@ -105,7 +105,7 @@ pub enum Error {
     MachineFileNotSupported(String),
 
     #[error("License file expired")]
-    MachineFileExpired,
+    MachineFileExpired(MachineFileDataset),
 
     #[error("API error: {detail}")]
     KeygenApiError {

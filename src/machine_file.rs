@@ -102,17 +102,6 @@ impl MachineFile {
 
         let meta: CertificateFileMeta = serde_json::from_value(dataset["meta"].clone())
             .map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
-        if let Err(err) = validate_certificate_meta(&meta) {
-            match err {
-                Error::CerificateFileExpired => Error::MachineFileExpired,
-                _ => err,
-            };
-        };
-
-        let machine_data: KeygenResponseData<MachineAttributes> =
-            serde_json::from_value(dataset["data"].clone())
-                .map_err(|e| Error::MachineFileInvalid(e.to_string()))?;
-        let machine = Machine::from(machine_data);
 
         // Find type = "licenses" element in dataset["included"] array
         let license_data = dataset["included"]
@@ -127,6 +116,11 @@ impl MachineFile {
             ))?;
         let license = License::from(serde_json::from_value(license_data.clone())?);
 
+        let machine_data: KeygenResponseData<MachineAttributes> =
+            serde_json::from_value(dataset["data"].clone())
+                .map_err(|e| Error::MachineFileInvalid(e.to_string()))?;
+        let machine = Machine::from(machine_data);
+
         let dataset = MachineFileDataset {
             license,
             machine,
@@ -134,7 +128,15 @@ impl MachineFile {
             expiry: meta.expiry,
             ttl: meta.ttl,
         };
-        Ok(dataset)
+
+        if let Err(err) = validate_certificate_meta(&meta) {
+            match err {
+                Error::CerificateFileExpired => Err(Error::MachineFileExpired(dataset)),
+                _ => Err(err),
+            }
+        } else {
+            Ok(dataset)
+        }
     }
 
     fn _certificate(certificate: String) -> Result<Certificate, Error> {

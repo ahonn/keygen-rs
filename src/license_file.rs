@@ -61,18 +61,18 @@ impl LicenseFile {
         };
         if let Err(err) = validate_certificate_meta(&meta) {
             match err {
-                Error::CerificateFileExpired => Error::LicenseFileExpired,
-                _ => err,
-            };
-        };
-
-        Ok(LicenseFile {
-            id: dataset.license.id.clone(),
-            certificate: content.to_string(),
-            issued: dataset.issued,
-            expiry: dataset.expiry,
-            ttl: dataset.ttl,
-        })
+                Error::CerificateFileExpired => Err(Error::LicenseFileExpired(dataset)),
+                _ => Err(err),
+            }
+        } else {
+            Ok(LicenseFile {
+                id: dataset.license.id.clone(),
+                certificate: content.to_string(),
+                issued: dataset.issued,
+                expiry: dataset.expiry,
+                ttl: dataset.ttl,
+            })
+        }
     }
 
     pub fn verify(&self) -> Result<(), Error> {
@@ -111,12 +111,6 @@ impl LicenseFile {
 
         let meta: CertificateFileMeta = serde_json::from_value(dataset["meta"].clone())
             .map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
-        if let Err(err) = validate_certificate_meta(&meta) {
-            match err {
-                Error::CerificateFileExpired => Error::LicenseFileExpired,
-                _ => err,
-            };
-        };
 
         let data: KeygenResponseData<LicenseAttributes> =
             serde_json::from_value(dataset["data"].clone())
@@ -129,7 +123,15 @@ impl LicenseFile {
             expiry: meta.expiry,
             ttl: meta.ttl,
         };
-        Ok(dataset)
+
+        if let Err(err) = validate_certificate_meta(&meta) {
+            match err {
+                Error::CerificateFileExpired => Err(Error::LicenseFileExpired(dataset)),
+                _ => Err(err),
+            }
+        } else {
+            Ok(dataset)
+        }
     }
 
     fn _certificate(certificate: String) -> Result<Certificate, Error> {

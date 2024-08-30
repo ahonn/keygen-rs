@@ -1,6 +1,6 @@
 [package]
 name = "keygen-rs"
-version = "0.2.0"
+version = "0.2.1"
 description = "Unofficial Keygen SDK for Rust. Integrate license activation and offline licensing."
 license = "MIT"
 edition = "2021"
@@ -34,6 +34,7 @@ num_cpus = "1.16.0"
 dotenv = "0.15.0"
 machine-uid = "0.5.1"
 aes-gcm = "0.9"
+log = { version = "0.4", features = ["std"] }
 
 [lib]
 doctest = false
