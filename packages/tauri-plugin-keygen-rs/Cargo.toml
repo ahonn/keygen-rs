@@ -17,5 +17,5 @@ machine-uid = "0.5.1"
 whoami = "1.5.1"
 lazy_static = "1.4.0"
 log = { version = "0.4", features = ["std"] }
-keygen-rs = "0.2"
+keygen-rs = "0.2.1"
 # keygen-rs = { path = "../.." }
