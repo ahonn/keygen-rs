@@ -77,7 +77,7 @@ impl MachineState {
         }
     }
 
-    pub(crate) fn load_machine_file<R: Runtime>(
+    pub fn load_machine_file<R: Runtime>(
         app_handle: &AppHandle<R>,
         key: &str,
     ) -> Result<Option<MachineFile>> {
@@ -90,7 +90,7 @@ impl MachineState {
         Ok(Some(machine_file))
     }
 
-    pub(crate) fn remove_machine_file<R: Runtime>(app_handle: &AppHandle<R>) -> Result<()> {
+    pub fn remove_machine_file<R: Runtime>(app_handle: &AppHandle<R>) -> Result<()> {
         let path = Self::get_machine_file_path(app_handle)?;
         if path.exists() {
             fs::remove_file(path)?;

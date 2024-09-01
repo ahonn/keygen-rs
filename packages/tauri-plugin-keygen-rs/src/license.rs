@@ -151,7 +151,7 @@ impl LicenseState {
         })
     }
 
-    fn load_license_file<R: Runtime>(
+    pub fn load_license_file<R: Runtime>(
         app_handle: &AppHandle<R>,
         key: &str,
     ) -> Result<Option<LicenseFile>> {
@@ -164,7 +164,7 @@ impl LicenseState {
         Ok(Some(license_file))
     }
 
-    fn remove_license_file<R: Runtime>(app_handle: &AppHandle<R>) -> Result<()> {
+    pub fn remove_license_file<R: Runtime>(app_handle: &AppHandle<R>) -> Result<()> {
         let path = Self::get_license_file_path(app_handle)?;
         if path.exists() {
             fs::remove_file(path)?;

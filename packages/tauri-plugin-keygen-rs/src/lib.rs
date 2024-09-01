@@ -1,5 +1,5 @@
 use error::Error;
-use keygen_rs::config::KeygenConfig;
+use keygen_rs::{config::KeygenConfig, license_file::LicenseFile, machine_file::MachineFile};
 use lazy_static::lazy_static;
 use license::LicenseState;
 use machine::MachineState;
@@ -39,7 +39,11 @@ pub(crate) async fn notify_license_listeners(state: &LicenseState) {
 
 pub trait AppHandleExt {
     fn get_license_state(&self) -> State<'_, Mutex<LicenseState>>;
+    fn load_license_file(&self, key: &str) -> Result<Option<LicenseFile>>;
+    fn remove_license_file(&self) -> Result<()>;
     fn get_machine_state(&self) -> State<'_, Mutex<MachineState>>;
+    fn load_machine_file(&self, key: &str) -> Result<Option<MachineFile>>;
+    fn remove_machine_file(&self) -> Result<()>;
 }
 
 impl<R: Runtime> AppHandleExt for tauri::AppHandle<R> {
@@ -47,8 +51,24 @@ impl<R: Runtime> AppHandleExt for tauri::AppHandle<R> {
         self.state::<Mutex<LicenseState>>()
     }
 
+    fn load_license_file(&self, key: &str) -> Result<Option<LicenseFile>> {
+        LicenseState::load_license_file(self, key)
+    }
+
+    fn remove_license_file(&self) -> Result<()> {
+        LicenseState::remove_license_file(self)
+    }
+
     fn get_machine_state(&self) -> State<'_, Mutex<MachineState>> {
         self.state::<Mutex<MachineState>>()
+    }
+
+    fn load_machine_file(&self, key: &str) -> Result<Option<MachineFile>> {
+        MachineState::load_machine_file(self, key)
+    }
+
+    fn remove_machine_file(&self) -> Result<()> {
+        MachineState::remove_machine_file(self)
     }
 }
 
@@ -127,32 +147,32 @@ impl Builder {
                         app_handle.manage(Mutex::new(license_state));
                     }
                     Err(err) => {
-                      if let Error::KeygenError(e) = err {
-                        match e {
-                          keygen_rs::errors::Error::LicenseFileExpired(dataset) => {
-                            let license = dataset.license.clone();
-                            let license_state = LicenseState {
-                                key: Some(license.key.clone()),
-                                license: Some(license),
-                                valid: false,
-                            };
-                            app_handle.manage(Mutex::new(license_state));
-                          }
-                          keygen_rs::errors::Error::MachineFileExpired(dataset) => {
-                            let license = dataset.license.clone();
-                            let license_state = LicenseState {
-                                key: Some(license.key.clone()),
-                                license: Some(license),
-                                valid: false,
-                            };
-                            app_handle.manage(Mutex::new(license_state));
-                          }
-                          _ => {
-                            let license_state = LicenseState::default();
-                            app_handle.manage(Mutex::new(license_state));
-                          }
+                        if let Error::KeygenError(e) = err {
+                            match e {
+                                keygen_rs::errors::Error::LicenseFileExpired(dataset) => {
+                                    let license = dataset.license.clone();
+                                    let license_state = LicenseState {
+                                        key: Some(license.key.clone()),
+                                        license: Some(license),
+                                        valid: false,
+                                    };
+                                    app_handle.manage(Mutex::new(license_state));
+                                }
+                                keygen_rs::errors::Error::MachineFileExpired(dataset) => {
+                                    let license = dataset.license.clone();
+                                    let license_state = LicenseState {
+                                        key: Some(license.key.clone()),
+                                        license: Some(license),
+                                        valid: false,
+                                    };
+                                    app_handle.manage(Mutex::new(license_state));
+                                }
+                                _ => {
+                                    let license_state = LicenseState::default();
+                                    app_handle.manage(Mutex::new(license_state));
+                                }
+                            }
                         }
-                      }
                     }
                 };
 
