@@ -18,10 +18,27 @@ pub mod machine;
 pub mod machine_file;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct KeygenRelationshipData {
+  pub r#type: String,
+  pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct KeygenRelationship {
+  data: KeygenRelationshipData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct KeygenRelationships {
+  pub policy: Option<KeygenRelationship>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenResponseData<T> {
     pub id: String,
     pub r#type: String,
     pub attributes: T,
+    pub relationships: KeygenRelationships,
 }
 
 /// Validates a license key

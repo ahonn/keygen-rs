@@ -181,6 +181,7 @@ mod tests {
             key: key.to_string(),
             expiry: None,
             status: None,
+            policy: None,
         }
     }
 

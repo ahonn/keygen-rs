@@ -58,6 +58,7 @@ pub struct License {
     pub name: Option<String>,
     pub expiry: Option<DateTime<Utc>>,
     pub status: Option<String>,
+    pub policy: Option<String>,
 }
 
 pub struct LicenseCheckoutOpts {
@@ -74,6 +75,7 @@ impl License {
             name: data.attributes.name,
             expiry: data.attributes.expiry,
             status: data.attributes.status,
+            policy: data.relationships.policy.map(|p| p.data.id),
         }
     }
 
@@ -85,6 +87,7 @@ impl License {
             name: None,
             expiry: None,
             status: None,
+            policy: None,
         }
     }
 
@@ -348,6 +351,7 @@ mod tests {
             key: "TEST-LICENSE-KEY".to_string(),
             expiry: None,
             status: None,
+            policy: None,
         }
     }
 
@@ -372,6 +376,14 @@ mod tests {
                     "key": "TEST-LICENSE-KEY",
                     "expiry": null,
                     "status": "valid"
+                },
+                "relationships": {
+                    "policy": {
+                        "data": {
+                            "type": "policies",
+                            "id": "11314277-0f31-4a77-9366-0299e9f52123"
+                        }
+                    }
                 }
             }
         })
