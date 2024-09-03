@@ -15,7 +15,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tauri-plugin-keygen-rs = "0.1"
+tauri-plugin-keygen-rs = "0.2.2"
 ```
 
 ## Usage
