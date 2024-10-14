@@ -25,7 +25,7 @@ tauri-plugin-keygen-rs2 = "0.2.2"
 1. In your Tauri app's `main.rs`, import and use the plugin:
 
 ```rust
-use tauri_plugin_keygen_rs::Builder;
+use tauri_plugin_keygen_rs2::Builder;
 
 fn main() {
 tauri::Builder::default()
@@ -49,7 +49,7 @@ import {
     deactivate,
     checkoutLicense,
     checkoutMachine,
-} from 'tauri-plugin-keygen-rs-api';
+} from 'tauri-plugin-keygen-rs-api2';
 
 const license = await validateKey('YOUR_LICENSE_KEY');
 ```
@@ -71,7 +71,7 @@ tauri::Builder::default()
             let machine_state = machine_state.lock().await;
             println!("Machine: {:?}", machine_state);
 
-            tauri_plugin_keygen_rs::add_license_listener(|state| {
+            tauri_plugin_keygen_rs2::add_license_listener(|state| {
                 println!("License state change: {:?}", state);
             }).await;
         });
