@@ -1,0 +1,15 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-keygen"
+description = "Enables the keygen commands"
+commands.allow = ["get_license", "is_license_valid", "get_license_key", "validate_key", "activate", "deactivate",
+"checkout_license", "checkout_machine"]
+
+[[permission]]
+identifier = "deny-keygen"
+description = "Denies the keygen commands."
+commands.deny = ["get_license", "is_license_valid", "get_license_key", "validate_key", "activate", "deactivate",
+"checkout_license", "checkout_machine"]

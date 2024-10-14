@@ -1,8 +1,8 @@
-# Tauri Plugin keygen-rs
+# Tauri Plugin keygen-rs2
 
-Tauri plugin for Keygen.sh licensing, based on the keygen-rs SDK.
+Tauri V2 plugin for Keygen.sh licensing, based on the keygen-rs SDK.
 
-> For Tauri v2 support, please use [tauri-plugin-keygen-rs2](../tauri-plugin-keygen-rs2).
+> For Tauri v1, please use [tauri-plugin-keygen-rs](../tauri-plugin-keygen-rs).
 
 ## Features
 - License validation and management
@@ -17,7 +17,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tauri-plugin-keygen-rs = "0.2.2"
+tauri-plugin-keygen-rs2 = "0.2.2"
 ```
 
 ## Usage

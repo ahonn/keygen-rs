@@ -1,0 +1,25 @@
+[package]
+name = "tauri-plugin-keygen-rs2"
+version = "0.2.2"
+authors = [ "You" ]
+description = ""
+edition = "2021"
+rust-version = "1.77.2"
+exclude = ["/examples", "/webview-dist", "/webview-src", "/node_modules"]
+links = "tauri-plugin-keygen-rs2"
+
+[dependencies]
+tauri = { version = "2.0.1" }
+tauri-plugin-os = "2"
+serde = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.33.0", features = ["sync"] }
+machine-uid = "0.5.1"
+whoami = "1.5.1"
+lazy_static = "1.4.0"
+log = { version = "0.4", features = ["std"] }
+sys-locale = "0.3"
+keygen-rs = "0.2.2"
+
+[build-dependencies]
+tauri-plugin = { version = "2.0.1", features = ["build"] }
