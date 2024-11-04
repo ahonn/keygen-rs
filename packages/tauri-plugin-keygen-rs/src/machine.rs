@@ -5,7 +5,8 @@ use std::{
 };
 
 use keygen_rs::{machine::MachineCheckoutOpts, machine_file::MachineFile};
-use tauri::{api::os::locale, webview_version, AppHandle, Runtime};
+use tauri::{webview_version, AppHandle, Runtime};
+use tauri_plugin_os::locale;
 
 use crate::{error::Error, utils::get_app_keygen_path, AppHandleExt, Result};
 
