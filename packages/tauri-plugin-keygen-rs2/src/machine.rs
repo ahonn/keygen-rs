@@ -9,6 +9,9 @@ use tauri::{webview_version, AppHandle, Runtime};
 
 use crate::{error::Error, utils::get_app_keygen_path, AppHandleExt, Result};
 
+#[cfg(target_os = "android")]
+static ENGINE_NAME: &str = "WRY";
+
 #[cfg(target_os = "linux")]
 static ENGINE_NAME: &str = "WebKit";
 
@@ -27,8 +30,13 @@ pub struct MachineState {
 }
 
 impl MachineState {
+    #[cfg(not(target_os = "android"))]
     pub fn get_fingerprint() -> String {
         machine_uid::get().unwrap_or("".into())
+    }
+    #[cfg(target_os = "android")]
+    pub fn get_fingerprint() -> String {
+        "".into()
     }
 
     pub(crate) fn new(app_name: String, app_version: String) -> Self {
