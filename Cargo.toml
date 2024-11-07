@@ -36,9 +36,11 @@ rand = "0.7.3"
 hostname = "0.4.0"
 num_cpus = "1.16.0"
 dotenv = "0.15.0"
-machine-uid = "0.5.1"
 aes-gcm = "0.9"
 log = { version = "0.4", features = ["std"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+machine-uid = "0.5.1"
 
 [lib]
 doctest = false

@@ -30,8 +30,13 @@ pub struct MachineState {
 }
 
 impl MachineState {
+    #[cfg(not(target_os = "android"))]
     pub fn get_fingerprint() -> String {
         machine_uid::get().unwrap_or("".into())
+    }
+    #[cfg(target_os = "android")]
+    pub fn get_fingerprint() -> String {
+        "".into()
     }
 
     pub(crate) fn new(app_name: String, app_version: String) -> Self {
