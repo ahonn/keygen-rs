@@ -9,6 +9,9 @@ use tauri::{webview_version, AppHandle, Runtime};
 
 use crate::{error::Error, utils::get_app_keygen_path, AppHandleExt, Result};
 
+#[cfg(target_os = "android")]
+static ENGINE_NAME: &str = "WRY";
+
 #[cfg(target_os = "linux")]
 static ENGINE_NAME: &str = "WebKit";
 
