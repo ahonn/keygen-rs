@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::certificate::CartificateFileResponse;
-use crate::client::Client;
+use crate::client::{Client, Response};
 use crate::errors::Error;
 use crate::machine_file::MachineFile;
 use crate::KeygenResponseData;
@@ -110,4 +110,17 @@ impl Machine {
         let machine_file = MachineFile::from(machine_file_response.data);
         Ok(machine_file)
     }
+
+    pub async fn ping(&self) -> Result<(), Error> {
+        let client = Client::default();
+        let _response: Response<MachineResponse> = client
+            .post(&format!(
+                "machines/{}/actions/ping", self.id),
+                None::<&()>,
+                None::<&()>
+            )
+            .await?;
+        Ok(())
+    }
+
 }
