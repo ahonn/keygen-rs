@@ -1,7 +1,11 @@
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+use futures::future::{FutureExt, BoxFuture};
+use futures::StreamExt; 
+use std::time::Duration;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-
 use crate::certificate::CartificateFileResponse;
 use crate::client::{Client, Response};
 use crate::errors::Error;
@@ -112,7 +116,7 @@ impl Machine {
     }
 
     pub async fn ping(&self) -> Result<(), Error> {
-        let client = Client::default();
+        let client: Client = Client::default();
         let _response: Response<MachineResponse> = client
             .post(&format!(
                 "machines/{}/actions/ping", self.id),
@@ -122,5 +126,33 @@ impl Machine {
             .await?;
         Ok(())
     }
+
+
+    pub fn monitor(self: Arc<Self>, heartbeat_interval: Duration, tx: Option<Sender<Error>>) -> BoxFuture<'static, ()> {
+        
+        async move {
+            let mut interval_stream = futures::stream::unfold((), move |_| {
+                let delay = futures_timer::Delay::new(heartbeat_interval);
+                
+                Box::pin(async move {
+                    delay.await;
+                    Some(((), ()))
+                })
+            });
+
+            while interval_stream.next().await.is_some() {
+                if let Err(e) =  self.ping().await {
+                    match &tx {
+                        Some(tx) if tx.send(e).is_ok() => continue,
+                        _ => {
+                            eprintln!("Heartbeat monitor failed, aborting.");
+                            break;
+                        },
+                    };
+                }
+            }
+        }
+        .boxed()
+    }   
 
 }

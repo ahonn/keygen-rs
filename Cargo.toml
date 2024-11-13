@@ -36,6 +36,7 @@ dotenv = "0.15.0"
 machine-uid = "0.5.1"
 aes-gcm = "0.9"
 log = { version = "0.4", features = ["std"] }
+futures-timer = "3.0.3"
 
 [lib]
 doctest = false
