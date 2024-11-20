@@ -1,8 +1,11 @@
 use std::{
     sync::{mpsc, Arc},
     thread,
-    time::Duration,
+    env,
+    time::Duration
 };
+
+use dotenv::dotenv;
 
 use keygen_rs::{
     config::{self, KeygenConfig},
