@@ -131,6 +131,18 @@ impl Machine {
     pub fn monitor(self: Arc<Self>, heartbeat_interval: Duration, tx: Option<Sender<Error>>) -> BoxFuture<'static, ()> {
         
         async move {
+            if let Err(e) = self.ping().await {
+                match &tx {
+                    Some(tx) if tx.send(e).is_ok() => {},
+                    _ => {
+                        eprintln!("Initial heartbeat ping failed, aborting.");
+                        return;
+                    },
+                }
+            }
+
+
+
             let mut interval_stream = futures::stream::unfold((), move |_| {
                 let delay = futures_timer::Delay::new(heartbeat_interval);
                 
