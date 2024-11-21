@@ -8,7 +8,7 @@ edition = "2021"
 [workspace]
 members = [
   ".",
-  "./packages/tauri-plugin-keygen-rs",
+  # "./packages/tauri-plugin-keygen-rs",
   "./packages/tauri-plugin-keygen-rs2"
 ]
 

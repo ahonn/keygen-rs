@@ -1,16 +1,16 @@
-use std::sync::mpsc::Sender;
-use std::sync::Arc;
-use futures::future::{FutureExt, BoxFuture};
-use futures::StreamExt; 
-use std::time::Duration;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 use crate::certificate::CartificateFileResponse;
 use crate::client::{Client, Response};
 use crate::errors::Error;
 use crate::machine_file::MachineFile;
 use crate::KeygenResponseData;
+use chrono::{DateTime, Utc};
+use futures::future::{BoxFuture, FutureExt};
+use futures::StreamExt;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::Arc;
+use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct MachineAttributes {
@@ -115,56 +115,53 @@ impl Machine {
         Ok(machine_file)
     }
 
-    pub async fn ping(&self) -> Result<(), Error> {
+    pub async fn ping(&self) -> Result<Machine, Error> {
         let client: Client = Client::default();
-        let _response: Response<MachineResponse> = client
-            .post(&format!(
-                "machines/{}/actions/ping", self.id),
+        let response: Response<MachineResponse> = client
+            .post(
+                &format!("machines/{}/actions/ping", self.id),
                 None::<&()>,
-                None::<&()>
+                None::<&()>,
             )
             .await?;
-        Ok(())
+        let machine = Machine::from(response.body.data);
+        Ok(machine)
     }
 
-
-    pub fn monitor(self: Arc<Self>, heartbeat_interval: Duration, tx: Option<Sender<Error>>) -> BoxFuture<'static, ()> {
-        
+    pub fn monitor(
+        self: Arc<Self>,
+        heartbeat_interval: Duration,
+        tx: Option<Sender<Result<Machine, Error>>>,
+        cancel_rx: Option<Receiver<()>>,
+    ) -> BoxFuture<'static, ()> {
         async move {
-            if let Err(e) = self.ping().await {
-                match &tx {
-                    Some(tx) if tx.send(e).is_ok() => {},
-                    _ => {
-                        eprintln!("Initial heartbeat ping failed, aborting.");
-                        return;
-                    },
+            let send = |result: Result<Machine, Error>| {
+                if let Some(tx) = &tx {
+                    tx.send(result).unwrap();
                 }
-            }
-
-
+            };
 
             let mut interval_stream = futures::stream::unfold((), move |_| {
                 let delay = futures_timer::Delay::new(heartbeat_interval);
-                
                 Box::pin(async move {
                     delay.await;
                     Some(((), ()))
                 })
             });
 
+            send(self.ping().await);
             while interval_stream.next().await.is_some() {
-                if let Err(e) =  self.ping().await {
-                    match &tx {
-                        Some(tx) if tx.send(e).is_ok() => continue,
-                        _ => {
-                            eprintln!("Heartbeat monitor failed, aborting.");
-                            break;
-                        },
-                    };
+              match cancel_rx {
+                Some(ref rx) => {
+                  if rx.try_recv().is_ok() {
+                    break;
+                  }
                 }
+                None => {}
+              }
+              send(self.ping().await);
             }
         }
         .boxed()
-    }   
-
+    }
 }
