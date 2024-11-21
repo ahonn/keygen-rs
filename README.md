@@ -6,10 +6,12 @@
 The `keygen-rs` crate allows Rust programs to license using the [keygen.sh](https://keygen.sh) service.
 
 ### Sponsored by
-<a href="https://keygen.sh?via=keygen-rs">
-  <div>
+
+<a href="https://keygen.sh?via=keygen-rs" style="margin-right: 10px">
     <img src="https://keygen.sh/images/logo-pill.png" width="200" alt="Keygen">
-  </div>
+</a>
+<a href="https://badgeify.app?ref=keygen-rs">
+    <img src="https://badgeify.app/logo-pill.png" width="200" alt="Badgeify">
 </a>
 
 ## Installing
@@ -18,7 +20,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keygen-rs = "0.2.2"
+keygen-rs = "0.3.0"
 ```
 
 ### Tauri Plugin
@@ -169,6 +171,7 @@ When implementing a testing strategy for your licensing integration, we recommen
 You can use crates like `mockito` or `wiremock` to mock HTTP responses in your tests.
 
 ## Inspired by
+
 - [keygen-go](https://github.com/keygen-sh/keygen-go)
 - [tauri-plugin-keygen](https://github.com/bagindo/tauri-plugin-keygen)
 
