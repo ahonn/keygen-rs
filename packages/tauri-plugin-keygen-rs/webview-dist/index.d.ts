@@ -18,3 +18,4 @@ export declare function validateKey(key: string, entitlements?: string[]): Promi
 export declare function deactivate(): Promise<void>;
 export declare function checkoutLicense(ttl?: number, include?: string[]): Promise<void>;
 export declare function checkoutMachine(ttl?: number, include?: string[]): Promise<void>;
+export declare function resetLicense(): Promise<void>;

@@ -125,3 +125,10 @@ pub async fn checkout_machine<R: Runtime>(
     let machine_file = machine_state.checkout(&app_handle, &options).await?;
     Ok(machine_file)
 }
+
+#[command]
+pub async fn reset_license<R: Runtime>(app_handle: AppHandle<R>) -> Result<()> {
+    app_handle.remove_license_file()?;
+    app_handle.remove_machine_file()?;
+    Ok(())
+}

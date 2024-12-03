@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-keygen-rs"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["ahonn"]
 description = "Tauri plugin for Keygen.sh licensing, based on keygen-rs"
 license = "MIT"

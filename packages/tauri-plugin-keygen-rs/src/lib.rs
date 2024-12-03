@@ -132,7 +132,8 @@ impl Builder {
                 commands::activate,
                 commands::deactivate,
                 commands::checkout_license,
-                commands::checkout_machine
+                commands::checkout_machine,
+                commands::reset_license,
             ])
             .setup(move |app_handle| {
                 let app_name = app_handle.package_info().name.clone();

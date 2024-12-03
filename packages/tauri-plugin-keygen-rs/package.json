@@ -1,6 +1,6 @@
 {
   "name": "tauri-plugin-keygen-rs-api",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": "ahonn",
   "description": "Tauri plugin for Keygen.sh licensing, based on keygen-rs",
   "browser": "webview-dist/index.js",
