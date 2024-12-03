@@ -134,3 +134,16 @@ export async function checkoutMachine(ttl?: number, include?: string[]) {
     throw new KeygenError('ERROR', (err as Error).message);
   }
 }
+
+export async function resetLicense() {
+  try {
+    await invoke('plugin:keygen-rs2|reset_license');
+  } catch (err) {
+    if (isInvokeError(err)) {
+      const { code, detail } = err;
+      throw new KeygenError(code, detail);
+    }
+    throw new KeygenError('ERROR', (err as Error).message);
+  }
+}
+
