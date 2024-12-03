@@ -3925,7 +3925,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-keygen-rs2"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "keygen-rs 0.2.2",
  "lazy_static",
