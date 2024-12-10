@@ -12,8 +12,15 @@ members = [
   "./packages/tauri-plugin-keygen-rs2"
 ]
 
+[features]
+default = ["rustls"]
+# Use rustls as TLS backend (default)
+rustls = ["reqwest/rustls-tls"]
+# Use native-tls backend
+native-tls = ["reqwest/native-tls"]
+
 [dependencies]
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", default-features = false, features = ["json"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
