@@ -43,6 +43,7 @@ config::set_config(KeygenConfig {
     product: "YOUR_KEYGEN_PRODUCT_ID".to_string(),
     license_key: Some("A_KEYGEN_LICENSE_KEY".to_string()),
     public_key: Some("YOUR_KEYGEN_PUBLIC_KEY".to_string()),
+    verify_keygen_signature: true, // Enable Keygen-Signature verification
     ..KeygenConfig::default()
 });
 ```
@@ -64,6 +65,7 @@ async fn main() -> Result<(), Error> {
         product: "YOUR_KEYGEN_PRODUCT_ID".to_string(),
         license_key: Some("A_KEYGEN_LICENSE_KEY".to_string()),
         public_key: Some("YOUR_KEYGEN_PUBLIC_KEY".to_string()),
+        verify_keygen_signature: true, // Enable Keygen-Signature verification
         ..KeygenConfig::default()
     });
 
@@ -130,6 +132,44 @@ fn main() {
     } else {
         println!("License verification failed");
     }
+}
+```
+
+### Verifying Keygen-Signature Header
+
+To verify the Keygen-Signature header in API responses:
+
+```rust
+use keygen_rs::{config::{self, KeygenConfig}, errors::Error, verifier::Verifier};
+use reqwest::header::HeaderMap;
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    config::set_config(KeygenConfig {
+        api_url: "https://api.keygen.sh".to_string(),
+        account: "YOUR_KEYGEN_ACCOUNT_ID".to_string(),
+        product: "YOUR_KEYGEN_PRODUCT_ID".to_string(),
+        license_key: Some("A_KEYGEN_LICENSE_KEY".to_string()),
+        public_key: Some("YOUR_KEYGEN_PUBLIC_KEY".to_string()),
+        verify_keygen_signature: true, // Enable Keygen-Signature verification
+        ..KeygenConfig::default()
+    });
+
+    let client = reqwest::Client::new();
+    let response = client.get("https://api.keygen.sh/v1/accounts/YOUR_KEYGEN_ACCOUNT_ID/licenses")
+        .header("Authorization", "Bearer YOUR_API_TOKEN")
+        .send()
+        .await?;
+
+    let headers: HeaderMap = response.headers().clone();
+    let body = response.text().await?;
+
+    let verifier = Verifier::new("YOUR_KEYGEN_PUBLIC_KEY".to_string());
+    verifier.verify_keygen_signature(&headers, body.as_bytes())?;
+
+    println!("Keygen-Signature header verified successfully");
+
+    Ok(())
 }
 ```
 

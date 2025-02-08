@@ -5,6 +5,7 @@ use crate::license_file::LicenseFile;
 use crate::machine_file::MachineFile;
 use base64::{engine::general_purpose, Engine as _};
 use ed25519_dalek::{PublicKey, Signature, Verifier as Ed25519Verifier};
+use reqwest::header::HeaderMap;
 
 pub struct Verifier {
     public_key: String,
@@ -59,6 +60,24 @@ impl Verifier {
             #[allow(unreachable_patterns)]
             _ => Err(Error::LicenseSchemeUnsupported),
         }
+    }
+
+    pub fn verify_keygen_signature(&self, headers: &HeaderMap, body: &[u8]) -> Result<(), Error> {
+        let signature_header = headers
+            .get("Keygen-Signature")
+            .ok_or(Error::LicenseKeyNotGenuine)?
+            .to_str()
+            .map_err(|_| Error::LicenseKeyNotGenuine)?;
+
+        let signature_bytes = general_purpose::STANDARD
+            .decode(signature_header)
+            .map_err(|_| Error::LicenseKeyNotGenuine)?;
+
+        let public_key = self.public_key_bytes()?;
+        let public_key = PublicKey::from_bytes(&public_key).map_err(|_| Error::PublicKeyInvalid)?;
+        let signature = Signature::from_bytes(&signature_bytes).map_err(|_| Error::LicenseKeyNotGenuine)?;
+
+        public_key.verify(body, &signature).map_err(|_| Error::LicenseKeyNotGenuine)
     }
 
     fn verify_certificate(&self, cert: &Certificate, prefix: &str) -> Result<(), Error> {
@@ -245,5 +264,55 @@ mod tests {
 
         let result = verifier.verify_license(&license);
         assert!(matches!(result, Err(Error::PublicKeyMissing)));
+    }
+
+    #[test]
+    fn test_verify_keygen_signature() {
+        let mut csprng = OsRng::default();
+        let keypair: Keypair = Keypair::generate(&mut csprng);
+        let public_key = hex::encode(keypair.public.as_bytes());
+
+        let body = b"test body";
+        let signature = keypair.sign(body);
+        let signature_encoded = general_purpose::STANDARD.encode(signature.to_bytes());
+
+        let mut headers = HeaderMap::new();
+        headers.insert("Keygen-Signature", signature_encoded.parse().unwrap());
+
+        let verifier = Verifier::new(public_key);
+        let result = verifier.verify_keygen_signature(&headers, body);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_keygen_signature_with_invalid_signature() {
+        let mut csprng = OsRng::default();
+        let keypair: Keypair = Keypair::generate(&mut csprng);
+        let public_key = hex::encode(keypair.public.as_bytes());
+
+        let body = b"test body";
+        let invalid_signature = b"invalid signature";
+        let signature_encoded = general_purpose::STANDARD.encode(invalid_signature);
+
+        let mut headers = HeaderMap::new();
+        headers.insert("Keygen-Signature", signature_encoded.parse().unwrap());
+
+        let verifier = Verifier::new(public_key);
+        let result = verifier.verify_keygen_signature(&headers, body);
+        assert!(matches!(result, Err(Error::LicenseKeyNotGenuine)));
+    }
+
+    #[test]
+    fn test_verify_keygen_signature_with_missing_header() {
+        let mut csprng = OsRng::default();
+        let keypair: Keypair = Keypair::generate(&mut csprng);
+        let public_key = hex::encode(keypair.public.as_bytes());
+
+        let body = b"test body";
+        let headers = HeaderMap::new();
+
+        let verifier = Verifier::new(public_key);
+        let result = verifier.verify_keygen_signature(&headers, body);
+        assert!(matches!(result, Err(Error::LicenseKeyNotGenuine)));
     }
 }

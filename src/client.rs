@@ -7,6 +7,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use std::time::Duration;
 use url::Url;
+use crate::verifier::Verifier;
 
 pub struct Client {
     inner: ReqwestClient,
@@ -23,6 +24,7 @@ pub struct ClientOptions {
     pub api_url: String,
     pub api_version: String,
     pub api_prefix: String,
+    pub verify_keygen_signature: bool, // New configuration item
 }
 
 #[derive(Debug)]
@@ -52,6 +54,7 @@ impl Client {
             api_url: config.api_url.to_string(),
             api_version: config.api_version.to_string(),
             api_prefix: config.api_prefix.to_string(),
+            verify_keygen_signature: config.verify_keygen_signature.unwrap_or(false), // Set default value
         })
     }
 
@@ -240,6 +243,16 @@ impl Client {
             response.json().await?
         };
 
+        // Verify Keygen-Signature header if enabled
+        if self.options.verify_keygen_signature {
+            let config = get_config();
+            if let Some(public_key) = config.public_key {
+                let verifier = Verifier::new(public_key);
+                verifier.verify_keygen_signature(&headers, &serde_json::to_vec(&body)?)
+                    .map_err(|_| Error::LicenseKeyNotGenuine)?;
+            }
+        }
+
         Ok(Response {
             status,
             headers,
@@ -388,6 +401,7 @@ mod tests {
             api_url: server_url(),
             api_version: "1.0".to_string(),
             api_prefix: "v1".to_string(),
+            verify_keygen_signature: true, // Enable Keygen-Signature verification for tests
         })
     }
 
