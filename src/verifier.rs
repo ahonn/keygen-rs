@@ -8,6 +8,14 @@ use ed25519_dalek::{PublicKey, Signature, Verifier as Ed25519Verifier};
 use reqwest::header::HeaderMap;
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
+struct SignatureComponents {
+    keyid: String,
+    algorithm: String,
+    signature: Vec<u8>,
+    headers: String,
+}
+
 pub struct Verifier {
     public_key: String,
 }
@@ -71,23 +79,93 @@ impl Verifier {
         path: &str,
         host: &str,
     ) -> Result<(), Error> {
-        let signature_header = headers.get("keygen-signature")
-            .ok_or_else(|| Error::KeygenSignatureInvalid { reason: "Missing signature header".to_string() })?
-            .to_str()
-            .map_err(|_| Error::KeygenSignatureInvalid { reason: "Invalid signature header".to_string() })?;
+        let signature_header = self.get_required_header(headers, "keygen-signature")?;
+        let date_header = self.get_required_header(headers, "date")?;
+        let digest_header = self.get_required_header(headers, "digest")?;
         
-        let date_header = headers.get("date")
-            .ok_or_else(|| Error::KeygenSignatureInvalid { reason: "Missing date header".to_string() })?
-            .to_str()
-            .map_err(|_| Error::KeygenSignatureInvalid { reason: "Invalid date header".to_string() })?;
+        self.verify_digest(digest_header, body)?;
         
-        let digest_header = headers.get("digest")
-            .ok_or_else(|| Error::KeygenSignatureInvalid { reason: "Missing digest header".to_string() })?
-            .to_str()
-            .map_err(|_| Error::KeygenSignatureInvalid { reason: "Invalid digest header".to_string() })?;
+        let signature_components = self.parse_signature_header(signature_header)?;
+        if signature_components.algorithm != "ed25519" {
+            return Err(Error::KeygenSignatureInvalid { 
+                reason: format!("Unsupported algorithm: {}", signature_components.algorithm) 
+            });
+        }
         
-        if digest_header.starts_with("sha-256=") {
-            let provided_digest = &digest_header["sha-256=".len()..];
+        let request_target = format!("{} {}", method.to_lowercase(), path);
+        let signing_data = format!(
+            "(request-target): {}\nhost: {}\ndate: {}\ndigest: {}",
+            request_target, host, date_header, digest_header
+        );
+        
+        self.verify_ed25519_signature(&signing_data, &signature_components.signature)?;
+        
+        Ok(())
+    }
+
+    fn get_required_header<'a>(&self, headers: &'a HeaderMap, name: &str) -> Result<&'a str, Error> {
+        headers.get(name)
+            .ok_or_else(|| Error::KeygenSignatureInvalid { 
+                reason: format!("Missing {} header", name) 
+            })?
+            .to_str()
+            .map_err(|_| Error::KeygenSignatureInvalid { 
+                reason: format!("Invalid {} header", name) 
+            })
+    }
+
+    fn parse_signature_header(&self, signature_header: &str) -> Result<SignatureComponents, Error> {
+        let mut keyid = String::new();
+        let mut algorithm = String::new();
+        let mut signature_b64 = String::new();
+        let mut headers = String::new();
+        
+        for part in signature_header.split(',') {
+            let part = part.trim();
+            if let Some(value) = self.extract_header_value(part, "keyid=") {
+                keyid = value;
+            } else if let Some(value) = self.extract_header_value(part, "algorithm=") {
+                algorithm = value;
+            } else if let Some(value) = self.extract_header_value(part, "signature=") {
+                signature_b64 = value;
+            } else if let Some(value) = self.extract_header_value(part, "headers=") {
+                headers = value;
+            }
+        }
+        
+        if keyid.is_empty() || algorithm.is_empty() || signature_b64.is_empty() || headers.is_empty() {
+            return Err(Error::KeygenSignatureInvalid { 
+                reason: "Missing signature components".to_string() 
+            });
+        }
+        
+        let signature = general_purpose::STANDARD
+            .decode(signature_b64)
+            .map_err(|_| Error::KeygenSignatureInvalid { 
+                reason: "Invalid signature encoding".to_string() 
+            })?;
+        
+        Ok(SignatureComponents {
+            keyid,
+            algorithm,
+            signature,
+            headers,
+        })
+    }
+
+    fn extract_header_value<'a>(&self, part: &'a str, prefix: &str) -> Option<String> {
+        if part.starts_with(prefix) {
+            Some(part.trim_start_matches(prefix).trim_matches('"').to_string())
+        } else {
+            None
+        }
+    }
+
+    fn verify_digest(&self, digest_header: &str, body: &[u8]) -> Result<(), Error> {
+        const SHA256_PREFIX: &str = "sha-256=";
+        
+        if digest_header.starts_with(SHA256_PREFIX) {
+            let provided_digest = &digest_header[SHA256_PREFIX.len()..];
             
             let mut hasher = Sha256::new();
             hasher.update(body);
@@ -99,60 +177,22 @@ impl Verifier {
                     reason: "Body digest does not match digest header".to_string() 
                 });
             }
+            Ok(())
         } else {
-            return Err(Error::KeygenSignatureInvalid { 
+            Err(Error::KeygenSignatureInvalid { 
                 reason: "Unsupported digest algorithm".to_string() 
-            });
+            })
         }
-        
-        let mut keyid = "";
-        let mut algorithm = "";
-        let mut signature_b64 = "";
-        let mut headers_list = "";
-        
-        for part in signature_header.split(',') {
-            let part = part.trim();
-            if part.starts_with("keyid=") {
-                keyid = part.trim_start_matches("keyid=").trim_matches('"');
-            } else if part.starts_with("algorithm=") {
-                algorithm = part.trim_start_matches("algorithm=").trim_matches('"');
-            } else if part.starts_with("signature=") {
-                signature_b64 = part.trim_start_matches("signature=").trim_matches('"');
-            } else if part.starts_with("headers=") {
-                headers_list = part.trim_start_matches("headers=").trim_matches('"');
-            }
-        }
-        
-        if keyid.is_empty() || algorithm.is_empty() || signature_b64.is_empty() || headers_list.is_empty() {
-            return Err(Error::KeygenSignatureInvalid { reason: "Missing signature components".to_string() });
-        }
-        
-        if algorithm != "ed25519" {
-            return Err(Error::KeygenSignatureInvalid { 
-                reason: format!("Unsupported algorithm: {}", algorithm) 
-            });
-        }
-        
-        let request_target = format!("{} {}", method.to_lowercase(), path);
-        
-        let signing_data = format!(
-            "(request-target): {}\nhost: {}\ndate: {}\ndigest: {}",
-            request_target, host, date_header, digest_header
-        );
-        
-        let signature_bytes = general_purpose::STANDARD
-            .decode(signature_b64)
-            .map_err(|_| Error::KeygenSignatureInvalid { 
-                reason: "Invalid signature encoding".to_string() 
-            })?;
-        
+    }
+
+    fn verify_ed25519_signature(&self, signing_data: &str, signature_bytes: &[u8]) -> Result<(), Error> {
         let public_key_bytes = self.public_key_bytes()?;
         let public_key = PublicKey::from_bytes(&public_key_bytes)
             .map_err(|_| Error::KeygenSignatureInvalid { 
                 reason: "Invalid public key".to_string() 
             })?;
         
-        let signature = Signature::try_from(&signature_bytes[..])
+        let signature = Signature::try_from(signature_bytes)
             .map_err(|_| Error::KeygenSignatureInvalid { 
                 reason: "Invalid signature format".to_string() 
             })?;
