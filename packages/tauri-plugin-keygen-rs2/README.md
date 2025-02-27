@@ -4,7 +4,17 @@ Tauri V2 plugin for Keygen.sh licensing, based on the keygen-rs SDK.
 
 > For Tauri v1, please use [tauri-plugin-keygen-rs](../tauri-plugin-keygen-rs).
 
+### Sponsored by
+
+<a href="https://keygen.sh?via=keygen-rs" style="margin-right: 10px">
+    <img src="https://keygen.sh/images/logo-pill.png" width="200" alt="Keygen">
+</a>
+<a href="https://badgeify.app?ref=keygen-rs">
+    <img src="https://badgeify.app/logo-pill.png" width="200" alt="Badgeify">
+</a>
+
 ## Features
+
 - License validation and management
 - Machine-specific license activation and deactivation
 - Real-time license state updates
@@ -17,7 +27,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tauri-plugin-keygen-rs2 = "0.2.2"
+tauri-plugin-keygen-rs2 = "0.4.0"
 ```
 
 ## Usage
@@ -44,11 +54,11 @@ tauri::Builder::default()
 
 ```typescript
 import {
-    getLicense,
-    validateKey,
-    deactivate,
-    checkoutLicense,
-    checkoutMachine,
+  getLicense,
+  validateKey,
+  deactivate,
+  checkoutLicense,
+  checkoutMachine,
 } from 'tauri-plugin-keygen-rs-api2';
 
 const license = await validateKey('YOUR_LICENSE_KEY');
