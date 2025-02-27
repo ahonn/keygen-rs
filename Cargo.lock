@@ -1882,9 +1882,7 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe649e2120918483dbad72d38a33a3c74fd8857dc4cfe1a46c087a109d482458"
+version = "0.4.0"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -1893,6 +1891,7 @@ dependencies = [
  "dotenv",
  "ed25519-dalek",
  "futures",
+ "futures-timer",
  "hex",
  "hostname",
  "lazy_static",
@@ -1913,7 +1912,9 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs"
-version = "0.3.1"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce19f455a9dc952017b39813a3872aa12841618a0cd3bea4b51894be3371b8c5"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -3996,9 +3997,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-keygen-rs2"
-version = "0.2.3"
+version = "0.4.0"
 dependencies = [
- "keygen-rs 0.2.2",
+ "keygen-rs 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
  "log",
  "machine-uid",
