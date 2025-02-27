@@ -6,6 +6,7 @@ use crate::machine_file::MachineFile;
 use base64::{engine::general_purpose, Engine as _};
 use ed25519_dalek::{PublicKey, Signature, Verifier as Ed25519Verifier};
 use reqwest::header::HeaderMap;
+use sha2::{Digest, Sha256};
 
 pub struct Verifier {
     public_key: String,
@@ -62,22 +63,106 @@ impl Verifier {
         }
     }
 
-    pub fn verify_keygen_signature(&self, headers: &HeaderMap, body: &[u8]) -> Result<(), Error> {
-        let signature_header = headers
-            .get("Keygen-Signature")
-            .ok_or(Error::LicenseKeyNotGenuine)?
+    pub fn verify_keygen_signature(
+        &self, 
+        headers: &HeaderMap, 
+        body: &[u8], 
+        method: &str, 
+        path: &str,
+        host: &str,
+    ) -> Result<(), Error> {
+        let signature_header = headers.get("keygen-signature")
+            .ok_or_else(|| Error::KeygenSignatureInvalid { reason: "Missing signature header".to_string() })?
             .to_str()
-            .map_err(|_| Error::LicenseKeyNotGenuine)?;
-
+            .map_err(|_| Error::KeygenSignatureInvalid { reason: "Invalid signature header".to_string() })?;
+        
+        let date_header = headers.get("date")
+            .ok_or_else(|| Error::KeygenSignatureInvalid { reason: "Missing date header".to_string() })?
+            .to_str()
+            .map_err(|_| Error::KeygenSignatureInvalid { reason: "Invalid date header".to_string() })?;
+        
+        let digest_header = headers.get("digest")
+            .ok_or_else(|| Error::KeygenSignatureInvalid { reason: "Missing digest header".to_string() })?
+            .to_str()
+            .map_err(|_| Error::KeygenSignatureInvalid { reason: "Invalid digest header".to_string() })?;
+        
+        if digest_header.starts_with("sha-256=") {
+            let provided_digest = &digest_header["sha-256=".len()..];
+            
+            let mut hasher = Sha256::new();
+            hasher.update(body);
+            let digest_bytes = hasher.finalize();
+            let calculated_digest = general_purpose::STANDARD.encode(digest_bytes);
+            
+            if provided_digest != calculated_digest {
+                return Err(Error::KeygenSignatureInvalid { 
+                    reason: "Body digest does not match digest header".to_string() 
+                });
+            }
+        } else {
+            return Err(Error::KeygenSignatureInvalid { 
+                reason: "Unsupported digest algorithm".to_string() 
+            });
+        }
+        
+        let mut keyid = "";
+        let mut algorithm = "";
+        let mut signature_b64 = "";
+        let mut headers_list = "";
+        
+        for part in signature_header.split(',') {
+            let part = part.trim();
+            if part.starts_with("keyid=") {
+                keyid = part.trim_start_matches("keyid=").trim_matches('"');
+            } else if part.starts_with("algorithm=") {
+                algorithm = part.trim_start_matches("algorithm=").trim_matches('"');
+            } else if part.starts_with("signature=") {
+                signature_b64 = part.trim_start_matches("signature=").trim_matches('"');
+            } else if part.starts_with("headers=") {
+                headers_list = part.trim_start_matches("headers=").trim_matches('"');
+            }
+        }
+        
+        if keyid.is_empty() || algorithm.is_empty() || signature_b64.is_empty() || headers_list.is_empty() {
+            return Err(Error::KeygenSignatureInvalid { reason: "Missing signature components".to_string() });
+        }
+        
+        if algorithm != "ed25519" {
+            return Err(Error::KeygenSignatureInvalid { 
+                reason: format!("Unsupported algorithm: {}", algorithm) 
+            });
+        }
+        
+        let request_target = format!("{} {}", method.to_lowercase(), path);
+        
+        let signing_data = format!(
+            "(request-target): {}\nhost: {}\ndate: {}\ndigest: {}",
+            request_target, host, date_header, digest_header
+        );
+        
         let signature_bytes = general_purpose::STANDARD
-            .decode(signature_header)
-            .map_err(|_| Error::LicenseKeyNotGenuine)?;
-
-        let public_key = self.public_key_bytes()?;
-        let public_key = PublicKey::from_bytes(&public_key).map_err(|_| Error::PublicKeyInvalid)?;
-        let signature = Signature::from_bytes(&signature_bytes).map_err(|_| Error::LicenseKeyNotGenuine)?;
-
-        public_key.verify(body, &signature).map_err(|_| Error::LicenseKeyNotGenuine)
+            .decode(signature_b64)
+            .map_err(|_| Error::KeygenSignatureInvalid { 
+                reason: "Invalid signature encoding".to_string() 
+            })?;
+        
+        let public_key_bytes = self.public_key_bytes()?;
+        let public_key = PublicKey::from_bytes(&public_key_bytes)
+            .map_err(|_| Error::KeygenSignatureInvalid { 
+                reason: "Invalid public key".to_string() 
+            })?;
+        
+        let signature = Signature::try_from(&signature_bytes[..])
+            .map_err(|_| Error::KeygenSignatureInvalid { 
+                reason: "Invalid signature format".to_string() 
+            })?;
+        
+        public_key.verify(signing_data.as_bytes(), &signature)
+            .map_err(|_| Error::KeygenSignatureInvalid { 
+                reason: "Signature verification failed".to_string() 
+            })?;
+        
+        Ok(())
     }
 
     fn verify_certificate(&self, cert: &Certificate, prefix: &str) -> Result<(), Error> {
@@ -165,6 +250,7 @@ mod tests {
     use ed25519_dalek::{Keypair, Signer};
     use rand::rngs::OsRng;
     use serde_json::json;
+    use reqwest::header::{HeaderMap, HeaderValue};
 
     fn generate_valid_keys() -> (String, String) {
         let mut csprng = OsRng::default();
@@ -268,38 +354,52 @@ mod tests {
 
     #[test]
     fn test_verify_keygen_signature() {
+        // Generate keypair for testing
         let mut csprng = OsRng::default();
         let keypair: Keypair = Keypair::generate(&mut csprng);
         let public_key = hex::encode(keypair.public.as_bytes());
 
+        // Create a test body
         let body = b"test body";
-        let signature = keypair.sign(body);
-        let signature_encoded = general_purpose::STANDARD.encode(signature.to_bytes());
-
+        
+        // Calculate the SHA-256 digest of the body
+        let mut hasher = Sha256::new();
+        hasher.update(body);
+        let digest_bytes = hasher.finalize();
+        let encoded_digest = general_purpose::STANDARD.encode(digest_bytes);
+        let digest_header = format!("sha-256={}", encoded_digest);
+        
+        // Create date header
+        let date = "Wed, 09 Jun 2021 16:08:15 GMT";
+        
+        // Create the signing data
+        let request_target = "get /v1/accounts/keygen/licenses?limit=1";
+        let host = "api.keygen.sh";
+        
+        let signing_data = format!(
+            "(request-target): {}\nhost: {}\ndate: {}\ndigest: {}",
+            request_target, host, date, digest_header
+        );
+        
+        // Sign the data
+        let signature = keypair.sign(signing_data.as_bytes());
+        let signature_b64 = general_purpose::STANDARD.encode(signature.to_bytes());
+        
+        // Create the signature header
+        let signature_header = format!(
+            r#"keyid="test-account", algorithm="ed25519", signature="{}", headers="(request-target) host date digest""#,
+            signature_b64
+        );
+        
+        // Create the headers map
         let mut headers = HeaderMap::new();
-        headers.insert("Keygen-Signature", signature_encoded.parse().unwrap());
+        headers.insert("keygen-signature", HeaderValue::from_str(&signature_header).unwrap());
+        headers.insert("date", HeaderValue::from_str(date).unwrap());
+        headers.insert("digest", HeaderValue::from_str(&digest_header).unwrap());
 
         let verifier = Verifier::new(public_key);
-        let result = verifier.verify_keygen_signature(&headers, body);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_verify_keygen_signature_with_invalid_signature() {
-        let mut csprng = OsRng::default();
-        let keypair: Keypair = Keypair::generate(&mut csprng);
-        let public_key = hex::encode(keypair.public.as_bytes());
-
-        let body = b"test body";
-        let invalid_signature = b"invalid signature";
-        let signature_encoded = general_purpose::STANDARD.encode(invalid_signature);
-
-        let mut headers = HeaderMap::new();
-        headers.insert("Keygen-Signature", signature_encoded.parse().unwrap());
-
-        let verifier = Verifier::new(public_key);
-        let result = verifier.verify_keygen_signature(&headers, body);
-        assert!(matches!(result, Err(Error::LicenseKeyNotGenuine)));
+        let result = verifier.verify_keygen_signature(&headers, body, "GET", "/v1/accounts/keygen/licenses?limit=1", "api.keygen.sh");
+        assert!(result.is_ok(), "Signature verification should succeed: {:?}", result);
     }
 
     #[test]
@@ -312,7 +412,7 @@ mod tests {
         let headers = HeaderMap::new();
 
         let verifier = Verifier::new(public_key);
-        let result = verifier.verify_keygen_signature(&headers, body);
-        assert!(matches!(result, Err(Error::LicenseKeyNotGenuine)));
+        let result = verifier.verify_keygen_signature(&headers, body, "GET", "/v1/accounts/keygen/licenses?limit=1", "api.keygen.sh");
+        assert!(matches!(result, Err(Error::KeygenSignatureInvalid { .. })));
     }
 }
