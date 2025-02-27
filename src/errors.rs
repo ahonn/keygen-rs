@@ -204,6 +204,14 @@ pub enum Error {
 
     #[error("Not found")]
     NotFound { code: String, detail: String },
+
+    #[error("Keygen signature validation failed: {reason}")]
+    KeygenSignatureInvalid {
+        reason: String,
+    },
+
+    #[error("Keygen signature missing")]
+    KeygenSignatureMissing,
 }
 
 pub trait ErrorMeta {

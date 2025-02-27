@@ -16,6 +16,7 @@ pub struct KeygenConfig {
     pub platform: Option<String>,
     pub user_agent: Option<String>,
     pub max_clock_drift: Option<i64>,
+    pub verify_keygen_signature: Option<bool>,
 }
 
 impl Default for KeygenConfig {
@@ -34,6 +35,7 @@ impl Default for KeygenConfig {
             user_agent: None,
             platform: None,
             max_clock_drift: Some(5),
+            verify_keygen_signature: Some(true),
         }
     }
 }

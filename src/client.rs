@@ -7,6 +7,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use std::time::Duration;
 use url::Url;
+use crate::verifier::Verifier;
 
 pub struct Client {
     inner: ReqwestClient,
@@ -23,6 +24,7 @@ pub struct ClientOptions {
     pub api_url: String,
     pub api_version: String,
     pub api_prefix: String,
+    pub verify_keygen_signature: bool,
 }
 
 #[derive(Debug)]
@@ -52,6 +54,7 @@ impl Client {
             api_url: config.api_url.to_string(),
             api_version: config.api_version.to_string(),
             api_prefix: config.api_prefix.to_string(),
+            verify_keygen_signature: config.verify_keygen_signature.unwrap_or(true),
         })
     }
 
@@ -82,7 +85,7 @@ impl Client {
     pub async fn get<T, U>(&self, path: &str, params: Option<&T>) -> Result<Response<U>, Error>
     where
         T: Serialize + ?Sized,
-        U: DeserializeOwned,
+        U: DeserializeOwned + Serialize,
     {
         self.send(self.new_request(reqwest::Method::GET, path, params)?)
             .await
@@ -96,7 +99,7 @@ impl Client {
     ) -> Result<Response<U>, Error>
     where
         T: Serialize + ?Sized,
-        U: DeserializeOwned,
+        U: DeserializeOwned + Serialize,
         Q: Serialize + ?Sized,
     {
         let mut request = self.new_request(reqwest::Method::POST, path, body)?;
@@ -115,7 +118,7 @@ impl Client {
     ) -> Result<Response<U>, Error>
     where
         T: Serialize + ?Sized,
-        U: DeserializeOwned,
+        U: DeserializeOwned + Serialize,
         Q: Serialize + ?Sized,
     {
         let mut request = self.new_request(reqwest::Method::PUT, path, body)?;
@@ -134,7 +137,7 @@ impl Client {
     ) -> Result<Response<U>, Error>
     where
         T: Serialize + ?Sized,
-        U: DeserializeOwned,
+        U: DeserializeOwned + Serialize,
         Q: Serialize + ?Sized,
     {
         let mut request = self.new_request(reqwest::Method::PATCH, path, body)?;
@@ -147,7 +150,7 @@ impl Client {
     pub async fn delete<T, U>(&self, path: &str, params: Option<&T>) -> Result<Response<U>, Error>
     where
         T: Serialize + ?Sized,
-        U: DeserializeOwned,
+        U: DeserializeOwned + Serialize,
     {
         self.send(self.new_request(reqwest::Method::DELETE, path, params)?)
             .await
@@ -223,9 +226,13 @@ impl Client {
         Ok(request.build()?)
     }
 
-    async fn send<U: DeserializeOwned>(&self, request: Request) -> Result<Response<U>, Error> {
+    async fn send<U: DeserializeOwned + Serialize>(&self, request: Request) -> Result<Response<U>, Error> {
+        let method = request.method().as_str().to_owned();
+        let url = request.url().clone();
+        let host = url.host_str().unwrap_or("api.keygen.sh").to_string();
+        
         let response = self.inner.execute(request).await?;
-
+        
         let status = response.status();
         let headers = response.headers().clone();
 
@@ -233,13 +240,38 @@ impl Client {
             let error_body: serde_json::Value = response.json().await?;
             return Err(self.handle_error(status, &headers, error_body));
         }
-
+        let bytes = response.bytes().await?;
+        
+        if self.options.verify_keygen_signature {
+            let config = get_config();
+            if let Some(public_key) = config.public_key {
+                let verifier = Verifier::new(public_key);
+                
+                let base_path = url.path();
+                let full_path = if let Some(query) = url.query() {
+                    format!("{}?{}", base_path, query)
+                } else {
+                    base_path.to_string()
+                };
+                
+                verifier.verify_keygen_signature(
+                    &headers, 
+                    &bytes, 
+                    &method, 
+                    &full_path,
+                    &host
+                ).map_err(|err| Error::KeygenSignatureInvalid { 
+                    reason: format!("Keygen signature validation failed: {}", err) 
+                })?;
+            }
+        }
+        
         let body: U = if status == StatusCode::NO_CONTENT {
             serde_json::from_value(serde_json::Value::Null)?
         } else {
-            response.json().await?
+            serde_json::from_slice(&bytes)?
         };
-
+        
         Ok(Response {
             status,
             headers,
@@ -388,6 +420,7 @@ mod tests {
             api_url: server_url(),
             api_version: "1.0".to_string(),
             api_prefix: "v1".to_string(),
+            verify_keygen_signature: true, // Enable Keygen-Signature verification for tests
         })
     }
 
