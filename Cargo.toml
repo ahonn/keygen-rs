@@ -1,6 +1,6 @@
 [package]
 name = "keygen-rs"
-version = "0.4.0"
+version = "0.4.1"
 description = "Unofficial Keygen SDK for Rust. Integrate license activation and offline licensing."
 license = "MIT"
 edition = "2021"
@@ -20,7 +20,10 @@ rustls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
 
 [dependencies]
-reqwest = { version = "0.11", default-features = false, features = ["json"] }
+reqwest = { version = "0.11", features = [
+    "json",
+    "rustls-tls",
+], default-features = false }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
