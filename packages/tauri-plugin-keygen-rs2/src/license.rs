@@ -26,10 +26,10 @@ pub struct LicenseState {
 
 impl LicenseState {
     async fn set_valid(&mut self, valid: bool) {
-      if self.valid != valid {
-        self.valid = valid;
-        notify_license_listeners(self).await;
-      }
+        if self.valid != valid {
+            self.valid = valid;
+            notify_license_listeners(self).await;
+        }
     }
 
     pub async fn validate_key<R: Runtime>(
@@ -84,10 +84,15 @@ impl LicenseState {
     ) -> Result<()> {
         if let Some(license) = &self.license {
             log::info!("Deactivating license for {}", fingerprint);
-            license.deactivate(fingerprint).await?;
-            Self::remove_license_file(app_handle)?;
-            MachineState::remove_machine_file(app_handle)?;
-            self.set_valid(false).await;
+            match license.deactivate(fingerprint).await {
+                // if the machines are not found, remove the license file
+                Ok(_) | Err(KeygenError::NotFound { .. }) => {
+                    Self::remove_license_file(app_handle)?;
+                    MachineState::remove_machine_file(app_handle)?;
+                    self.set_valid(false).await;
+                }
+                Err(err) => return Err(err.into()),
+            };
             Ok(())
         } else {
             Err(Error::NoLicenseError)
