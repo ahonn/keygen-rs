@@ -5,6 +5,7 @@ import {
   deactivate,
   getLicense,
   getLicenseKey,
+  getLicenseMetadata,
   KeygenError,
   KeygenLicense,
   validateKey,
@@ -15,14 +16,22 @@ function App() {
   const [key, setKey] = useState('');
   const [license, setLicense] = useState<KeygenLicense | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
     getLicenseKey().then((key) => {
-      setKey(key);
+      if (key) {
+        setKey(key);
+      }
     });
     getLicense().then((license) => {
       if (license) {
         setLicense(license);
+      }
+    });
+    getLicenseMetadata().then((data) => {
+      if (data) {
+        setMetadata(data);
       }
     });
   }, []);
@@ -32,6 +41,11 @@ function App() {
     try {
       const license = await validateKey(key);
       setLicense(license);
+      
+      const data = await getLicenseMetadata();
+      if (data) {
+        setMetadata(data);
+      }
     } catch (err) {
       setError((err as KeygenError).detail);
     }
@@ -42,6 +56,7 @@ function App() {
     try {
       await deactivate();
       setLicense(null);
+      setMetadata(null);
     } catch (err) {
       setError((err as KeygenError).detail);
     }
@@ -90,6 +105,24 @@ function App() {
           )}
         </div>
         {error && <div className="error">{error}</div>}
+        
+        {metadata && (
+          <div>
+            <h3>Metadata</h3>
+            <div>
+              {Object.entries(metadata).map(([key, value]) => (
+                <div key={key}>
+                  <span>{key}: </span>
+                  <span>
+                    {typeof value === 'object' 
+                      ? JSON.stringify(value) 
+                      : String(value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,7 +2,8 @@ use std::env;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
+use std::collections::HashMap;
 
 use crate::certificate::CartificateFileResponse;
 use crate::client::Client;
@@ -47,6 +48,7 @@ pub(crate) struct LicenseAttributes {
     pub name: Option<String>,
     pub expiry: Option<DateTime<Utc>>,
     pub status: Option<String>,
+    pub metadata: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,6 +61,7 @@ pub struct License {
     pub expiry: Option<DateTime<Utc>>,
     pub status: Option<String>,
     pub policy: Option<String>,
+    pub metadata: HashMap<String, Value>,
 }
 
 pub struct LicenseCheckoutOpts {
@@ -76,6 +79,7 @@ impl License {
             expiry: data.attributes.expiry,
             status: data.attributes.status,
             policy: data.relationships.policy.map(|p| p.data.id),
+            metadata: data.attributes.metadata,
         }
     }
 
@@ -88,6 +92,7 @@ impl License {
             expiry: None,
             status: None,
             policy: None,
+            metadata: HashMap::new(),
         }
     }
 
@@ -352,6 +357,7 @@ mod tests {
             expiry: None,
             status: None,
             policy: None,
+            metadata: HashMap::new(),
         }
     }
 
@@ -375,7 +381,12 @@ mod tests {
                     "name": "Test License",
                     "key": "TEST-LICENSE-KEY",
                     "expiry": null,
-                    "status": "valid"
+                    "status": "valid",
+                    "metadata": {
+                        "customer_name": "Test Customer",
+                        "customer_email": "test@example.com",
+                        "is_premium": true
+                    }
                 },
                 "relationships": {
                     "policy": {
@@ -462,5 +473,54 @@ mod tests {
         license.scheme = None;
         let result = license.verify();
         assert!(matches!(result, Err(Error::LicenseNotSigned)));
+    }
+
+    #[tokio::test]
+    async fn test_validate_with_metadata() {
+        let license = create_test_license();
+        let _m = mock("POST", "/v1/licenses/test_license_id/actions/validate")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(get_mock_body())
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        });
+
+        let result = license
+            .validate(
+                &[
+                    "test_fingerprint".to_string(),
+                    "comp1".to_string(),
+                    "comp2".to_string(),
+                ],
+                &[],
+            )
+            .await;
+        
+        assert!(result.is_ok());
+        let validated_license = result.unwrap();
+        
+        // Verify metadata fields
+        assert!(validated_license.metadata.contains_key("customer_name"));
+        assert_eq!(
+            validated_license.metadata.get("customer_name").unwrap().as_str().unwrap(),
+            "Test Customer"
+        );
+        
+        assert!(validated_license.metadata.contains_key("customer_email"));
+        assert_eq!(
+            validated_license.metadata.get("customer_email").unwrap().as_str().unwrap(),
+            "test@example.com"
+        );
+        
+        assert!(validated_license.metadata.contains_key("is_premium"));
+        assert!(validated_license.metadata.get("is_premium").unwrap().as_bool().unwrap());
+        
+        reset_config();
     }
 }
