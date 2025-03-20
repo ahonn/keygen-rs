@@ -134,6 +134,7 @@ impl Builder {
                 commands::checkout_license,
                 commands::checkout_machine,
                 commands::reset_license,
+                commands::get_license_metadata,
             ])
             .setup(move |app_handle, _api| {
                 let app_name = app_handle.package_info().name.clone();

@@ -8,6 +8,7 @@ export interface KeygenLicense {
   status: string;
   policy: string;
   valid: boolean;
+  metadata?: Record<string, any>;
 }
 
 interface InvokeError {
@@ -138,6 +139,19 @@ export async function checkoutMachine(ttl?: number, include?: string[]) {
 export async function resetLicense() {
   try {
     await invoke('plugin:keygen-rs2|reset_license');
+  } catch (err) {
+    if (isInvokeError(err)) {
+      const { code, detail } = err;
+      throw new KeygenError(code, detail);
+    }
+    throw new KeygenError('ERROR', (err as Error).message);
+  }
+}
+
+export async function getLicenseMetadata(): Promise<Record<string, any> | null> {
+  try {
+    const metadata = await invoke<Record<string, any> | null>('plugin:keygen-rs2|get_license_metadata');
+    return metadata;
   } catch (err) {
     if (isInvokeError(err)) {
       const { code, detail } = err;
