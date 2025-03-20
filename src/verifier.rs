@@ -1,12 +1,13 @@
+use base64::{engine::general_purpose, Engine};
+use ed25519_dalek::{PublicKey, Signature, Verifier as Ed25519Verifier};
+use reqwest::header::HeaderMap;
+use sha2::{Digest, Sha256};
+
 use crate::certificate::Certificate;
 use crate::errors::Error;
 use crate::license::{License, SchemeCode};
 use crate::license_file::LicenseFile;
 use crate::machine_file::MachineFile;
-use base64::{engine::general_purpose, Engine as _};
-use ed25519_dalek::{PublicKey, Signature, Verifier as Ed25519Verifier};
-use reqwest::header::HeaderMap;
-use sha2::{Digest, Sha256};
 
 #[allow(dead_code)]
 struct SignatureComponents {
@@ -284,6 +285,8 @@ impl Verifier {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use crate::license::SchemeCode;
     use base64::engine::general_purpose;
@@ -327,6 +330,7 @@ mod tests {
             expiry: None,
             status: None,
             policy: None,
+            metadata: HashMap::new(),
         }
     }
 
