@@ -21,6 +21,7 @@ whoami = "1.5.1"
 lazy_static = "1.4.0"
 log = { version = "0.4", features = ["std"] }
 sys-locale = "0.3"
+# keygen-rs = "0.4"
 keygen-rs = { path = "../.." }
 
 [build-dependencies]

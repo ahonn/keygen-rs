@@ -6,6 +6,7 @@ export interface KeygenLicense {
     status: string;
     policy: string;
     valid: boolean;
+    metadata?: Record<string, any>;
 }
 export declare class KeygenError extends Error {
     code: string;
@@ -19,3 +20,4 @@ export declare function deactivate(): Promise<void>;
 export declare function checkoutLicense(ttl?: number, include?: string[]): Promise<void>;
 export declare function checkoutMachine(ttl?: number, include?: string[]): Promise<void>;
 export declare function resetLicense(): Promise<void>;
+export declare function getLicenseMetadata(): Promise<Record<string, any> | null>;

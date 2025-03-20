@@ -8,6 +8,8 @@ use keygen_rs::{
     machine_file::MachineFile,
 };
 use tauri::{command, AppHandle, Runtime};
+use std::collections::HashMap;
+use serde_json::Value;
 
 type Result<T> = std::result::Result<T, InvokeError>;
 
@@ -131,4 +133,16 @@ pub async fn reset_license<R: Runtime>(app_handle: AppHandle<R>) -> Result<()> {
     app_handle.remove_license_file()?;
     app_handle.remove_machine_file()?;
     Ok(())
+}
+
+#[command]
+pub async fn get_license_metadata<R: Runtime>(app_handle: AppHandle<R>) -> Result<Option<HashMap<String, Value>>> {
+    let license_state = app_handle.get_license_state();
+    let license_state = license_state.lock().await;
+    
+    if let Some(license) = &license_state.license {
+        Ok(Some(license.metadata.clone()))
+    } else {
+        Ok(None)
+    }
 }
