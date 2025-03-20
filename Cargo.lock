@@ -1956,7 +1956,7 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -1986,9 +1986,9 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e92a4ce64f75fe4c91230a398d3592d180f085d26fd8fb3ecf47aa7d06fc4f30"
+checksum = "054c5db2cbdee0573bbd1b9b671ef2e9ace25aa2b6ae24dc001d358757466dc2"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -2334,7 +2334,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 3.3.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.100",
@@ -2956,15 +2956,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e8366a6159044a37876a2b9817124296703c586a5c92e2c53751fa06d8d43e8"
 dependencies = [
  "toml_edit 0.20.7",
-]
-
-[[package]]
-name = "proc-macro-crate"
-version = "3.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edce586971a4dfaa28950c6f18ed55e0406c1ab88bbce2c6f6293a7aaba73d35"
-dependencies = [
- "toml_edit 0.22.24",
 ]
 
 [[package]]
@@ -4093,9 +4084,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-keygen-rs2"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
- "keygen-rs 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "keygen-rs 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
  "log",
  "machine-uid",

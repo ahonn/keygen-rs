@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-keygen-rs"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["ahonn"]
 description = "Tauri plugin for Keygen.sh licensing, based on keygen-rs"
 license = "MIT"
@@ -18,5 +18,5 @@ machine-uid = "0.5.1"
 whoami = "1.5.1"
 lazy_static = "1.4.0"
 log = { version = "0.4", features = ["std"] }
-keygen-rs = "0.4"
+keygen-rs = "0.4.2"
 # keygen-rs = { path = "../.." }
