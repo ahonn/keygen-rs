@@ -6,8 +6,12 @@ use std::{
 
 use keygen_rs::{machine::MachineCheckoutOpts, machine_file::MachineFile};
 use tauri::{webview_version, AppHandle, Runtime};
+use tauri_plugin_machine_uid::MachineUidExt;
 
 use crate::{error::Error, utils::get_app_keygen_path, AppHandleExt, Result};
+
+#[cfg(mobile)]
+static ENGINE_NAME: &str = "WRY";
 
 #[cfg(target_os = "linux")]
 static ENGINE_NAME: &str = "WebKit";
@@ -27,12 +31,35 @@ pub struct MachineState {
 }
 
 impl MachineState {
+    #[cfg(desktop)]
     pub fn get_fingerprint() -> String {
-        machine_uid::get().unwrap_or("".into())
+        machine_uid::get().unwrap_or_default()
     }
 
-    pub(crate) fn new(app_name: String, app_version: String) -> Self {
-        let fingerprint = Self::get_fingerprint();
+    #[cfg(mobile)]
+    pub fn get_fingerprint() -> String {
+        "mobile".to_string()
+    }
+
+    pub fn get_fingerprint_app<R: Runtime>(app_handle: &AppHandle<R>) -> String {
+        let Some(state) = app_handle.try_machine_uid() else {
+            log::warn!("tauri-plugin-machine-uid is not initialized. You should add it to your application and initialize it before tauri-plugin-keygen-rs2. Using default fingerprint.");
+            return Self::get_fingerprint();
+        };
+
+        state
+            .get_machine_uid()
+            .ok()
+            .and_then(|uid| uid.id)
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn new<R: Runtime>(
+        app_handle: &AppHandle<R>,
+        app_name: String,
+        app_version: String,
+    ) -> Self {
+        let fingerprint = Self::get_fingerprint_app(app_handle);
         let name = whoami::devicename();
 
         let os_name = format!("{}", whoami::platform());

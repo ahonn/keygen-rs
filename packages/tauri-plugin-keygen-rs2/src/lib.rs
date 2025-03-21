@@ -140,7 +140,7 @@ impl Builder {
                 let app_name = app_handle.package_info().name.clone();
                 let app_version = app_handle.package_info().version.to_string();
 
-                let machine_state = MachineState::new(app_name, app_version);
+                let machine_state = MachineState::new(app_handle, app_name, app_version);
                 app_handle.manage(Mutex::new(machine_state));
 
                 let license_state = LicenseState::load(app_handle);

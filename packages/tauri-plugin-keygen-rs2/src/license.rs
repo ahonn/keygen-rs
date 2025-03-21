@@ -129,7 +129,7 @@ impl LicenseState {
                 });
             }
             // attempt to load the machine file
-            let fingerprint = MachineState::get_fingerprint();
+            let fingerprint = MachineState::get_fingerprint_app(app_handle);
             let key = format!("{}{}", &license_key, fingerprint);
             if let Some(machine_file) = MachineState::load_machine_file(app_handle, &key)? {
                 let dataset = machine_file.decrypt(&key)?;
