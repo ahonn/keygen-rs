@@ -229,7 +229,11 @@ impl Client {
     async fn send<U: DeserializeOwned + Serialize>(&self, request: Request) -> Result<Response<U>, Error> {
         let method = request.method().as_str().to_owned();
         let url = request.url().clone();
-        let host = url.host_str().unwrap_or("api.keygen.sh").to_string();
+        let host = match (url.host_str(), url.port()) {
+            (Some(h), Some(p)) => format!("{}:{}", h, p),
+            (Some(h), None) => h.to_string(),
+            _ => "api.keygen.sh".to_string(),
+        };
         
         let response = self.inner.execute(request).await?;
         
