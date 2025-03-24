@@ -6,6 +6,7 @@ use std::{
 
 use keygen_rs::{machine::MachineCheckoutOpts, machine_file::MachineFile};
 use tauri::{webview_version, AppHandle, Runtime};
+#[cfg(mobile)]
 use tauri_plugin_machine_uid::MachineUidExt;
 
 use crate::{error::Error, utils::get_app_keygen_path, AppHandleExt, Result};
@@ -36,15 +37,25 @@ impl MachineState {
         machine_uid::get().unwrap_or_default()
     }
 
-    #[cfg(mobile)]
-    pub fn get_fingerprint() -> String {
-        "mobile".to_string()
+    #[cfg(desktop)]
+    pub fn get_fingerprint_app<R: Runtime>(_app_handle: &AppHandle<R>) -> String {
+        Self::get_fingerprint()
     }
 
+    #[cfg(mobile)]
+    pub fn get_fingerprint() -> String {
+        panic!(
+            r#"On mobile, you should use the `get_fingerprint_app` method instead of `get_fingerprint`."#
+        );
+    }
+
+    #[cfg(mobile)]
     pub fn get_fingerprint_app<R: Runtime>(app_handle: &AppHandle<R>) -> String {
         let Some(state) = app_handle.try_machine_uid() else {
-            log::warn!("tauri-plugin-machine-uid is not initialized. You should add it to your application and initialize it before tauri-plugin-keygen-rs2. Using default fingerprint.");
-            return Self::get_fingerprint();
+            panic!(
+                r#"tauri-plugin-machine-uid is not initialized but is required to get machine fingerprints on mobile. 
+You should add it to your application and initialize it before tauri-plugin-keygen-rs2."#
+            );
         };
 
         state

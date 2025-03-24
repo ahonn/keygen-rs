@@ -4161,7 +4161,8 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-machine-uid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SkipperNDT/tauri-plugin-machine-uid.git?branch=main#6f7d9073817aaf966e9401d65b8d316fb33ad84a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37e3b3e4131abb59823f83a3e8d9fc6f94f8194476de2170ec1dfded1b1e1e0e"
 dependencies = [
  "machine-uid",
  "serde",
