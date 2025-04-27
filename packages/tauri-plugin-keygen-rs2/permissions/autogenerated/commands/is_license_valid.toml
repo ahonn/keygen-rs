@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-is-license-valid"
+description = "Enables the is_license_valid command without any pre-configured scope."
+commands.allow = ["is_license_valid"]
+
+[[permission]]
+identifier = "deny-is-license-valid"
+description = "Denies the is_license_valid command without any pre-configured scope."
+commands.deny = ["is_license_valid"]

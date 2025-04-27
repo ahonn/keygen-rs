@@ -295,24 +295,104 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Enables the keygen commands",
+          "description": "Enables the activate command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-keygen"
+          "const": "allow-activate"
         },
         {
-          "description": "Denies the keygen commands.",
+          "description": "Denies the activate command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-keygen"
+          "const": "deny-activate"
         },
         {
-          "description": "Enables the ping command without any pre-configured scope.",
+          "description": "Enables the checkout_license command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-ping"
+          "const": "allow-checkout-license"
         },
         {
-          "description": "Denies the ping command without any pre-configured scope.",
+          "description": "Denies the checkout_license command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-ping"
+          "const": "deny-checkout-license"
+        },
+        {
+          "description": "Enables the checkout_machine command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkout-machine"
+        },
+        {
+          "description": "Denies the checkout_machine command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkout-machine"
+        },
+        {
+          "description": "Enables the deactivate command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-deactivate"
+        },
+        {
+          "description": "Denies the deactivate command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-deactivate"
+        },
+        {
+          "description": "Enables the get_license command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-license"
+        },
+        {
+          "description": "Denies the get_license command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-license"
+        },
+        {
+          "description": "Enables the get_license_key command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-license-key"
+        },
+        {
+          "description": "Denies the get_license_key command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-license-key"
+        },
+        {
+          "description": "Enables the get_license_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-license-metadata"
+        },
+        {
+          "description": "Denies the get_license_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-license-metadata"
+        },
+        {
+          "description": "Enables the is_license_valid command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-is-license-valid"
+        },
+        {
+          "description": "Denies the is_license_valid command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-is-license-valid"
+        },
+        {
+          "description": "Enables the reset_license command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reset-license"
+        },
+        {
+          "description": "Denies the reset_license command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reset-license"
+        },
+        {
+          "description": "Enables the validate_key command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-validate-key"
+        },
+        {
+          "description": "Denies the validate_key command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-validate-key"
         },
         {
           "description": "Default permissions for the plugin",
