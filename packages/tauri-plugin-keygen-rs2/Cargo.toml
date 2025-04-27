@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-keygen-rs2"
-version = "0.4.3"
+version = "0.4.4"
 authors = ["ahonn"]
 description = "Tauri plugin for Keygen.sh licensing, based on keygen-rs"
 license = "MIT"
@@ -20,7 +20,7 @@ whoami = "1.5.1"
 lazy_static = "1.4.0"
 log = { version = "0.4", features = ["std"] }
 sys-locale = "0.3"
-keygen-rs = "0.4.2"
+keygen-rs = "0.4.3"
 # keygen-rs = { path = "../.." }
 
 [target."cfg(not(any(target_os = \"macos\", windows, target_os = \"linux\")))".dependencies]

@@ -2,7 +2,16 @@
 
 Default permissions for the plugin
 
-- `allow-keygen`
+- `allow-get-license`
+- `allow-is-license-valid`
+- `allow-get-license-key`
+- `allow-validate-key`
+- `allow-activate`
+- `allow-deactivate`
+- `allow-checkout-license`
+- `allow-checkout-machine`
+- `allow-reset-license`
+- `allow-get-license-metadata`
 
 ## Permission Table
 
