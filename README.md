@@ -3,7 +3,8 @@
 [![Crates.io](https://img.shields.io/crates/v/keygen-rs.svg)](https://crates.io/crates/keygen-rs)
 [![Documentation](https://docs.rs/keygen-rs/badge.svg)](https://docs.rs/keygen-rs)
 
-The `keygen-rs` crate allows Rust programs to license using the [keygen.sh](https://keygen.sh) service.
+The `keygen-rs` crate is an unofficial Rust SDK for integrating with the [keygen.sh](https://keygen.sh) licensing service.
+It provides a comprehensive framework for implementing software license management in Rust applications, including license validation, machine activation, and offline license verification capabilities.
 
 ### Sponsored by
 
@@ -23,10 +24,14 @@ Add this to your `Cargo.toml`:
 keygen-rs = "0.4"
 ```
 
-### Tauri Plugin
+## Tauri Plugin
 
-A Tauri plugin for this SDK is available as `tauri-plugin-keygen-rs`.
-It provides an easy way to integrate Keygen licensing into your Tauri applications. For more information, check [the plugin's README](./packages/tauri-plugin-keygen-rs/README.md).
+Tauri plugins for this SDK are available:
+
+- [tauri-plugin-keygen-rs](./packages/tauri-plugin-keygen-rs) for Tauri v1
+- [tauri-plugin-keygen-rs2](./packages/tauri-plugin-keygen-rs2) for Tauri v2
+
+These plugins provide an easy way to integrate Keygen licensing into your Tauri applications. For more information, check the plugins' respective READMEs.
 
 ## Config
 
