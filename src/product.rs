@@ -85,12 +85,22 @@ pub(crate) struct ProductsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateProductRequest {
     pub name: String,
-    pub code: Option<String>,
+    pub code: String,
     #[serde(rename = "distributionStrategy")]
     pub distribution_strategy: Option<DistributionStrategy>,
     pub url: Option<String>,
     pub platforms: Option<Vec<Platform>>,
+    pub permissions: Option<Vec<Permission>>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ListProductsOptions {
+    pub limit: Option<u32>,
+    #[serde(rename = "page[size]")]
+    pub page_size: Option<u32>,
+    #[serde(rename = "page[number]")]
+    pub page_number: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,6 +111,7 @@ pub struct UpdateProductRequest {
     pub distribution_strategy: Option<DistributionStrategy>,
     pub url: Option<String>,
     pub platforms: Option<Vec<Platform>>,
+    pub permissions: Option<Vec<Permission>>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
@@ -147,6 +158,7 @@ impl Product {
                     "distributionStrategy": request.distribution_strategy,
                     "url": request.url,
                     "platforms": request.platforms,
+                    "permissions": request.permissions,
                     "metadata": request.metadata.unwrap_or_default()
                 }
             }
@@ -157,10 +169,10 @@ impl Product {
         Ok(Product::from(product_response.data))
     }
 
-    /// List all products
-    pub async fn list() -> Result<Vec<Product>, Error> {
+    /// List products with optional pagination and filtering
+    pub async fn list(options: Option<ListProductsOptions>) -> Result<Vec<Product>, Error> {
         let client = Client::default();
-        let response = client.get("products", None::<&()>).await?;
+        let response = client.get("products", options.as_ref()).await?;
         let products_response: ProductsResponse = serde_json::from_value(response.body)?;
         Ok(products_response
             .data
@@ -198,6 +210,9 @@ impl Product {
         }
         if let Some(platforms) = request.platforms {
             attributes.insert("platforms".to_string(), serde_json::to_value(platforms)?);
+        }
+        if let Some(permissions) = request.permissions {
+            attributes.insert("permissions".to_string(), serde_json::to_value(permissions)?);
         }
         if let Some(metadata) = request.metadata {
             attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);

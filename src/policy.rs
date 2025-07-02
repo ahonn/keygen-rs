@@ -45,6 +45,23 @@ pub enum LeasingStrategy {
     PerUser,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum UniquenessStrategy {
+    Unique,
+    Fingerprint,
+    Id,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MatchingStrategy {
+    Match,
+    Fuzzy,
+    Loose,
+    Strict,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyAttributes {
     pub name: String,
@@ -62,9 +79,13 @@ pub struct PolicyAttributes {
     #[serde(rename = "heartbeatBasis")]
     pub heartbeat_basis: Option<String>,
     #[serde(rename = "machineUniquenessStrategy")]
-    pub machine_uniqueness_strategy: Option<String>,
+    pub machine_uniqueness_strategy: Option<UniquenessStrategy>,
     #[serde(rename = "componentUniquenessStrategy")]
-    pub component_uniqueness_strategy: Option<String>,
+    pub component_uniqueness_strategy: Option<UniquenessStrategy>,
+    #[serde(rename = "machineMatchingStrategy")]
+    pub machine_matching_strategy: Option<MatchingStrategy>,
+    #[serde(rename = "componentMatchingStrategy")]
+    pub component_matching_strategy: Option<MatchingStrategy>,
     #[serde(rename = "expirationStrategy")]
     pub expiration_strategy: ExpirationStrategy,
     #[serde(rename = "expirationBasis")]
@@ -129,8 +150,26 @@ pub struct CreatePolicyRequest {
     pub require_heartbeat: Option<bool>,
     #[serde(rename = "heartbeatDuration")]
     pub heartbeat_duration: Option<i64>,
+    #[serde(rename = "heartbeatCullStrategy")]
+    pub heartbeat_cull_strategy: Option<String>,
+    #[serde(rename = "heartbeatResurrectionStrategy")]
+    pub heartbeat_resurrection_strategy: Option<String>,
+    #[serde(rename = "heartbeatBasis")]
+    pub heartbeat_basis: Option<String>,
+    #[serde(rename = "machineUniquenessStrategy")]
+    pub machine_uniqueness_strategy: Option<UniquenessStrategy>,
+    #[serde(rename = "componentUniquenessStrategy")]
+    pub component_uniqueness_strategy: Option<UniquenessStrategy>,
+    #[serde(rename = "machineMatchingStrategy")]
+    pub machine_matching_strategy: Option<MatchingStrategy>,
+    #[serde(rename = "componentMatchingStrategy")]
+    pub component_matching_strategy: Option<MatchingStrategy>,
     #[serde(rename = "expirationStrategy")]
     pub expiration_strategy: Option<ExpirationStrategy>,
+    #[serde(rename = "expirationBasis")]
+    pub expiration_basis: Option<String>,
+    #[serde(rename = "renewalBasis")]
+    pub renewal_basis: Option<String>,
     #[serde(rename = "authenticationStrategy")]
     pub authentication_strategy: Option<AuthenticationStrategy>,
     #[serde(rename = "machineLeasingStrategy")]
@@ -179,8 +218,26 @@ pub struct UpdatePolicyRequest {
     pub require_heartbeat: Option<bool>,
     #[serde(rename = "heartbeatDuration")]
     pub heartbeat_duration: Option<i64>,
+    #[serde(rename = "heartbeatCullStrategy")]
+    pub heartbeat_cull_strategy: Option<String>,
+    #[serde(rename = "heartbeatResurrectionStrategy")]
+    pub heartbeat_resurrection_strategy: Option<String>,
+    #[serde(rename = "heartbeatBasis")]
+    pub heartbeat_basis: Option<String>,
+    #[serde(rename = "machineUniquenessStrategy")]
+    pub machine_uniqueness_strategy: Option<UniquenessStrategy>,
+    #[serde(rename = "componentUniquenessStrategy")]
+    pub component_uniqueness_strategy: Option<UniquenessStrategy>,
+    #[serde(rename = "machineMatchingStrategy")]
+    pub machine_matching_strategy: Option<MatchingStrategy>,
+    #[serde(rename = "componentMatchingStrategy")]
+    pub component_matching_strategy: Option<MatchingStrategy>,
     #[serde(rename = "expirationStrategy")]
     pub expiration_strategy: Option<ExpirationStrategy>,
+    #[serde(rename = "expirationBasis")]
+    pub expiration_basis: Option<String>,
+    #[serde(rename = "renewalBasis")]
+    pub renewal_basis: Option<String>,
     #[serde(rename = "authenticationStrategy")]
     pub authentication_strategy: Option<AuthenticationStrategy>,
     #[serde(rename = "machineLeasingStrategy")]
@@ -229,8 +286,10 @@ pub struct Policy {
     pub heartbeat_cull_strategy: Option<String>,
     pub heartbeat_resurrection_strategy: Option<String>,
     pub heartbeat_basis: Option<String>,
-    pub machine_uniqueness_strategy: Option<String>,
-    pub component_uniqueness_strategy: Option<String>,
+    pub machine_uniqueness_strategy: Option<UniquenessStrategy>,
+    pub component_uniqueness_strategy: Option<UniquenessStrategy>,
+    pub machine_matching_strategy: Option<MatchingStrategy>,
+    pub component_matching_strategy: Option<MatchingStrategy>,
     pub expiration_strategy: ExpirationStrategy,
     pub expiration_basis: Option<String>,
     pub renewal_basis: Option<String>,
@@ -257,6 +316,16 @@ pub struct Policy {
     pub updated: String,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ListPoliciesOptions {
+    pub limit: Option<u32>,
+    #[serde(rename = "page[size]")]
+    pub page_size: Option<u32>,
+    #[serde(rename = "page[number]")]
+    pub page_number: Option<u32>,
+    pub product: Option<String>,
+}
+
 impl Policy {
     pub(crate) fn from(data: KeygenResponseData<PolicyAttributes>) -> Policy {
         Policy {
@@ -272,6 +341,8 @@ impl Policy {
             heartbeat_basis: data.attributes.heartbeat_basis,
             machine_uniqueness_strategy: data.attributes.machine_uniqueness_strategy,
             component_uniqueness_strategy: data.attributes.component_uniqueness_strategy,
+            machine_matching_strategy: data.attributes.machine_matching_strategy,
+            component_matching_strategy: data.attributes.component_matching_strategy,
             expiration_strategy: data.attributes.expiration_strategy,
             expiration_basis: data.attributes.expiration_basis,
             renewal_basis: data.attributes.renewal_basis,
@@ -313,7 +384,16 @@ impl Policy {
                     "floating": request.floating,
                     "requireHeartbeat": request.require_heartbeat,
                     "heartbeatDuration": request.heartbeat_duration,
+                    "heartbeatCullStrategy": request.heartbeat_cull_strategy,
+                    "heartbeatResurrectionStrategy": request.heartbeat_resurrection_strategy,
+                    "heartbeatBasis": request.heartbeat_basis,
+                    "machineUniquenessStrategy": request.machine_uniqueness_strategy,
+                    "componentUniquenessStrategy": request.component_uniqueness_strategy,
+                    "machineMatchingStrategy": request.machine_matching_strategy,
+                    "componentMatchingStrategy": request.component_matching_strategy,
                     "expirationStrategy": request.expiration_strategy,
+                    "expirationBasis": request.expiration_basis,
+                    "renewalBasis": request.renewal_basis,
                     "authenticationStrategy": request.authentication_strategy,
                     "machineLeasingStrategy": request.machine_leasing_strategy,
                     "processLeasingStrategy": request.process_leasing_strategy,
@@ -350,10 +430,10 @@ impl Policy {
         Ok(Policy::from(policy_response.data))
     }
 
-    /// List all policies
-    pub async fn list() -> Result<Vec<Policy>, Error> {
+    /// List policies with optional pagination and filtering
+    pub async fn list(options: Option<ListPoliciesOptions>) -> Result<Vec<Policy>, Error> {
         let client = Client::default();
-        let response = client.get("policies", None::<&()>).await?;
+        let response = client.get("policies", options.as_ref()).await?;
         let policies_response: PoliciesResponse = serde_json::from_value(response.body)?;
         Ok(policies_response
             .data

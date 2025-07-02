@@ -16,6 +16,7 @@ pub mod license;
 pub mod license_file;
 pub mod machine;
 pub mod machine_file;
+pub mod service;
 
 // Management features only available with "token" feature flag
 #[cfg(feature = "token")]
