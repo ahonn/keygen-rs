@@ -1,0 +1,495 @@
+use crate::client::Client;
+use crate::errors::Error;
+use crate::KeygenResponseData;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExpirationStrategy {
+    RestrictAccess,
+    RevokeAccess,
+    MaintainAccess,
+    AllowAccess,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AuthenticationStrategy {
+    Token,
+    License,
+    Mixed,
+    None,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OverageStrategy {
+    NoOverage,
+    AllowOverage,
+    AlwaysAllowOverage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TransferStrategy {
+    KeepPolicy,
+    ResetPolicy,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LeasingStrategy {
+    PerMachine,
+    PerLicense,
+    PerUser,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PolicyAttributes {
+    pub name: String,
+    pub duration: Option<i64>, // Duration in seconds, null for perpetual
+    pub strict: bool,
+    pub floating: bool,
+    #[serde(rename = "requireHeartbeat")]
+    pub require_heartbeat: bool,
+    #[serde(rename = "heartbeatDuration")]
+    pub heartbeat_duration: Option<i64>,
+    #[serde(rename = "heartbeatCullStrategy")]
+    pub heartbeat_cull_strategy: Option<String>,
+    #[serde(rename = "heartbeatResurrectionStrategy")]
+    pub heartbeat_resurrection_strategy: Option<String>,
+    #[serde(rename = "heartbeatBasis")]
+    pub heartbeat_basis: Option<String>,
+    #[serde(rename = "machineUniquenessStrategy")]
+    pub machine_uniqueness_strategy: Option<String>,
+    #[serde(rename = "componentUniquenessStrategy")]
+    pub component_uniqueness_strategy: Option<String>,
+    #[serde(rename = "expirationStrategy")]
+    pub expiration_strategy: ExpirationStrategy,
+    #[serde(rename = "expirationBasis")]
+    pub expiration_basis: Option<String>,
+    #[serde(rename = "renewalBasis")]
+    pub renewal_basis: Option<String>,
+    #[serde(rename = "authenticationStrategy")]
+    pub authentication_strategy: AuthenticationStrategy,
+    #[serde(rename = "machineLeasingStrategy")]
+    pub machine_leasing_strategy: LeasingStrategy,
+    #[serde(rename = "processLeasingStrategy")]
+    pub process_leasing_strategy: LeasingStrategy,
+    #[serde(rename = "overageStrategy")]
+    pub overage_strategy: OverageStrategy,
+    #[serde(rename = "transferStrategy")]
+    pub transfer_strategy: TransferStrategy,
+    #[serde(rename = "maxMachines")]
+    pub max_machines: Option<i32>,
+    #[serde(rename = "maxProcesses")]
+    pub max_processes: Option<i32>,
+    #[serde(rename = "maxCores")]
+    pub max_cores: Option<i32>,
+    #[serde(rename = "maxUses")]
+    pub max_uses: Option<i32>,
+    pub encrypted: bool,
+    pub protected: bool,
+    #[serde(rename = "requireCheckIn")]
+    pub require_check_in: bool,
+    #[serde(rename = "checkInInterval")]
+    pub check_in_interval: Option<String>,
+    #[serde(rename = "checkInIntervalCount")]
+    pub check_in_interval_count: Option<i32>,
+    #[serde(rename = "usePool")]
+    pub use_pool: bool,
+    #[serde(rename = "maxLicenses")]
+    pub max_licenses: Option<i32>,
+    #[serde(rename = "maxUsers")]
+    pub max_users: Option<i32>,
+    pub scheme: Option<String>,
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+    pub created: String,
+    pub updated: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct PolicyResponse {
+    pub data: KeygenResponseData<PolicyAttributes>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct PoliciesResponse {
+    pub data: Vec<KeygenResponseData<PolicyAttributes>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePolicyRequest {
+    pub name: String,
+    pub duration: Option<i64>,
+    pub strict: Option<bool>,
+    pub floating: Option<bool>,
+    #[serde(rename = "requireHeartbeat")]
+    pub require_heartbeat: Option<bool>,
+    #[serde(rename = "heartbeatDuration")]
+    pub heartbeat_duration: Option<i64>,
+    #[serde(rename = "expirationStrategy")]
+    pub expiration_strategy: Option<ExpirationStrategy>,
+    #[serde(rename = "authenticationStrategy")]
+    pub authentication_strategy: Option<AuthenticationStrategy>,
+    #[serde(rename = "machineLeasingStrategy")]
+    pub machine_leasing_strategy: Option<LeasingStrategy>,
+    #[serde(rename = "processLeasingStrategy")]
+    pub process_leasing_strategy: Option<LeasingStrategy>,
+    #[serde(rename = "overageStrategy")]
+    pub overage_strategy: Option<OverageStrategy>,
+    #[serde(rename = "transferStrategy")]
+    pub transfer_strategy: Option<TransferStrategy>,
+    #[serde(rename = "maxMachines")]
+    pub max_machines: Option<i32>,
+    #[serde(rename = "maxProcesses")]
+    pub max_processes: Option<i32>,
+    #[serde(rename = "maxCores")]
+    pub max_cores: Option<i32>,
+    #[serde(rename = "maxUses")]
+    pub max_uses: Option<i32>,
+    pub encrypted: Option<bool>,
+    pub protected: Option<bool>,
+    #[serde(rename = "requireCheckIn")]
+    pub require_check_in: Option<bool>,
+    #[serde(rename = "checkInInterval")]
+    pub check_in_interval: Option<String>,
+    #[serde(rename = "checkInIntervalCount")]
+    pub check_in_interval_count: Option<i32>,
+    #[serde(rename = "usePool")]
+    pub use_pool: Option<bool>,
+    #[serde(rename = "maxLicenses")]
+    pub max_licenses: Option<i32>,
+    #[serde(rename = "maxUsers")]
+    pub max_users: Option<i32>,
+    pub scheme: Option<String>,
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+    // Relationship to product
+    pub product_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePolicyRequest {
+    pub name: Option<String>,
+    pub duration: Option<i64>,
+    pub strict: Option<bool>,
+    pub floating: Option<bool>,
+    #[serde(rename = "requireHeartbeat")]
+    pub require_heartbeat: Option<bool>,
+    #[serde(rename = "heartbeatDuration")]
+    pub heartbeat_duration: Option<i64>,
+    #[serde(rename = "expirationStrategy")]
+    pub expiration_strategy: Option<ExpirationStrategy>,
+    #[serde(rename = "authenticationStrategy")]
+    pub authentication_strategy: Option<AuthenticationStrategy>,
+    #[serde(rename = "machineLeasingStrategy")]
+    pub machine_leasing_strategy: Option<LeasingStrategy>,
+    #[serde(rename = "processLeasingStrategy")]
+    pub process_leasing_strategy: Option<LeasingStrategy>,
+    #[serde(rename = "overageStrategy")]
+    pub overage_strategy: Option<OverageStrategy>,
+    #[serde(rename = "transferStrategy")]
+    pub transfer_strategy: Option<TransferStrategy>,
+    #[serde(rename = "maxMachines")]
+    pub max_machines: Option<i32>,
+    #[serde(rename = "maxProcesses")]
+    pub max_processes: Option<i32>,
+    #[serde(rename = "maxCores")]
+    pub max_cores: Option<i32>,
+    #[serde(rename = "maxUses")]
+    pub max_uses: Option<i32>,
+    pub encrypted: Option<bool>,
+    pub protected: Option<bool>,
+    #[serde(rename = "requireCheckIn")]
+    pub require_check_in: Option<bool>,
+    #[serde(rename = "checkInInterval")]
+    pub check_in_interval: Option<String>,
+    #[serde(rename = "checkInIntervalCount")]
+    pub check_in_interval_count: Option<i32>,
+    #[serde(rename = "usePool")]
+    pub use_pool: Option<bool>,
+    #[serde(rename = "maxLicenses")]
+    pub max_licenses: Option<i32>,
+    #[serde(rename = "maxUsers")]
+    pub max_users: Option<i32>,
+    pub scheme: Option<String>,
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Policy {
+    pub id: String,
+    pub name: String,
+    pub duration: Option<i64>,
+    pub strict: bool,
+    pub floating: bool,
+    pub require_heartbeat: bool,
+    pub heartbeat_duration: Option<i64>,
+    pub heartbeat_cull_strategy: Option<String>,
+    pub heartbeat_resurrection_strategy: Option<String>,
+    pub heartbeat_basis: Option<String>,
+    pub machine_uniqueness_strategy: Option<String>,
+    pub component_uniqueness_strategy: Option<String>,
+    pub expiration_strategy: ExpirationStrategy,
+    pub expiration_basis: Option<String>,
+    pub renewal_basis: Option<String>,
+    pub authentication_strategy: AuthenticationStrategy,
+    pub machine_leasing_strategy: LeasingStrategy,
+    pub process_leasing_strategy: LeasingStrategy,
+    pub overage_strategy: OverageStrategy,
+    pub transfer_strategy: TransferStrategy,
+    pub max_machines: Option<i32>,
+    pub max_processes: Option<i32>,
+    pub max_cores: Option<i32>,
+    pub max_uses: Option<i32>,
+    pub encrypted: bool,
+    pub protected: bool,
+    pub require_check_in: bool,
+    pub check_in_interval: Option<String>,
+    pub check_in_interval_count: Option<i32>,
+    pub use_pool: bool,
+    pub max_licenses: Option<i32>,
+    pub max_users: Option<i32>,
+    pub scheme: Option<String>,
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+    pub created: String,
+    pub updated: String,
+}
+
+impl Policy {
+    pub(crate) fn from(data: KeygenResponseData<PolicyAttributes>) -> Policy {
+        Policy {
+            id: data.id,
+            name: data.attributes.name,
+            duration: data.attributes.duration,
+            strict: data.attributes.strict,
+            floating: data.attributes.floating,
+            require_heartbeat: data.attributes.require_heartbeat,
+            heartbeat_duration: data.attributes.heartbeat_duration,
+            heartbeat_cull_strategy: data.attributes.heartbeat_cull_strategy,
+            heartbeat_resurrection_strategy: data.attributes.heartbeat_resurrection_strategy,
+            heartbeat_basis: data.attributes.heartbeat_basis,
+            machine_uniqueness_strategy: data.attributes.machine_uniqueness_strategy,
+            component_uniqueness_strategy: data.attributes.component_uniqueness_strategy,
+            expiration_strategy: data.attributes.expiration_strategy,
+            expiration_basis: data.attributes.expiration_basis,
+            renewal_basis: data.attributes.renewal_basis,
+            authentication_strategy: data.attributes.authentication_strategy,
+            machine_leasing_strategy: data.attributes.machine_leasing_strategy,
+            process_leasing_strategy: data.attributes.process_leasing_strategy,
+            overage_strategy: data.attributes.overage_strategy,
+            transfer_strategy: data.attributes.transfer_strategy,
+            max_machines: data.attributes.max_machines,
+            max_processes: data.attributes.max_processes,
+            max_cores: data.attributes.max_cores,
+            max_uses: data.attributes.max_uses,
+            encrypted: data.attributes.encrypted,
+            protected: data.attributes.protected,
+            require_check_in: data.attributes.require_check_in,
+            check_in_interval: data.attributes.check_in_interval,
+            check_in_interval_count: data.attributes.check_in_interval_count,
+            use_pool: data.attributes.use_pool,
+            max_licenses: data.attributes.max_licenses,
+            max_users: data.attributes.max_users,
+            scheme: data.attributes.scheme,
+            metadata: data.attributes.metadata,
+            created: data.attributes.created,
+            updated: data.attributes.updated,
+        }
+    }
+
+    /// Create a new policy
+    pub async fn create(request: CreatePolicyRequest) -> Result<Policy, Error> {
+        let client = Client::default();
+
+        let body = serde_json::json!({
+            "data": {
+                "type": "policies",
+                "attributes": {
+                    "name": request.name,
+                    "duration": request.duration,
+                    "strict": request.strict,
+                    "floating": request.floating,
+                    "requireHeartbeat": request.require_heartbeat,
+                    "heartbeatDuration": request.heartbeat_duration,
+                    "expirationStrategy": request.expiration_strategy,
+                    "authenticationStrategy": request.authentication_strategy,
+                    "machineLeasingStrategy": request.machine_leasing_strategy,
+                    "processLeasingStrategy": request.process_leasing_strategy,
+                    "overageStrategy": request.overage_strategy,
+                    "transferStrategy": request.transfer_strategy,
+                    "maxMachines": request.max_machines,
+                    "maxProcesses": request.max_processes,
+                    "maxCores": request.max_cores,
+                    "maxUses": request.max_uses,
+                    "encrypted": request.encrypted,
+                    "protected": request.protected,
+                    "requireCheckIn": request.require_check_in,
+                    "checkInInterval": request.check_in_interval,
+                    "checkInIntervalCount": request.check_in_interval_count,
+                    "usePool": request.use_pool,
+                    "maxLicenses": request.max_licenses,
+                    "maxUsers": request.max_users,
+                    "scheme": request.scheme,
+                    "metadata": request.metadata.unwrap_or_default()
+                },
+                "relationships": {
+                    "product": {
+                        "data": {
+                            "type": "products",
+                            "id": request.product_id
+                        }
+                    }
+                }
+            }
+        });
+
+        let response = client.post("policies", Some(&body), None::<&()>).await?;
+        let policy_response: PolicyResponse = serde_json::from_value(response.body)?;
+        Ok(Policy::from(policy_response.data))
+    }
+
+    /// List all policies
+    pub async fn list() -> Result<Vec<Policy>, Error> {
+        let client = Client::default();
+        let response = client.get("policies", None::<&()>).await?;
+        let policies_response: PoliciesResponse = serde_json::from_value(response.body)?;
+        Ok(policies_response
+            .data
+            .into_iter()
+            .map(Policy::from)
+            .collect())
+    }
+
+    /// Get a policy by ID
+    pub async fn get(id: &str) -> Result<Policy, Error> {
+        let client = Client::default();
+        let endpoint = format!("policies/{}", id);
+        let response = client.get(&endpoint, None::<&()>).await?;
+        let policy_response: PolicyResponse = serde_json::from_value(response.body)?;
+        Ok(Policy::from(policy_response.data))
+    }
+
+    /// Update a policy
+    pub async fn update(&self, request: UpdatePolicyRequest) -> Result<Policy, Error> {
+        let client = Client::default();
+        let endpoint = format!("policies/{}", self.id);
+
+        let mut attributes = serde_json::Map::new();
+        if let Some(name) = request.name {
+            attributes.insert("name".to_string(), serde_json::Value::String(name));
+        }
+        if let Some(duration) = request.duration {
+            attributes.insert("duration".to_string(), serde_json::Value::Number(duration.into()));
+        }
+        if let Some(strict) = request.strict {
+            attributes.insert("strict".to_string(), serde_json::Value::Bool(strict));
+        }
+        if let Some(floating) = request.floating {
+            attributes.insert("floating".to_string(), serde_json::Value::Bool(floating));
+        }
+        if let Some(require_heartbeat) = request.require_heartbeat {
+            attributes.insert("requireHeartbeat".to_string(), serde_json::Value::Bool(require_heartbeat));
+        }
+        if let Some(heartbeat_duration) = request.heartbeat_duration {
+            attributes.insert("heartbeatDuration".to_string(), serde_json::Value::Number(heartbeat_duration.into()));
+        }
+        if let Some(expiration_strategy) = request.expiration_strategy {
+            attributes.insert("expirationStrategy".to_string(), serde_json::to_value(expiration_strategy)?);
+        }
+        if let Some(authentication_strategy) = request.authentication_strategy {
+            attributes.insert("authenticationStrategy".to_string(), serde_json::to_value(authentication_strategy)?);
+        }
+        if let Some(machine_leasing_strategy) = request.machine_leasing_strategy {
+            attributes.insert("machineLeasingStrategy".to_string(), serde_json::to_value(machine_leasing_strategy)?);
+        }
+        if let Some(process_leasing_strategy) = request.process_leasing_strategy {
+            attributes.insert("processLeasingStrategy".to_string(), serde_json::to_value(process_leasing_strategy)?);
+        }
+        if let Some(overage_strategy) = request.overage_strategy {
+            attributes.insert("overageStrategy".to_string(), serde_json::to_value(overage_strategy)?);
+        }
+        if let Some(transfer_strategy) = request.transfer_strategy {
+            attributes.insert("transferStrategy".to_string(), serde_json::to_value(transfer_strategy)?);
+        }
+        if let Some(max_machines) = request.max_machines {
+            attributes.insert("maxMachines".to_string(), serde_json::Value::Number(max_machines.into()));
+        }
+        if let Some(max_processes) = request.max_processes {
+            attributes.insert("maxProcesses".to_string(), serde_json::Value::Number(max_processes.into()));
+        }
+        if let Some(max_cores) = request.max_cores {
+            attributes.insert("maxCores".to_string(), serde_json::Value::Number(max_cores.into()));
+        }
+        if let Some(max_uses) = request.max_uses {
+            attributes.insert("maxUses".to_string(), serde_json::Value::Number(max_uses.into()));
+        }
+        if let Some(encrypted) = request.encrypted {
+            attributes.insert("encrypted".to_string(), serde_json::Value::Bool(encrypted));
+        }
+        if let Some(protected) = request.protected {
+            attributes.insert("protected".to_string(), serde_json::Value::Bool(protected));
+        }
+        if let Some(require_check_in) = request.require_check_in {
+            attributes.insert("requireCheckIn".to_string(), serde_json::Value::Bool(require_check_in));
+        }
+        if let Some(check_in_interval) = request.check_in_interval {
+            attributes.insert("checkInInterval".to_string(), serde_json::Value::String(check_in_interval));
+        }
+        if let Some(check_in_interval_count) = request.check_in_interval_count {
+            attributes.insert("checkInIntervalCount".to_string(), serde_json::Value::Number(check_in_interval_count.into()));
+        }
+        if let Some(use_pool) = request.use_pool {
+            attributes.insert("usePool".to_string(), serde_json::Value::Bool(use_pool));
+        }
+        if let Some(max_licenses) = request.max_licenses {
+            attributes.insert("maxLicenses".to_string(), serde_json::Value::Number(max_licenses.into()));
+        }
+        if let Some(max_users) = request.max_users {
+            attributes.insert("maxUsers".to_string(), serde_json::Value::Number(max_users.into()));
+        }
+        if let Some(scheme) = request.scheme {
+            attributes.insert("scheme".to_string(), serde_json::Value::String(scheme));
+        }
+        if let Some(metadata) = request.metadata {
+            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
+        }
+
+        let body = serde_json::json!({
+            "data": {
+                "type": "policies",
+                "attributes": attributes
+            }
+        });
+
+        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let policy_response: PolicyResponse = serde_json::from_value(response.body)?;
+        Ok(Policy::from(policy_response.data))
+    }
+
+    /// Delete a policy
+    pub async fn delete(&self) -> Result<(), Error> {
+        let client = Client::default();
+        let endpoint = format!("policies/{}", self.id);
+        client.delete::<(), ()>(&endpoint, None::<&()>).await?;
+        Ok(())
+    }
+
+    /// Pop a key from policy pool
+    pub async fn pop_key(&self) -> Result<String, Error> {
+        let client = Client::default();
+        let endpoint = format!("policies/{}/pool", self.id);
+        let response: crate::client::Response<serde_json::Value> = client.delete(&endpoint, None::<&()>).await?;
+        
+        // Extract key from response
+        let key_data = response.body["data"]["attributes"]["key"].as_str()
+            .ok_or_else(|| Error::KeygenApiError {
+                code: "INVALID_RESPONSE".to_string(),
+                detail: "Invalid key response format".to_string(),
+                body: response.body.clone(),
+            })?;
+        
+        Ok(key_data.to_string())
+    }
+}

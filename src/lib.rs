@@ -17,6 +17,14 @@ pub mod license_file;
 pub mod machine;
 pub mod machine_file;
 
+// Management features only available with "token" feature flag
+#[cfg(feature = "token")]
+pub mod policy;
+#[cfg(feature = "token")]
+pub mod product;
+#[cfg(feature = "token")]
+pub mod user;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationshipData {
   pub r#type: String,

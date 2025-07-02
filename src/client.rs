@@ -48,13 +48,22 @@ impl Client {
         Self::new(ClientOptions {
             account: config.account.to_string(),
             environment: config.environment.clone(),
+            #[cfg(feature = "license-key")]
             license_key: config.license_key.clone(),
+            #[cfg(not(feature = "license-key"))]
+            license_key: None,
+            #[cfg(feature = "token")]
             token: config.token.clone(),
+            #[cfg(not(feature = "token"))]
+            token: None,
             user_agent: config.user_agent.clone(),
             api_url: config.api_url.to_string(),
             api_version: config.api_version.to_string(),
             api_prefix: config.api_prefix.to_string(),
+            #[cfg(feature = "license-key")]
             verify_keygen_signature: config.verify_keygen_signature.unwrap_or(true),
+            #[cfg(not(feature = "license-key"))]
+            verify_keygen_signature: true,
         })
     }
 

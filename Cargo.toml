@@ -13,11 +13,15 @@ members = [
 ]
 
 [features]
-default = ["rustls"]
+default = ["rustls", "license-key"]
 # Use rustls as TLS backend (default)
 rustls = ["reqwest/rustls-tls"]
 # Use native-tls backend
 native-tls = ["reqwest/native-tls"]
+# License Key Authentication (for end users)
+license-key = []
+# Token Authentication (Environment/Product/License/Admin tokens)
+token = []
 
 [dependencies]
 reqwest = { version = "0.11", features = [

@@ -164,4 +164,99 @@ impl Machine {
         }
         .boxed()
     }
+
+    /// List all machines
+    #[cfg(feature = "token")]
+    pub async fn list() -> Result<Vec<Machine>, Error> {
+        let client = Client::default();
+        let response = client.get("machines", None::<&()>).await?;
+        let machines_response: MachinesResponse = serde_json::from_value(response.body)?;
+        Ok(machines_response
+            .data
+            .into_iter()
+            .map(Machine::from)
+            .collect())
+    }
+
+    /// Get a machine by ID
+    #[cfg(feature = "token")]
+    pub async fn get(id: &str) -> Result<Machine, Error> {
+        let client = Client::default();
+        let endpoint = format!("machines/{}", id);
+        let response = client.get(&endpoint, None::<&()>).await?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        Ok(Machine::from(machine_response.data))
+    }
+
+    /// Update a machine
+    #[cfg(feature = "token")]
+    pub async fn update(&self, name: Option<String>, hostname: Option<String>) -> Result<Machine, Error> {
+        let client = Client::default();
+        let endpoint = format!("machines/{}", self.id);
+
+        let mut attributes = serde_json::Map::new();
+        if let Some(n) = name {
+            attributes.insert("name".to_string(), json!(n));
+        }
+        if let Some(h) = hostname {
+            attributes.insert("hostname".to_string(), json!(h));
+        }
+
+        let body = json!({
+            "data": {
+                "type": "machines",
+                "attributes": attributes
+            }
+        });
+
+        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        Ok(Machine::from(machine_response.data))
+    }
+
+    /// Reset machine heartbeat
+    #[cfg(feature = "token")]
+    pub async fn reset(&self) -> Result<Machine, Error> {
+        let client = Client::default();
+        let endpoint = format!("machines/{}/actions/reset", self.id);
+        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        Ok(Machine::from(machine_response.data))
+    }
+
+    /// Change machine owner
+    #[cfg(feature = "token")]
+    pub async fn change_owner(&self, user_id: &str) -> Result<Machine, Error> {
+        let client = Client::default();
+        let endpoint = format!("machines/{}/owner", self.id);
+        
+        let body = json!({
+            "data": {
+                "type": "users",
+                "id": user_id
+            }
+        });
+
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        Ok(Machine::from(machine_response.data))
+    }
+
+    /// Change machine group
+    #[cfg(feature = "token")]
+    pub async fn change_group(&self, group_id: &str) -> Result<Machine, Error> {
+        let client = Client::default();
+        let endpoint = format!("machines/{}/group", self.id);
+        
+        let body = json!({
+            "data": {
+                "type": "groups",
+                "id": group_id
+            }
+        });
+
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        Ok(Machine::from(machine_response.data))
+    }
 }
