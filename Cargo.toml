@@ -75,8 +75,20 @@ name = "update_product"
 path = "examples/product/update_product.rs"
 
 [[example]]
-name = "generate_product_token"
-path = "examples/product/generate_product_token.rs"
+name = "list_tokens"
+path = "examples/token/list_tokens.rs"
+
+[[example]]
+name = "get_token"
+path = "examples/token/get_token.rs"
+
+[[example]]
+name = "regenerate_token"
+path = "examples/token/regenerate_token.rs"
+
+[[example]]
+name = "revoke_token"
+path = "examples/token/revoke_token.rs"
 
 [lib]
 doctest = false

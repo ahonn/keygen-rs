@@ -24,6 +24,8 @@ pub mod policy;
 #[cfg(feature = "token")]
 pub mod product;
 #[cfg(feature = "token")]
+pub mod token;
+#[cfg(feature = "token")]
 pub mod user;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
