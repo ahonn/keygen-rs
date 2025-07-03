@@ -1,12 +1,15 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    product::{self, CreateProductRequest, DistributionStrategy, Platform},
+    product::{Product, CreateProductRequest, DistributionStrategy, Platform},
     errors::Error,
 };
 use std::env;
+use chrono;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -18,17 +21,20 @@ async fn main() -> Result<(), Error> {
     // Create a new product
     let request = CreateProductRequest {
         name: "My Software Product".to_string(),
+        code: format!("my-software-v1-{}", chrono::Utc::now().timestamp()),
         url: Some("https://example.com".to_string()),
-        distribution_strategy: DistributionStrategy::Licensed,
-        platforms: vec![Platform::Windows, Platform::MacOS, Platform::Linux],
+        distribution_strategy: Some(DistributionStrategy::Licensed),
+        platforms: Some(vec![Platform::Windows, Platform::MacOs, Platform::Linux]),
+        permissions: None,
         metadata: None,
     };
 
-    match product::create(request).await {
+    match Product::create(request).await {
         Ok(product) => {
             println!("✅ Product created successfully!");
             println!("ID: {}", product.id);
             println!("Name: {}", product.name);
+            println!("Code: {:?}", product.code);
             println!("Distribution Strategy: {:?}", product.distribution_strategy);
             println!("Platforms: {:?}", product.platforms);
         },

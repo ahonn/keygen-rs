@@ -54,5 +54,29 @@ futures-timer = "3.0.3"
 [dev-dependencies]
 machine-uid = "0.5.3"
 
+[[example]]
+name = "create_product"
+path = "examples/product/create_product.rs"
+
+[[example]]
+name = "list_products"
+path = "examples/product/list_products.rs"
+
+[[example]]
+name = "delete_product"
+path = "examples/product/delete_product.rs"
+
+[[example]]
+name = "get_product"
+path = "examples/product/get_product.rs"
+
+[[example]]
+name = "update_product"
+path = "examples/product/update_product.rs"
+
+[[example]]
+name = "generate_product_token"
+path = "examples/product/generate_product_token.rs"
+
 [lib]
 doctest = false

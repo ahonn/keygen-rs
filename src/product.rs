@@ -149,18 +149,30 @@ impl Product {
     pub async fn create(request: CreateProductRequest) -> Result<Product, Error> {
         let client = Client::default();
         
+        let mut attributes = serde_json::Map::new();
+        attributes.insert("name".to_string(), serde_json::Value::String(request.name));
+        attributes.insert("code".to_string(), serde_json::Value::String(request.code));
+        
+        if let Some(distribution_strategy) = request.distribution_strategy {
+            attributes.insert("distributionStrategy".to_string(), serde_json::to_value(distribution_strategy)?);
+        }
+        if let Some(url) = request.url {
+            attributes.insert("url".to_string(), serde_json::Value::String(url));
+        }
+        if let Some(platforms) = request.platforms {
+            attributes.insert("platforms".to_string(), serde_json::to_value(platforms)?);
+        }
+        if let Some(permissions) = request.permissions {
+            attributes.insert("permissions".to_string(), serde_json::to_value(permissions)?);
+        }
+        if let Some(metadata) = request.metadata {
+            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
+        }
+
         let body = serde_json::json!({
             "data": {
                 "type": "products",
-                "attributes": {
-                    "name": request.name,
-                    "code": request.code,
-                    "distributionStrategy": request.distribution_strategy,
-                    "url": request.url,
-                    "platforms": request.platforms,
-                    "permissions": request.permissions,
-                    "metadata": request.metadata.unwrap_or_default()
-                }
+                "attributes": attributes
             }
         });
 

@@ -1,12 +1,15 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    product,
+    product::Product,
     errors::Error,
 };
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
+    
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -16,7 +19,7 @@ async fn main() -> Result<(), Error> {
     });
 
     // List all products
-    match product::list().await {
+    match Product::list(None).await {
         Ok(products) => {
             println!("✅ Found {} products:", products.len());
             for product in products {
