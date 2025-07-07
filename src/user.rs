@@ -17,6 +17,9 @@ pub enum UserStatus {
 pub enum UserRole {
     Admin,
     Developer,
+    Environment,
+    Product,
+    License,
     #[serde(rename = "sales-agent")]
     SalesAgent,
     #[serde(rename = "support-agent")]
@@ -90,7 +93,7 @@ pub struct UpdateUserRequest {
     #[serde(rename = "lastName")]
     pub last_name: Option<String>,
     pub role: Option<UserRole>,
-    pub permissions: Option<Vec<String>>,
+    pub password: Option<String>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
@@ -270,25 +273,87 @@ pub async fn reset_password(user_id: &str, new_password: &str) -> Result<(), Err
     Ok(())
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenAttributes {
+    pub name: String,
+    pub token: String,
+    pub expiry: Option<String>,
+    pub created: String,
+    pub updated: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Token {
+    pub id: String,
+    pub name: String,
+    pub token: String,
+    pub expiry: Option<String>,
+    pub created: String,
+    pub updated: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct TokenResponse {
+    pub data: KeygenResponseData<TokenAttributes>,
+}
+
+impl Token {
+    pub(crate) fn from(data: KeygenResponseData<TokenAttributes>) -> Token {
+        Token {
+            id: data.id,
+            name: data.attributes.name,
+            token: data.attributes.token,
+            expiry: data.attributes.expiry,
+            created: data.attributes.created,
+            updated: data.attributes.updated,
+        }
+    }
+}
+
 /// Generate a user token
-pub async fn generate_token(user_id: &str, name: Option<&str>, expiry: Option<&str>) -> Result<serde_json::Value, Error> {
+pub async fn generate_token(user_id: &str, name: Option<&str>, expiry: Option<&str>) -> Result<Token, Error> {
     let client = Client::default();
     let endpoint = format!("users/{}/tokens", user_id);
-    let mut meta = serde_json::Map::new();
-    if let Some(name) = name {
-        meta.insert("name".to_string(), serde_json::Value::String(name.to_string()));
-    }
+    
+    let mut attributes = serde_json::Map::new();
+    attributes.insert("name".to_string(), serde_json::Value::String(name.unwrap_or("User Token").to_string()));
+    
     if let Some(expiry) = expiry {
-        meta.insert("expiry".to_string(), serde_json::Value::String(expiry.to_string()));
+        attributes.insert("expiry".to_string(), serde_json::Value::String(expiry.to_string()));
     }
+    
     let body = serde_json::json!({
         "data": {
             "type": "tokens",
-            "attributes": {
-                "name": name.unwrap_or("User Token")
-            }
+            "attributes": attributes
         }
     });
+    
     let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
-    Ok(response.body)
+    let token_response: TokenResponse = serde_json::from_value(response.body)?;
+    Ok(Token::from(token_response.data))
 }
+
+/// Change a user's group
+pub async fn change_group(user_id: &str, group_id: Option<&str>) -> Result<User, Error> {
+    let client = Client::default();
+    let endpoint = format!("users/{}/group", user_id);
+    
+    let body = if let Some(group_id) = group_id {
+        serde_json::json!({
+            "data": {
+                "type": "groups",
+                "id": group_id
+            }
+        })
+    } else {
+        serde_json::json!({
+            "data": null
+        })
+    };
+    
+    let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+    let user_response: UserResponse = serde_json::from_value(response.body)?;
+    Ok(User::from(user_response.data))
+}
+

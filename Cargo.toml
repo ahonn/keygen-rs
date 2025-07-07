@@ -110,5 +110,50 @@ path = "examples/token/regenerate_token.rs"
 name = "revoke_token"
 path = "examples/token/revoke_token.rs"
 
+[[example]]
+name = "create_user"
+path = "examples/user/create_user.rs"
+
+[[example]]
+name = "list_users"
+path = "examples/user/list_users.rs"
+
+[[example]]
+name = "get_user"
+path = "examples/user/get_user.rs"
+
+[[example]]
+name = "update_user"
+path = "examples/user/update_user.rs"
+
+[[example]]
+name = "delete_user"
+path = "examples/user/delete_user.rs"
+
+[[example]]
+name = "ban_user"
+path = "examples/user/ban_user.rs"
+
+[[example]]
+name = "unban_user"
+path = "examples/user/unban_user.rs"
+
+[[example]]
+name = "generate_token"
+path = "examples/user/generate_token.rs"
+
+[[example]]
+name = "change_group"
+path = "examples/user/change_group.rs"
+
+[[example]]
+name = "change_password"
+path = "examples/user/change_password.rs"
+
+[[example]]
+name = "reset_password"
+path = "examples/user/reset_password.rs"
+
+
 [lib]
 doctest = false

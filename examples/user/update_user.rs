@@ -1,6 +1,6 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    user::{self, CreateUserRequest, UserRole},
+    user::{self, UpdateUserRequest, UserRole},
     errors::Error,
 };
 use std::env;
@@ -18,30 +18,27 @@ async fn main() -> Result<(), Error> {
         ..KeygenConfig::default()
     });
 
-    // Create metadata for the user
-    let mut metadata = HashMap::new();
-    metadata.insert("department".to_string(), serde_json::Value::String("Engineering".to_string()));
-    metadata.insert("employee_id".to_string(), serde_json::Value::String("EMP001".to_string()));
+    // Get user ID from command line argument
+    let user_id = env::args().nth(1).expect("Usage: cargo run --example update_user <user_id>");
 
-    // Create a new user with timestamp-based email to avoid conflicts
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    let request = CreateUserRequest {
-        email: format!("user-{}@example.com", timestamp),
-        first_name: Some("John".to_string()),
-        last_name: Some("Doe".to_string()),
-        role: Some(UserRole::User),
-        permissions: None,
-        password: Some("secure_password_123".to_string()),
+    // Update metadata for the user
+    let mut metadata = HashMap::new();
+    metadata.insert("department".to_string(), serde_json::Value::String("Product Management".to_string()));
+    metadata.insert("last_updated".to_string(), serde_json::Value::String("2024-01-01T00:00:00Z".to_string()));
+
+    // Update user
+    let request = UpdateUserRequest {
+        email: None,
+        first_name: Some("Jane".to_string()),
+        last_name: Some("Smith".to_string()),
+        role: Some(UserRole::Developer),
+        password: None,
         metadata: Some(metadata),
-        group_id: None,
     };
 
-    match user::create(request).await {
+    match user::update(&user_id, request).await {
         Ok(user) => {
-            println!("✅ User created successfully!");
+            println!("✅ User updated successfully!");
             println!("ID: {}", user.id);
             println!("Email: {}", user.email);
             println!("Full Name: {:?}", user.full_name);
@@ -51,7 +48,7 @@ async fn main() -> Result<(), Error> {
             }
         },
         Err(e) => {
-            println!("❌ Failed to create user: {:?}", e);
+            println!("❌ Failed to update user: {:?}", e);
         }
     }
 

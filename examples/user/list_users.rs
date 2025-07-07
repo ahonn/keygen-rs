@@ -7,6 +7,8 @@ use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    dotenv::dotenv().ok();
+    
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -16,7 +18,7 @@ async fn main() -> Result<(), Error> {
     });
 
     // List all users
-    match user::list().await {
+    match user::list(None).await {
         Ok(users) => {
             println!("✅ Found {} users:", users.len());
             for user in users {
