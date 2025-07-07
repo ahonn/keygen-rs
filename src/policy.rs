@@ -26,8 +26,10 @@ pub enum AuthenticationStrategy {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum OverageStrategy {
     NoOverage,
-    AllowOverage,
     AlwaysAllowOverage,
+    Allow125xOverage,
+    Allow15xOverage,
+    Allow2xOverage,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -35,6 +37,7 @@ pub enum OverageStrategy {
 pub enum TransferStrategy {
     KeepPolicy,
     ResetPolicy,
+    KeepExpiry,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -48,18 +51,20 @@ pub enum LeasingStrategy {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum UniquenessStrategy {
-    Unique,
-    Fingerprint,
-    Id,
+    UniquePerAccount,
+    UniquePerProduct,
+    UniquePerPolicy,
+    UniquePerLicense,
+    UniquePerMachine,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MatchingStrategy {
-    Match,
-    Fuzzy,
-    Loose,
-    Strict,
+    MatchAny,
+    MatchTwo,
+    MatchMost,
+    MatchAll,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -208,6 +213,49 @@ pub struct CreatePolicyRequest {
     pub product_id: String,
 }
 
+impl Default for CreatePolicyRequest {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            duration: None,
+            strict: None,
+            floating: None,
+            require_heartbeat: None,
+            heartbeat_duration: None,
+            heartbeat_cull_strategy: None,
+            heartbeat_resurrection_strategy: None,
+            heartbeat_basis: None,
+            machine_uniqueness_strategy: None,
+            component_uniqueness_strategy: None,
+            machine_matching_strategy: None,
+            component_matching_strategy: None,
+            expiration_strategy: None,
+            expiration_basis: None,
+            renewal_basis: None,
+            authentication_strategy: None,
+            machine_leasing_strategy: None,
+            process_leasing_strategy: None,
+            overage_strategy: None,
+            transfer_strategy: None,
+            max_machines: None,
+            max_processes: None,
+            max_cores: None,
+            max_uses: None,
+            encrypted: None,
+            protected: None,
+            require_check_in: None,
+            check_in_interval: None,
+            check_in_interval_count: None,
+            use_pool: None,
+            max_licenses: None,
+            max_users: None,
+            scheme: None,
+            metadata: None,
+            product_id: String::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdatePolicyRequest {
     pub name: Option<String>,
@@ -272,6 +320,48 @@ pub struct UpdatePolicyRequest {
     pub max_users: Option<i32>,
     pub scheme: Option<String>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
+}
+
+impl Default for UpdatePolicyRequest {
+    fn default() -> Self {
+        Self {
+            name: None,
+            duration: None,
+            strict: None,
+            floating: None,
+            require_heartbeat: None,
+            heartbeat_duration: None,
+            heartbeat_cull_strategy: None,
+            heartbeat_resurrection_strategy: None,
+            heartbeat_basis: None,
+            machine_uniqueness_strategy: None,
+            component_uniqueness_strategy: None,
+            machine_matching_strategy: None,
+            component_matching_strategy: None,
+            expiration_strategy: None,
+            expiration_basis: None,
+            renewal_basis: None,
+            authentication_strategy: None,
+            machine_leasing_strategy: None,
+            process_leasing_strategy: None,
+            overage_strategy: None,
+            transfer_strategy: None,
+            max_machines: None,
+            max_processes: None,
+            max_cores: None,
+            max_uses: None,
+            encrypted: None,
+            protected: None,
+            require_check_in: None,
+            check_in_interval: None,
+            check_in_interval_count: None,
+            use_pool: None,
+            max_licenses: None,
+            max_users: None,
+            scheme: None,
+            metadata: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -374,46 +464,117 @@ impl Policy {
     pub async fn create(request: CreatePolicyRequest) -> Result<Policy, Error> {
         let client = Client::default();
 
+        // Build attributes dynamically, only including non-None values
+        let mut attributes = serde_json::Map::new();
+        attributes.insert("name".to_string(), serde_json::Value::String(request.name));
+        
+        if let Some(duration) = request.duration {
+            attributes.insert("duration".to_string(), serde_json::Value::Number(duration.into()));
+        }
+        if let Some(strict) = request.strict {
+            attributes.insert("strict".to_string(), serde_json::Value::Bool(strict));
+        }
+        if let Some(floating) = request.floating {
+            attributes.insert("floating".to_string(), serde_json::Value::Bool(floating));
+        }
+        if let Some(require_heartbeat) = request.require_heartbeat {
+            attributes.insert("requireHeartbeat".to_string(), serde_json::Value::Bool(require_heartbeat));
+        }
+        if let Some(heartbeat_duration) = request.heartbeat_duration {
+            attributes.insert("heartbeatDuration".to_string(), serde_json::Value::Number(heartbeat_duration.into()));
+        }
+        if let Some(ref heartbeat_cull_strategy) = request.heartbeat_cull_strategy {
+            attributes.insert("heartbeatCullStrategy".to_string(), serde_json::Value::String(heartbeat_cull_strategy.clone()));
+        }
+        if let Some(ref heartbeat_resurrection_strategy) = request.heartbeat_resurrection_strategy {
+            attributes.insert("heartbeatResurrectionStrategy".to_string(), serde_json::Value::String(heartbeat_resurrection_strategy.clone()));
+        }
+        if let Some(ref heartbeat_basis) = request.heartbeat_basis {
+            attributes.insert("heartbeatBasis".to_string(), serde_json::Value::String(heartbeat_basis.clone()));
+        }
+        if let Some(machine_uniqueness_strategy) = request.machine_uniqueness_strategy {
+            attributes.insert("machineUniquenessStrategy".to_string(), serde_json::to_value(machine_uniqueness_strategy)?);
+        }
+        if let Some(component_uniqueness_strategy) = request.component_uniqueness_strategy {
+            attributes.insert("componentUniquenessStrategy".to_string(), serde_json::to_value(component_uniqueness_strategy)?);
+        }
+        if let Some(machine_matching_strategy) = request.machine_matching_strategy {
+            attributes.insert("machineMatchingStrategy".to_string(), serde_json::to_value(machine_matching_strategy)?);
+        }
+        if let Some(component_matching_strategy) = request.component_matching_strategy {
+            attributes.insert("componentMatchingStrategy".to_string(), serde_json::to_value(component_matching_strategy)?);
+        }
+        if let Some(expiration_strategy) = request.expiration_strategy {
+            attributes.insert("expirationStrategy".to_string(), serde_json::to_value(expiration_strategy)?);
+        }
+        if let Some(ref expiration_basis) = request.expiration_basis {
+            attributes.insert("expirationBasis".to_string(), serde_json::Value::String(expiration_basis.clone()));
+        }
+        if let Some(ref renewal_basis) = request.renewal_basis {
+            attributes.insert("renewalBasis".to_string(), serde_json::Value::String(renewal_basis.clone()));
+        }
+        if let Some(authentication_strategy) = request.authentication_strategy {
+            attributes.insert("authenticationStrategy".to_string(), serde_json::to_value(authentication_strategy)?);
+        }
+        if let Some(machine_leasing_strategy) = request.machine_leasing_strategy {
+            attributes.insert("machineLeasingStrategy".to_string(), serde_json::to_value(machine_leasing_strategy)?);
+        }
+        if let Some(process_leasing_strategy) = request.process_leasing_strategy {
+            attributes.insert("processLeasingStrategy".to_string(), serde_json::to_value(process_leasing_strategy)?);
+        }
+        if let Some(overage_strategy) = request.overage_strategy {
+            attributes.insert("overageStrategy".to_string(), serde_json::to_value(overage_strategy)?);
+        }
+        if let Some(transfer_strategy) = request.transfer_strategy {
+            attributes.insert("transferStrategy".to_string(), serde_json::to_value(transfer_strategy)?);
+        }
+        if let Some(max_machines) = request.max_machines {
+            attributes.insert("maxMachines".to_string(), serde_json::Value::Number(max_machines.into()));
+        }
+        if let Some(max_processes) = request.max_processes {
+            attributes.insert("maxProcesses".to_string(), serde_json::Value::Number(max_processes.into()));
+        }
+        if let Some(max_cores) = request.max_cores {
+            attributes.insert("maxCores".to_string(), serde_json::Value::Number(max_cores.into()));
+        }
+        if let Some(max_uses) = request.max_uses {
+            attributes.insert("maxUses".to_string(), serde_json::Value::Number(max_uses.into()));
+        }
+        if let Some(encrypted) = request.encrypted {
+            attributes.insert("encrypted".to_string(), serde_json::Value::Bool(encrypted));
+        }
+        if let Some(protected) = request.protected {
+            attributes.insert("protected".to_string(), serde_json::Value::Bool(protected));
+        }
+        if let Some(require_check_in) = request.require_check_in {
+            attributes.insert("requireCheckIn".to_string(), serde_json::Value::Bool(require_check_in));
+        }
+        if let Some(ref check_in_interval) = request.check_in_interval {
+            attributes.insert("checkInInterval".to_string(), serde_json::Value::String(check_in_interval.clone()));
+        }
+        if let Some(check_in_interval_count) = request.check_in_interval_count {
+            attributes.insert("checkInIntervalCount".to_string(), serde_json::Value::Number(check_in_interval_count.into()));
+        }
+        if let Some(use_pool) = request.use_pool {
+            attributes.insert("usePool".to_string(), serde_json::Value::Bool(use_pool));
+        }
+        if let Some(max_licenses) = request.max_licenses {
+            attributes.insert("maxLicenses".to_string(), serde_json::Value::Number(max_licenses.into()));
+        }
+        if let Some(max_users) = request.max_users {
+            attributes.insert("maxUsers".to_string(), serde_json::Value::Number(max_users.into()));
+        }
+        if let Some(ref scheme) = request.scheme {
+            attributes.insert("scheme".to_string(), serde_json::Value::String(scheme.clone()));
+        }
+        if let Some(ref metadata) = request.metadata {
+            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
+        }
+
         let body = serde_json::json!({
             "data": {
                 "type": "policies",
-                "attributes": {
-                    "name": request.name,
-                    "duration": request.duration,
-                    "strict": request.strict,
-                    "floating": request.floating,
-                    "requireHeartbeat": request.require_heartbeat,
-                    "heartbeatDuration": request.heartbeat_duration,
-                    "heartbeatCullStrategy": request.heartbeat_cull_strategy,
-                    "heartbeatResurrectionStrategy": request.heartbeat_resurrection_strategy,
-                    "heartbeatBasis": request.heartbeat_basis,
-                    "machineUniquenessStrategy": request.machine_uniqueness_strategy,
-                    "componentUniquenessStrategy": request.component_uniqueness_strategy,
-                    "machineMatchingStrategy": request.machine_matching_strategy,
-                    "componentMatchingStrategy": request.component_matching_strategy,
-                    "expirationStrategy": request.expiration_strategy,
-                    "expirationBasis": request.expiration_basis,
-                    "renewalBasis": request.renewal_basis,
-                    "authenticationStrategy": request.authentication_strategy,
-                    "machineLeasingStrategy": request.machine_leasing_strategy,
-                    "processLeasingStrategy": request.process_leasing_strategy,
-                    "overageStrategy": request.overage_strategy,
-                    "transferStrategy": request.transfer_strategy,
-                    "maxMachines": request.max_machines,
-                    "maxProcesses": request.max_processes,
-                    "maxCores": request.max_cores,
-                    "maxUses": request.max_uses,
-                    "encrypted": request.encrypted,
-                    "protected": request.protected,
-                    "requireCheckIn": request.require_check_in,
-                    "checkInInterval": request.check_in_interval,
-                    "checkInIntervalCount": request.check_in_interval_count,
-                    "usePool": request.use_pool,
-                    "maxLicenses": request.max_licenses,
-                    "maxUsers": request.max_users,
-                    "scheme": request.scheme,
-                    "metadata": request.metadata.unwrap_or_default()
-                },
+                "attributes": attributes,
                 "relationships": {
                     "product": {
                         "data": {

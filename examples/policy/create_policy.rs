@@ -1,12 +1,14 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    policy::{self, CreatePolicyRequest, ExpirationStrategy, AuthenticationStrategy},
+    policy::{Policy, CreatePolicyRequest},
     errors::Error,
 };
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    dotenv::dotenv().ok();
+    
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -15,27 +17,19 @@ async fn main() -> Result<(), Error> {
         ..KeygenConfig::default()
     });
 
-    // Create a new policy
+    // Get product ID from environment variable
+    let product_id = env::var("KEYGEN_PRODUCT_ID")
+        .or_else(|_| env::var("PRODUCT_ID"))
+        .expect("KEYGEN_PRODUCT_ID or PRODUCT_ID must be set");
+
+    // Create a new policy with only required fields (according to docs: name + product relationship)
     let request = CreatePolicyRequest {
-        name: "Standard License".to_string(),
-        duration: Some(31536000), // 1 year in seconds
-        expiration_strategy: ExpirationStrategy::RestrictAccess,
-        authentication_strategy: AuthenticationStrategy::Token,
-        machine_uniqueness_strategy: "UNIQUE_PER_ACCOUNT".to_string(),
-        machine_matching_strategy: "MATCH_ALL".to_string(),
-        component_uniqueness_strategy: "UNIQUE_PER_ACCOUNT".to_string(),
-        component_matching_strategy: "MATCH_ALL".to_string(),
-        process_uniqueness_strategy: "UNIQUE_PER_MACHINE".to_string(),
-        process_matching_strategy: "MATCH_ALL".to_string(),
-        max_machines: Some(5),
-        max_components: None,
-        max_processes: None,
-        max_cores: None,
-        max_uses: None,
-        metadata: None,
+        name: "Basic Policy".to_string(),
+        product_id,
+        ..Default::default()
     };
 
-    match policy::create(request).await {
+    match Policy::create(request).await {
         Ok(policy) => {
             println!("✅ Policy created successfully!");
             println!("ID: {}", policy.id);

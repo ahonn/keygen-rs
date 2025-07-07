@@ -75,6 +75,26 @@ name = "update_product"
 path = "examples/product/update_product.rs"
 
 [[example]]
+name = "create_policy"
+path = "examples/policy/create_policy.rs"
+
+[[example]]
+name = "list_policies"
+path = "examples/policy/list_policies.rs"
+
+[[example]]
+name = "get_policy"
+path = "examples/policy/get_policy.rs"
+
+[[example]]
+name = "update_policy"
+path = "examples/policy/update_policy.rs"
+
+[[example]]
+name = "delete_policy"
+path = "examples/policy/delete_policy.rs"
+
+[[example]]
 name = "list_tokens"
 path = "examples/token/list_tokens.rs"
 

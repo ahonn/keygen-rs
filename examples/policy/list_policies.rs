@@ -1,12 +1,14 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    policy,
+    policy::Policy,
     errors::Error,
 };
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    dotenv::dotenv().ok();
+    
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -16,7 +18,7 @@ async fn main() -> Result<(), Error> {
     });
 
     // List all policies
-    match policy::list().await {
+    match Policy::list(None).await {
         Ok(policies) => {
             println!("✅ Found {} policies:", policies.len());
             for policy in policies {
