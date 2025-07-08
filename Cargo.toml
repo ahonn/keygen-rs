@@ -210,5 +210,18 @@ path = "examples/machine/reset_machine.rs"
 name = "start_heartbeat"
 path = "examples/machine/start_heartbeat.rs"
 
+[[example]]
+name = "create_machine"
+path = "examples/machine/create_machine.rs"
+
+[[example]]
+name = "get_machine"
+path = "examples/machine/get_machine.rs"
+
+[[example]]
+name = "update_machine"
+path = "examples/machine/update_machine.rs"
+
+
 [lib]
 doctest = false

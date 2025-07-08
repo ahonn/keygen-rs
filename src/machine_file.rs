@@ -66,6 +66,8 @@ impl MachineFile {
     }
 
     pub fn verify(&self) -> Result<(), Error> {
+        self.validate_ttl()?;
+        
         let config = get_config();
 
         if let Some(public_key) = config.public_key {
@@ -73,6 +75,65 @@ impl MachineFile {
             verifier.verify_machine_file(self)
         } else {
             Err(Error::PublicKeyMissing)
+        }
+    }
+
+    pub fn validate_ttl(&self) -> Result<(), Error> {
+        let now = Utc::now();
+        if now > self.expiry {
+            let dataset = self.decrypt("").unwrap_or_else(|_| {
+                use std::collections::HashMap;
+                MachineFileDataset {
+                    license: License::from(crate::KeygenResponseData {
+                        id: "".to_string(),
+                        r#type: "licenses".to_string(),
+                        attributes: crate::license::LicenseAttributes {
+                            name: None,
+                            key: "".to_string(),
+                            expiry: None,
+                            status: Some("".to_string()),
+                            uses: Some(0),
+                            max_machines: None,
+                            max_cores: None,
+                            max_uses: None,
+                            max_processes: None,
+                            protected: None,
+                            suspended: None,
+                            metadata: HashMap::new(),
+                        },
+                        relationships: crate::KeygenRelationships {
+                            policy: None,
+                        },
+                    }),
+                    machine: Machine::from(crate::KeygenResponseData {
+                        id: "".to_string(),
+                        r#type: "machines".to_string(),
+                        attributes: crate::machine::MachineAttributes {
+                            fingerprint: "".to_string(),
+                            name: None,
+                            platform: None,
+                            hostname: None,
+                            ip: None,
+                            cores: None,
+                            metadata: None,
+                            require_heartbeat: false,
+                            heartbeat_status: "".to_string(),
+                            heartbeat_duration: None,
+                            created: Utc::now(),
+                            updated: Utc::now(),
+                        },
+                        relationships: crate::KeygenRelationships {
+                            policy: None,
+                        },
+                    }),
+                    issued: self.issued,
+                    expiry: self.expiry,
+                    ttl: self.ttl,
+                }
+            });
+            Err(Error::MachineFileExpired(dataset))
+        } else {
+            Ok(())
         }
     }
 
