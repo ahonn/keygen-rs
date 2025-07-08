@@ -189,15 +189,15 @@ impl Machine {
 
             send(self.ping().await);
             while interval_stream.next().await.is_some() {
-              match cancel_rx {
-                Some(ref rx) => {
-                  if rx.try_recv().is_ok() {
-                    break;
-                  }
+                match cancel_rx {
+                    Some(ref rx) => {
+                        if rx.try_recv().is_ok() {
+                            break;
+                        }
+                    }
+                    None => {}
                 }
-                None => {}
-              }
-              send(self.ping().await);
+                send(self.ping().await);
             }
         }
         .boxed()
@@ -207,10 +207,10 @@ impl Machine {
     #[cfg(feature = "token")]
     pub async fn create(request: MachineCreateRequest) -> Result<Machine, Error> {
         let client = Client::default();
-        
+
         let mut attributes = serde_json::Map::new();
         attributes.insert("fingerprint".to_string(), json!(request.fingerprint));
-        
+
         if let Some(name) = request.name {
             attributes.insert("name".to_string(), json!(name));
         }
@@ -229,7 +229,7 @@ impl Machine {
         if let Some(metadata) = request.metadata {
             attributes.insert("metadata".to_string(), json!(metadata));
         }
-        
+
         let body = json!({
             "data": {
                 "type": "machines",
@@ -244,7 +244,7 @@ impl Machine {
                 }
             }
         });
-        
+
         let response = client.post("machines", Some(&body), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))
@@ -254,7 +254,7 @@ impl Machine {
     #[cfg(feature = "token")]
     pub async fn list(filters: Option<MachineListFilters>) -> Result<Vec<Machine>, Error> {
         let client = Client::default();
-        
+
         let mut query_params = Vec::new();
         if let Some(filters) = filters {
             if let Some(license) = filters.license {
@@ -273,13 +273,17 @@ impl Machine {
                 query_params.push(("fingerprint".to_string(), fingerprint));
             }
         }
-        
+
         let query = if query_params.is_empty() {
             None
         } else {
-            Some(query_params.into_iter().collect::<HashMap<String, String>>())
+            Some(
+                query_params
+                    .into_iter()
+                    .collect::<HashMap<String, String>>(),
+            )
         };
-        
+
         let response = client.get("machines", query.as_ref()).await?;
         let machines_response: MachinesResponse = serde_json::from_value(response.body)?;
         Ok(machines_response
@@ -346,6 +350,4 @@ impl Machine {
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))
     }
-
-
 }

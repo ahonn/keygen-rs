@@ -1,14 +1,14 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    policy::Policy,
     errors::Error,
+    policy::Policy,
 };
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -30,23 +30,23 @@ async fn main() -> Result<(), Error> {
             println!("  ID: {}", policy.id);
             println!("  Name: {}", policy.name);
             println!("  Max Machines: {:?}", policy.max_machines);
-            
+
             // Confirm deletion
             println!("\n⚠️  Are you sure you want to delete this policy?");
             println!("This action cannot be undone and may affect associated licenses.");
             println!("Type 'yes' to confirm deletion: ");
-            
+
             use std::io::{self, BufRead};
             let stdin = io::stdin();
             let mut lines = stdin.lock().lines();
-            
+
             if let Some(Ok(line)) = lines.next() {
                 if line.trim().to_lowercase() == "yes" {
                     // Delete the policy
                     match policy.delete().await {
                         Ok(_) => {
                             println!("✅ Policy deleted successfully!");
-                        },
+                        }
                         Err(e) => {
                             println!("❌ Failed to delete policy: {:?}", e);
                         }
@@ -55,7 +55,7 @@ async fn main() -> Result<(), Error> {
                     println!("❌ Deletion cancelled.");
                 }
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to get policy: {:?}", e);
         }

@@ -1,15 +1,15 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    policy::{Policy, UpdatePolicyRequest, ExpirationStrategy, AuthenticationStrategy},
     errors::Error,
+    policy::{AuthenticationStrategy, ExpirationStrategy, Policy, UpdatePolicyRequest},
 };
-use std::env;
 use std::collections::HashMap;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -31,12 +31,21 @@ async fn main() -> Result<(), Error> {
             println!("  Current Name: {}", policy.name);
             println!("  Current Max Machines: {:?}", policy.max_machines);
             println!("  Current Duration: {:?} seconds", policy.duration);
-            println!("  Current Expiration Strategy: {:?}", policy.expiration_strategy);
+            println!(
+                "  Current Expiration Strategy: {:?}",
+                policy.expiration_strategy
+            );
 
             // Create update request
             let mut metadata = HashMap::new();
-            metadata.insert("updated_by".to_string(), serde_json::json!("policy_update_example"));
-            metadata.insert("update_reason".to_string(), serde_json::json!("Testing policy update functionality"));
+            metadata.insert(
+                "updated_by".to_string(),
+                serde_json::json!("policy_update_example"),
+            );
+            metadata.insert(
+                "update_reason".to_string(),
+                serde_json::json!("Testing policy update functionality"),
+            );
 
             let update_request = UpdatePolicyRequest {
                 name: Some(format!("{} (Updated)", policy.name)),
@@ -54,16 +63,22 @@ async fn main() -> Result<(), Error> {
                     println!("  New Name: {}", updated_policy.name);
                     println!("  New Max Machines: {:?}", updated_policy.max_machines);
                     println!("  New Duration: {:?} seconds", updated_policy.duration);
-                    println!("  New Expiration Strategy: {:?}", updated_policy.expiration_strategy);
-                    println!("  New Overage Strategy: {:?}", updated_policy.overage_strategy);
+                    println!(
+                        "  New Expiration Strategy: {:?}",
+                        updated_policy.expiration_strategy
+                    );
+                    println!(
+                        "  New Overage Strategy: {:?}",
+                        updated_policy.overage_strategy
+                    );
                     println!("  New Floating: {}", updated_policy.floating);
                     println!("  New Metadata: {:?}", updated_policy.metadata);
-                },
+                }
                 Err(e) => {
                     println!("\n❌ Failed to update policy: {:?}", e);
                 }
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to get policy: {:?}", e);
         }

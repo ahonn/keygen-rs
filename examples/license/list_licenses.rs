@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    license::License,
     errors::Error,
+    license::License,
 };
 use std::env;
 
@@ -9,7 +9,7 @@ use std::env;
 async fn main() -> Result<(), Error> {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Error> {
                 println!("  Expiry: {:?}", license.expiry);
                 println!("  ---");
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to list licenses: {:?}", e);
         }

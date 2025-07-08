@@ -1,5 +1,5 @@
-use std::sync::RwLock;
 use lazy_static::lazy_static;
+use std::sync::RwLock;
 
 #[derive(Clone, Debug)]
 pub struct KeygenConfig {
@@ -10,7 +10,7 @@ pub struct KeygenConfig {
     pub account: String,
     pub environment: Option<String>,
     pub user_agent: Option<String>,
-    
+
     // License Key Authentication configuration
     #[cfg(feature = "license-key")]
     pub product: String,
@@ -26,7 +26,7 @@ pub struct KeygenConfig {
     pub max_clock_drift: Option<i64>,
     #[cfg(feature = "license-key")]
     pub verify_keygen_signature: Option<bool>,
-    
+
     // Token Authentication configuration
     #[cfg(feature = "token")]
     pub token: Option<String>,
@@ -42,7 +42,7 @@ impl Default for KeygenConfig {
             account: String::new(),
             environment: None,
             user_agent: None,
-            
+
             // License Key Authentication defaults
             #[cfg(feature = "license-key")]
             product: String::new(),
@@ -58,7 +58,7 @@ impl Default for KeygenConfig {
             max_clock_drift: Some(5),
             #[cfg(feature = "license-key")]
             verify_keygen_signature: Some(true),
-            
+
             // Token Authentication defaults
             #[cfg(feature = "token")]
             token: None,
@@ -69,7 +69,12 @@ impl Default for KeygenConfig {
 impl KeygenConfig {
     /// Create a license key authentication configuration
     #[cfg(feature = "license-key")]
-    pub fn license_key(account: String, product: String, license_key: String, public_key: String) -> Self {
+    pub fn license_key(
+        account: String,
+        product: String,
+        license_key: String,
+        public_key: String,
+    ) -> Self {
         KeygenConfig {
             account,
             product,
@@ -78,7 +83,7 @@ impl KeygenConfig {
             ..Default::default()
         }
     }
-    
+
     /// Create a token authentication configuration
     #[cfg(feature = "token")]
     pub fn token(account: String, token: String) -> Self {
@@ -88,7 +93,6 @@ impl KeygenConfig {
             ..Default::default()
         }
     }
-    
 }
 
 lazy_static! {

@@ -1,16 +1,16 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    license::License,
     errors::Error,
+    license::License,
 };
-use std::env;
 use std::collections::HashMap;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -21,12 +21,19 @@ async fn main() -> Result<(), Error> {
 
     // Create metadata for the license
     let mut metadata = HashMap::new();
-    metadata.insert("customer_name".to_string(), serde_json::Value::String("John Doe".to_string()));
-    metadata.insert("license_type".to_string(), serde_json::Value::String("premium".to_string()));
+    metadata.insert(
+        "customer_name".to_string(),
+        serde_json::Value::String("John Doe".to_string()),
+    );
+    metadata.insert(
+        "license_type".to_string(),
+        serde_json::Value::String("premium".to_string()),
+    );
 
     // Create a new license
-    let policy_id = env::var("POLICY_ID").expect("POLICY_ID must be set (get from list_policies example)");
-    
+    let policy_id =
+        env::var("POLICY_ID").expect("POLICY_ID must be set (get from list_policies example)");
+
     match License::create(&policy_id, None, Some(metadata)).await {
         Ok(license) => {
             println!("✅ License created successfully!");
@@ -42,7 +49,7 @@ async fn main() -> Result<(), Error> {
             println!("Suspended: {:?}", license.suspended);
             println!("Expiry: {:?}", license.expiry);
             println!("Metadata: {:?}", license.metadata);
-        },
+        }
         Err(e) => {
             println!("❌ Failed to create license: {:?}", e);
         }

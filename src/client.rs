@@ -1,5 +1,6 @@
 use crate::config::get_config;
 use crate::errors::Error;
+use crate::verifier::Verifier;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::Deserialize;
@@ -7,7 +8,6 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use std::time::Duration;
 use url::Url;
-use crate::verifier::Verifier;
 
 pub struct Client {
     inner: ReqwestClient,
@@ -235,7 +235,10 @@ impl Client {
         Ok(request.build()?)
     }
 
-    async fn send<U: DeserializeOwned + Serialize>(&self, request: Request) -> Result<Response<U>, Error> {
+    async fn send<U: DeserializeOwned + Serialize>(
+        &self,
+        request: Request,
+    ) -> Result<Response<U>, Error> {
         let method = request.method().as_str().to_owned();
         let url = request.url().clone();
         let host = match (url.host_str(), url.port()) {
@@ -243,9 +246,9 @@ impl Client {
             (Some(h), None) => h.to_string(),
             _ => "api.keygen.sh".to_string(),
         };
-        
+
         let response = self.inner.execute(request).await?;
-        
+
         let status = response.status();
         let headers = response.headers().clone();
 
@@ -254,37 +257,33 @@ impl Client {
             return Err(self.handle_error(status, &headers, error_body));
         }
         let bytes = response.bytes().await?;
-        
+
         if self.options.verify_keygen_signature {
             let config = get_config();
             if let Some(public_key) = config.public_key {
                 let verifier = Verifier::new(public_key);
-                
+
                 let base_path = url.path();
                 let full_path = if let Some(query) = url.query() {
                     format!("{}?{}", base_path, query)
                 } else {
                     base_path.to_string()
                 };
-                
-                verifier.verify_keygen_signature(
-                    &headers, 
-                    &bytes, 
-                    &method, 
-                    &full_path,
-                    &host
-                ).map_err(|err| Error::KeygenSignatureInvalid { 
-                    reason: format!("Keygen signature validation failed: {}", err) 
-                })?;
+
+                verifier
+                    .verify_keygen_signature(&headers, &bytes, &method, &full_path, &host)
+                    .map_err(|err| Error::KeygenSignatureInvalid {
+                        reason: format!("Keygen signature validation failed: {}", err),
+                    })?;
             }
         }
-        
+
         let body: U = if status == StatusCode::NO_CONTENT {
             serde_json::from_value(serde_json::Value::Null)?
         } else {
             serde_json::from_slice(&bytes)?
         };
-        
+
         Ok(Response {
             status,
             headers,

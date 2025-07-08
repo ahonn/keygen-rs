@@ -1,15 +1,15 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    user::{self, CreateUserRequest, UserRole},
     errors::Error,
+    user::{self, CreateUserRequest, UserRole},
 };
-use std::env;
 use std::collections::HashMap;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -20,8 +20,14 @@ async fn main() -> Result<(), Error> {
 
     // Create metadata for the user
     let mut metadata = HashMap::new();
-    metadata.insert("department".to_string(), serde_json::Value::String("Engineering".to_string()));
-    metadata.insert("employee_id".to_string(), serde_json::Value::String("EMP001".to_string()));
+    metadata.insert(
+        "department".to_string(),
+        serde_json::Value::String("Engineering".to_string()),
+    );
+    metadata.insert(
+        "employee_id".to_string(),
+        serde_json::Value::String("EMP001".to_string()),
+    );
 
     // Create a new user with timestamp-based email to avoid conflicts
     let timestamp = std::time::SystemTime::now()
@@ -49,7 +55,7 @@ async fn main() -> Result<(), Error> {
             if let Some(metadata) = user.metadata {
                 println!("Metadata: {:?}", metadata);
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to create user: {:?}", e);
         }

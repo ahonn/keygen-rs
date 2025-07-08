@@ -1,14 +1,14 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    user,
     errors::Error,
+    user,
 };
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -34,7 +34,7 @@ async fn main() -> Result<(), Error> {
                 }
                 println!("  ---");
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to list users: {:?}", e);
         }

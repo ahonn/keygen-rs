@@ -206,9 +206,7 @@ pub enum Error {
     NotFound { code: String, detail: String },
 
     #[error("Keygen signature validation failed: {reason}")]
-    KeygenSignatureInvalid {
-        reason: String,
-    },
+    KeygenSignatureInvalid { reason: String },
 
     #[error("Keygen signature missing")]
     KeygenSignatureMissing,

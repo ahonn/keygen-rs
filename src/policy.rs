@@ -67,6 +67,26 @@ pub enum MatchingStrategy {
     MatchAll,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Scheme {
+    #[serde(rename = "ED25519_SIGN")]
+    Ed25519Sign,
+    #[serde(rename = "RSA_2048_PKCS1_PSS_SIGN_V2")]
+    Rsa2048Pkcs1PssSignV2,
+    #[serde(rename = "RSA_2048_PKCS1_SIGN_V2")]
+    Rsa2048Pkcs1SignV2,
+    #[serde(rename = "RSA_2048_PKCS1_ENCRYPT")]
+    Rsa2048Pkcs1Encrypt,
+    #[serde(rename = "RSA_2048_JWT_RS256")]
+    Rsa2048JwtRs256,
+    #[serde(rename = "LEGACY_ENCRYPT")]
+    LegacyEncrypt,
+    #[serde(rename = "RSA_2048_PKCS1_PSS_SIGN")]
+    Rsa2048Pkcs1PssSign, // Deprecated
+    #[serde(rename = "RSA_2048_PKCS1_SIGN")]
+    Rsa2048Pkcs1Sign, // Deprecated
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyAttributes {
     pub name: String,
@@ -129,7 +149,7 @@ pub struct PolicyAttributes {
     pub max_licenses: Option<i32>,
     #[serde(rename = "maxUsers")]
     pub max_users: Option<i32>,
-    pub scheme: Option<String>,
+    pub scheme: Option<Scheme>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: String,
     pub updated: String,
@@ -207,7 +227,7 @@ pub struct CreatePolicyRequest {
     pub max_licenses: Option<i32>,
     #[serde(rename = "maxUsers")]
     pub max_users: Option<i32>,
-    pub scheme: Option<String>,
+    pub scheme: Option<Scheme>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     // Relationship to product
     pub product_id: String,
@@ -304,7 +324,6 @@ pub struct UpdatePolicyRequest {
     pub max_cores: Option<i32>,
     #[serde(rename = "maxUses")]
     pub max_uses: Option<i32>,
-    pub encrypted: Option<bool>,
     pub protected: Option<bool>,
     #[serde(rename = "requireCheckIn")]
     pub require_check_in: Option<bool>,
@@ -312,13 +331,9 @@ pub struct UpdatePolicyRequest {
     pub check_in_interval: Option<String>,
     #[serde(rename = "checkInIntervalCount")]
     pub check_in_interval_count: Option<i32>,
-    #[serde(rename = "usePool")]
-    pub use_pool: Option<bool>,
-    #[serde(rename = "maxLicenses")]
-    pub max_licenses: Option<i32>,
     #[serde(rename = "maxUsers")]
     pub max_users: Option<i32>,
-    pub scheme: Option<String>,
+    pub scheme: Option<Scheme>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
@@ -350,13 +365,10 @@ impl Default for UpdatePolicyRequest {
             max_processes: None,
             max_cores: None,
             max_uses: None,
-            encrypted: None,
             protected: None,
             require_check_in: None,
             check_in_interval: None,
             check_in_interval_count: None,
-            use_pool: None,
-            max_licenses: None,
             max_users: None,
             scheme: None,
             metadata: None,
@@ -400,7 +412,7 @@ pub struct Policy {
     pub use_pool: bool,
     pub max_licenses: Option<i32>,
     pub max_users: Option<i32>,
-    pub scheme: Option<String>,
+    pub scheme: Option<Scheme>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: String,
     pub updated: String,
@@ -467,9 +479,12 @@ impl Policy {
         // Build attributes dynamically, only including non-None values
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
-        
+
         if let Some(duration) = request.duration {
-            attributes.insert("duration".to_string(), serde_json::Value::Number(duration.into()));
+            attributes.insert(
+                "duration".to_string(),
+                serde_json::Value::Number(duration.into()),
+            );
         }
         if let Some(strict) = request.strict {
             attributes.insert("strict".to_string(), serde_json::Value::Bool(strict));
@@ -478,67 +493,130 @@ impl Policy {
             attributes.insert("floating".to_string(), serde_json::Value::Bool(floating));
         }
         if let Some(require_heartbeat) = request.require_heartbeat {
-            attributes.insert("requireHeartbeat".to_string(), serde_json::Value::Bool(require_heartbeat));
+            attributes.insert(
+                "requireHeartbeat".to_string(),
+                serde_json::Value::Bool(require_heartbeat),
+            );
         }
         if let Some(heartbeat_duration) = request.heartbeat_duration {
-            attributes.insert("heartbeatDuration".to_string(), serde_json::Value::Number(heartbeat_duration.into()));
+            attributes.insert(
+                "heartbeatDuration".to_string(),
+                serde_json::Value::Number(heartbeat_duration.into()),
+            );
         }
         if let Some(ref heartbeat_cull_strategy) = request.heartbeat_cull_strategy {
-            attributes.insert("heartbeatCullStrategy".to_string(), serde_json::Value::String(heartbeat_cull_strategy.clone()));
+            attributes.insert(
+                "heartbeatCullStrategy".to_string(),
+                serde_json::Value::String(heartbeat_cull_strategy.clone()),
+            );
         }
         if let Some(ref heartbeat_resurrection_strategy) = request.heartbeat_resurrection_strategy {
-            attributes.insert("heartbeatResurrectionStrategy".to_string(), serde_json::Value::String(heartbeat_resurrection_strategy.clone()));
+            attributes.insert(
+                "heartbeatResurrectionStrategy".to_string(),
+                serde_json::Value::String(heartbeat_resurrection_strategy.clone()),
+            );
         }
         if let Some(ref heartbeat_basis) = request.heartbeat_basis {
-            attributes.insert("heartbeatBasis".to_string(), serde_json::Value::String(heartbeat_basis.clone()));
+            attributes.insert(
+                "heartbeatBasis".to_string(),
+                serde_json::Value::String(heartbeat_basis.clone()),
+            );
         }
         if let Some(machine_uniqueness_strategy) = request.machine_uniqueness_strategy {
-            attributes.insert("machineUniquenessStrategy".to_string(), serde_json::to_value(machine_uniqueness_strategy)?);
+            attributes.insert(
+                "machineUniquenessStrategy".to_string(),
+                serde_json::to_value(machine_uniqueness_strategy)?,
+            );
         }
         if let Some(component_uniqueness_strategy) = request.component_uniqueness_strategy {
-            attributes.insert("componentUniquenessStrategy".to_string(), serde_json::to_value(component_uniqueness_strategy)?);
+            attributes.insert(
+                "componentUniquenessStrategy".to_string(),
+                serde_json::to_value(component_uniqueness_strategy)?,
+            );
         }
         if let Some(machine_matching_strategy) = request.machine_matching_strategy {
-            attributes.insert("machineMatchingStrategy".to_string(), serde_json::to_value(machine_matching_strategy)?);
+            attributes.insert(
+                "machineMatchingStrategy".to_string(),
+                serde_json::to_value(machine_matching_strategy)?,
+            );
         }
         if let Some(component_matching_strategy) = request.component_matching_strategy {
-            attributes.insert("componentMatchingStrategy".to_string(), serde_json::to_value(component_matching_strategy)?);
+            attributes.insert(
+                "componentMatchingStrategy".to_string(),
+                serde_json::to_value(component_matching_strategy)?,
+            );
         }
         if let Some(expiration_strategy) = request.expiration_strategy {
-            attributes.insert("expirationStrategy".to_string(), serde_json::to_value(expiration_strategy)?);
+            attributes.insert(
+                "expirationStrategy".to_string(),
+                serde_json::to_value(expiration_strategy)?,
+            );
         }
         if let Some(ref expiration_basis) = request.expiration_basis {
-            attributes.insert("expirationBasis".to_string(), serde_json::Value::String(expiration_basis.clone()));
+            attributes.insert(
+                "expirationBasis".to_string(),
+                serde_json::Value::String(expiration_basis.clone()),
+            );
         }
         if let Some(ref renewal_basis) = request.renewal_basis {
-            attributes.insert("renewalBasis".to_string(), serde_json::Value::String(renewal_basis.clone()));
+            attributes.insert(
+                "renewalBasis".to_string(),
+                serde_json::Value::String(renewal_basis.clone()),
+            );
         }
         if let Some(authentication_strategy) = request.authentication_strategy {
-            attributes.insert("authenticationStrategy".to_string(), serde_json::to_value(authentication_strategy)?);
+            attributes.insert(
+                "authenticationStrategy".to_string(),
+                serde_json::to_value(authentication_strategy)?,
+            );
         }
         if let Some(machine_leasing_strategy) = request.machine_leasing_strategy {
-            attributes.insert("machineLeasingStrategy".to_string(), serde_json::to_value(machine_leasing_strategy)?);
+            attributes.insert(
+                "machineLeasingStrategy".to_string(),
+                serde_json::to_value(machine_leasing_strategy)?,
+            );
         }
         if let Some(process_leasing_strategy) = request.process_leasing_strategy {
-            attributes.insert("processLeasingStrategy".to_string(), serde_json::to_value(process_leasing_strategy)?);
+            attributes.insert(
+                "processLeasingStrategy".to_string(),
+                serde_json::to_value(process_leasing_strategy)?,
+            );
         }
         if let Some(overage_strategy) = request.overage_strategy {
-            attributes.insert("overageStrategy".to_string(), serde_json::to_value(overage_strategy)?);
+            attributes.insert(
+                "overageStrategy".to_string(),
+                serde_json::to_value(overage_strategy)?,
+            );
         }
         if let Some(transfer_strategy) = request.transfer_strategy {
-            attributes.insert("transferStrategy".to_string(), serde_json::to_value(transfer_strategy)?);
+            attributes.insert(
+                "transferStrategy".to_string(),
+                serde_json::to_value(transfer_strategy)?,
+            );
         }
         if let Some(max_machines) = request.max_machines {
-            attributes.insert("maxMachines".to_string(), serde_json::Value::Number(max_machines.into()));
+            attributes.insert(
+                "maxMachines".to_string(),
+                serde_json::Value::Number(max_machines.into()),
+            );
         }
         if let Some(max_processes) = request.max_processes {
-            attributes.insert("maxProcesses".to_string(), serde_json::Value::Number(max_processes.into()));
+            attributes.insert(
+                "maxProcesses".to_string(),
+                serde_json::Value::Number(max_processes.into()),
+            );
         }
         if let Some(max_cores) = request.max_cores {
-            attributes.insert("maxCores".to_string(), serde_json::Value::Number(max_cores.into()));
+            attributes.insert(
+                "maxCores".to_string(),
+                serde_json::Value::Number(max_cores.into()),
+            );
         }
         if let Some(max_uses) = request.max_uses {
-            attributes.insert("maxUses".to_string(), serde_json::Value::Number(max_uses.into()));
+            attributes.insert(
+                "maxUses".to_string(),
+                serde_json::Value::Number(max_uses.into()),
+            );
         }
         if let Some(encrypted) = request.encrypted {
             attributes.insert("encrypted".to_string(), serde_json::Value::Bool(encrypted));
@@ -547,25 +625,40 @@ impl Policy {
             attributes.insert("protected".to_string(), serde_json::Value::Bool(protected));
         }
         if let Some(require_check_in) = request.require_check_in {
-            attributes.insert("requireCheckIn".to_string(), serde_json::Value::Bool(require_check_in));
+            attributes.insert(
+                "requireCheckIn".to_string(),
+                serde_json::Value::Bool(require_check_in),
+            );
         }
         if let Some(ref check_in_interval) = request.check_in_interval {
-            attributes.insert("checkInInterval".to_string(), serde_json::Value::String(check_in_interval.clone()));
+            attributes.insert(
+                "checkInInterval".to_string(),
+                serde_json::Value::String(check_in_interval.clone()),
+            );
         }
         if let Some(check_in_interval_count) = request.check_in_interval_count {
-            attributes.insert("checkInIntervalCount".to_string(), serde_json::Value::Number(check_in_interval_count.into()));
+            attributes.insert(
+                "checkInIntervalCount".to_string(),
+                serde_json::Value::Number(check_in_interval_count.into()),
+            );
         }
         if let Some(use_pool) = request.use_pool {
             attributes.insert("usePool".to_string(), serde_json::Value::Bool(use_pool));
         }
         if let Some(max_licenses) = request.max_licenses {
-            attributes.insert("maxLicenses".to_string(), serde_json::Value::Number(max_licenses.into()));
+            attributes.insert(
+                "maxLicenses".to_string(),
+                serde_json::Value::Number(max_licenses.into()),
+            );
         }
         if let Some(max_users) = request.max_users {
-            attributes.insert("maxUsers".to_string(), serde_json::Value::Number(max_users.into()));
+            attributes.insert(
+                "maxUsers".to_string(),
+                serde_json::Value::Number(max_users.into()),
+            );
         }
-        if let Some(ref scheme) = request.scheme {
-            attributes.insert("scheme".to_string(), serde_json::Value::String(scheme.clone()));
+        if let Some(scheme) = request.scheme {
+            attributes.insert("scheme".to_string(), serde_json::to_value(scheme)?);
         }
         if let Some(ref metadata) = request.metadata {
             attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
@@ -622,7 +715,10 @@ impl Policy {
             attributes.insert("name".to_string(), serde_json::Value::String(name));
         }
         if let Some(duration) = request.duration {
-            attributes.insert("duration".to_string(), serde_json::Value::Number(duration.into()));
+            attributes.insert(
+                "duration".to_string(),
+                serde_json::Value::Number(duration.into()),
+            );
         }
         if let Some(strict) = request.strict {
             attributes.insert("strict".to_string(), serde_json::Value::Bool(strict));
@@ -631,67 +727,106 @@ impl Policy {
             attributes.insert("floating".to_string(), serde_json::Value::Bool(floating));
         }
         if let Some(require_heartbeat) = request.require_heartbeat {
-            attributes.insert("requireHeartbeat".to_string(), serde_json::Value::Bool(require_heartbeat));
+            attributes.insert(
+                "requireHeartbeat".to_string(),
+                serde_json::Value::Bool(require_heartbeat),
+            );
         }
         if let Some(heartbeat_duration) = request.heartbeat_duration {
-            attributes.insert("heartbeatDuration".to_string(), serde_json::Value::Number(heartbeat_duration.into()));
+            attributes.insert(
+                "heartbeatDuration".to_string(),
+                serde_json::Value::Number(heartbeat_duration.into()),
+            );
         }
         if let Some(expiration_strategy) = request.expiration_strategy {
-            attributes.insert("expirationStrategy".to_string(), serde_json::to_value(expiration_strategy)?);
+            attributes.insert(
+                "expirationStrategy".to_string(),
+                serde_json::to_value(expiration_strategy)?,
+            );
         }
         if let Some(authentication_strategy) = request.authentication_strategy {
-            attributes.insert("authenticationStrategy".to_string(), serde_json::to_value(authentication_strategy)?);
+            attributes.insert(
+                "authenticationStrategy".to_string(),
+                serde_json::to_value(authentication_strategy)?,
+            );
         }
         if let Some(machine_leasing_strategy) = request.machine_leasing_strategy {
-            attributes.insert("machineLeasingStrategy".to_string(), serde_json::to_value(machine_leasing_strategy)?);
+            attributes.insert(
+                "machineLeasingStrategy".to_string(),
+                serde_json::to_value(machine_leasing_strategy)?,
+            );
         }
         if let Some(process_leasing_strategy) = request.process_leasing_strategy {
-            attributes.insert("processLeasingStrategy".to_string(), serde_json::to_value(process_leasing_strategy)?);
+            attributes.insert(
+                "processLeasingStrategy".to_string(),
+                serde_json::to_value(process_leasing_strategy)?,
+            );
         }
         if let Some(overage_strategy) = request.overage_strategy {
-            attributes.insert("overageStrategy".to_string(), serde_json::to_value(overage_strategy)?);
+            attributes.insert(
+                "overageStrategy".to_string(),
+                serde_json::to_value(overage_strategy)?,
+            );
         }
         if let Some(transfer_strategy) = request.transfer_strategy {
-            attributes.insert("transferStrategy".to_string(), serde_json::to_value(transfer_strategy)?);
+            attributes.insert(
+                "transferStrategy".to_string(),
+                serde_json::to_value(transfer_strategy)?,
+            );
         }
         if let Some(max_machines) = request.max_machines {
-            attributes.insert("maxMachines".to_string(), serde_json::Value::Number(max_machines.into()));
+            attributes.insert(
+                "maxMachines".to_string(),
+                serde_json::Value::Number(max_machines.into()),
+            );
         }
         if let Some(max_processes) = request.max_processes {
-            attributes.insert("maxProcesses".to_string(), serde_json::Value::Number(max_processes.into()));
+            attributes.insert(
+                "maxProcesses".to_string(),
+                serde_json::Value::Number(max_processes.into()),
+            );
         }
         if let Some(max_cores) = request.max_cores {
-            attributes.insert("maxCores".to_string(), serde_json::Value::Number(max_cores.into()));
+            attributes.insert(
+                "maxCores".to_string(),
+                serde_json::Value::Number(max_cores.into()),
+            );
         }
         if let Some(max_uses) = request.max_uses {
-            attributes.insert("maxUses".to_string(), serde_json::Value::Number(max_uses.into()));
-        }
-        if let Some(encrypted) = request.encrypted {
-            attributes.insert("encrypted".to_string(), serde_json::Value::Bool(encrypted));
+            attributes.insert(
+                "maxUses".to_string(),
+                serde_json::Value::Number(max_uses.into()),
+            );
         }
         if let Some(protected) = request.protected {
             attributes.insert("protected".to_string(), serde_json::Value::Bool(protected));
         }
         if let Some(require_check_in) = request.require_check_in {
-            attributes.insert("requireCheckIn".to_string(), serde_json::Value::Bool(require_check_in));
+            attributes.insert(
+                "requireCheckIn".to_string(),
+                serde_json::Value::Bool(require_check_in),
+            );
         }
         if let Some(check_in_interval) = request.check_in_interval {
-            attributes.insert("checkInInterval".to_string(), serde_json::Value::String(check_in_interval));
+            attributes.insert(
+                "checkInInterval".to_string(),
+                serde_json::Value::String(check_in_interval),
+            );
         }
         if let Some(check_in_interval_count) = request.check_in_interval_count {
-            attributes.insert("checkInIntervalCount".to_string(), serde_json::Value::Number(check_in_interval_count.into()));
-        }
-        if let Some(use_pool) = request.use_pool {
-            attributes.insert("usePool".to_string(), serde_json::Value::Bool(use_pool));
-        }
-        if let Some(max_licenses) = request.max_licenses {
-            attributes.insert("maxLicenses".to_string(), serde_json::Value::Number(max_licenses.into()));
+            attributes.insert(
+                "checkInIntervalCount".to_string(),
+                serde_json::Value::Number(check_in_interval_count.into()),
+            );
         }
         if let Some(max_users) = request.max_users {
-            attributes.insert("maxUsers".to_string(), serde_json::Value::Number(max_users.into()));
+            attributes.insert(
+                "maxUsers".to_string(),
+                serde_json::Value::Number(max_users.into()),
+            );
         }
         if let Some(scheme) = request.scheme {
-            attributes.insert("scheme".to_string(), serde_json::Value::String(scheme));
+            attributes.insert("scheme".to_string(), serde_json::to_value(scheme)?);
         }
         if let Some(metadata) = request.metadata {
             attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
@@ -721,16 +856,74 @@ impl Policy {
     pub async fn pop_key(&self) -> Result<String, Error> {
         let client = Client::default();
         let endpoint = format!("policies/{}/pool", self.id);
-        let response: crate::client::Response<serde_json::Value> = client.delete(&endpoint, None::<&()>).await?;
-        
+        let response: crate::client::Response<serde_json::Value> =
+            client.delete(&endpoint, None::<&()>).await?;
+
         // Extract key from response
-        let key_data = response.body["data"]["attributes"]["key"].as_str()
+        let key_data = response.body["data"]["attributes"]["key"]
+            .as_str()
             .ok_or_else(|| Error::KeygenApiError {
                 code: "INVALID_RESPONSE".to_string(),
                 detail: "Invalid key response format".to_string(),
                 body: response.body.clone(),
             })?;
-        
+
         Ok(key_data.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scheme_serialization() {
+        // Test Ed25519 scheme
+        let scheme = Scheme::Ed25519Sign;
+        let json = serde_json::to_string(&scheme).unwrap();
+        assert_eq!(json, "\"ED25519_SIGN\"");
+
+        // Test RSA schemes
+        let scheme = Scheme::Rsa2048Pkcs1PssSignV2;
+        let json = serde_json::to_string(&scheme).unwrap();
+        assert_eq!(json, "\"RSA_2048_PKCS1_PSS_SIGN_V2\"");
+
+        let scheme = Scheme::Rsa2048JwtRs256;
+        let json = serde_json::to_string(&scheme).unwrap();
+        assert_eq!(json, "\"RSA_2048_JWT_RS256\"");
+
+        // Test legacy encrypt scheme
+        let scheme = Scheme::LegacyEncrypt;
+        let json = serde_json::to_string(&scheme).unwrap();
+        assert_eq!(json, "\"LEGACY_ENCRYPT\"");
+    }
+
+    #[test]
+    fn test_scheme_deserialization() {
+        // Test deserializing from JSON
+        let json = "\"ED25519_SIGN\"";
+        let scheme: Scheme = serde_json::from_str(json).unwrap();
+        assert_eq!(scheme, Scheme::Ed25519Sign);
+
+        let json = "\"RSA_2048_PKCS1_PSS_SIGN_V2\"";
+        let scheme: Scheme = serde_json::from_str(json).unwrap();
+        assert_eq!(scheme, Scheme::Rsa2048Pkcs1PssSignV2);
+
+        // Test legacy encrypt scheme
+        let json = "\"LEGACY_ENCRYPT\"";
+        let scheme: Scheme = serde_json::from_str(json).unwrap();
+        assert_eq!(scheme, Scheme::LegacyEncrypt);
+    }
+
+    #[test]
+    fn test_deprecated_schemes() {
+        // Test deprecated schemes still work
+        let json = "\"RSA_2048_PKCS1_PSS_SIGN\"";
+        let scheme: Scheme = serde_json::from_str(json).unwrap();
+        assert_eq!(scheme, Scheme::Rsa2048Pkcs1PssSign);
+
+        let json = "\"RSA_2048_PKCS1_SIGN\"";
+        let scheme: Scheme = serde_json::from_str(json).unwrap();
+        assert_eq!(scheme, Scheme::Rsa2048Pkcs1Sign);
     }
 }

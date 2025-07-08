@@ -1,10 +1,10 @@
+use chrono;
 use keygen_rs::{
     config::{self, KeygenConfig},
-    product::{Product, CreateProductRequest, DistributionStrategy, Platform},
     errors::Error,
+    product::{CreateProductRequest, DistributionStrategy, Platform, Product},
 };
 use std::env;
-use chrono;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Error> {
             println!("Code: {:?}", product.code);
             println!("Distribution Strategy: {:?}", product.distribution_strategy);
             println!("Platforms: {:?}", product.platforms);
-        },
+        }
         Err(e) => {
             println!("❌ Failed to create product: {:?}", e);
         }

@@ -1,14 +1,14 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    user,
     errors::Error,
+    user,
 };
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -23,7 +23,7 @@ async fn main() -> Result<(), Error> {
         println!("Usage: cargo run --example reset_password <user_id> <new_password>");
         return Ok(());
     }
-    
+
     let user_id = &args[1];
     let new_password = &args[2];
 
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Error> {
     match user::reset_password(user_id, new_password).await {
         Ok(()) => {
             println!("✅ Password reset successfully!");
-        },
+        }
         Err(e) => {
             println!("❌ Failed to reset password: {:?}", e);
         }

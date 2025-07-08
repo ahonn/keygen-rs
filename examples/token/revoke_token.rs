@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    token::Token,
     errors::Error,
+    token::Token,
 };
 use std::env;
 
@@ -9,7 +9,7 @@ use std::env;
 async fn main() -> Result<(), Error> {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -32,18 +32,18 @@ async fn main() -> Result<(), Error> {
             println!("  Kind: {:?}", token.kind);
             println!("  Name: {:?}", token.name);
             println!("  Permissions: {:?}", token.permissions);
-            
+
             // Revoke the token
             match token.revoke().await {
                 Ok(()) => {
                     println!("\n✅ Token revoked successfully!");
                     println!("⚠️  This token is now invalid and cannot be used for API requests.");
-                },
+                }
                 Err(e) => {
                     println!("❌ Failed to revoke token: {:?}", e);
                 }
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to find token: {:?}", e);
         }

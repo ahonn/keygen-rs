@@ -1,11 +1,11 @@
 use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
-    machine::{Machine, MachineUpdateRequest},
     errors::Error,
+    machine::{Machine, MachineUpdateRequest},
 };
-use std::env;
 use std::collections::HashMap;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -20,15 +20,21 @@ async fn main() -> Result<(), Error> {
 
     // Update a machine
     let machine_id = env::var("MACHINE_ID").expect("MACHINE_ID must be set");
-    
+
     // First get the machine
     let machine = Machine::get(&machine_id).await?;
-    
+
     // Update with new information
     let mut metadata = HashMap::new();
-    metadata.insert("environment".to_string(), serde_json::Value::String("staging".to_string()));
-    metadata.insert("updated_at".to_string(), serde_json::Value::String(chrono::Utc::now().to_rfc3339()));
-    
+    metadata.insert(
+        "environment".to_string(),
+        serde_json::Value::String("staging".to_string()),
+    );
+    metadata.insert(
+        "updated_at".to_string(),
+        serde_json::Value::String(chrono::Utc::now().to_rfc3339()),
+    );
+
     let request = MachineUpdateRequest {
         name: Some("Updated Machine Name".to_string()),
         platform: Some("linux".to_string()),
@@ -50,7 +56,7 @@ async fn main() -> Result<(), Error> {
             println!("Cores: {:?}", updated_machine.cores);
             println!("Metadata: {:?}", updated_machine.metadata);
             println!("Updated: {}", updated_machine.updated);
-        },
+        }
         Err(e) => {
             println!("❌ Failed to update machine: {:?}", e);
         }

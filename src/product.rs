@@ -148,13 +148,16 @@ impl Product {
     /// Create a new product
     pub async fn create(request: CreateProductRequest) -> Result<Product, Error> {
         let client = Client::default();
-        
+
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
         attributes.insert("code".to_string(), serde_json::Value::String(request.code));
-        
+
         if let Some(distribution_strategy) = request.distribution_strategy {
-            attributes.insert("distributionStrategy".to_string(), serde_json::to_value(distribution_strategy)?);
+            attributes.insert(
+                "distributionStrategy".to_string(),
+                serde_json::to_value(distribution_strategy)?,
+            );
         }
         if let Some(url) = request.url {
             attributes.insert("url".to_string(), serde_json::Value::String(url));
@@ -163,7 +166,10 @@ impl Product {
             attributes.insert("platforms".to_string(), serde_json::to_value(platforms)?);
         }
         if let Some(permissions) = request.permissions {
-            attributes.insert("permissions".to_string(), serde_json::to_value(permissions)?);
+            attributes.insert(
+                "permissions".to_string(),
+                serde_json::to_value(permissions)?,
+            );
         }
         if let Some(metadata) = request.metadata {
             attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
@@ -206,7 +212,7 @@ impl Product {
     pub async fn update(&self, request: UpdateProductRequest) -> Result<Product, Error> {
         let client = Client::default();
         let endpoint = format!("products/{}", self.id);
-        
+
         let mut attributes = serde_json::Map::new();
         if let Some(name) = request.name {
             attributes.insert("name".to_string(), serde_json::Value::String(name));
@@ -215,7 +221,10 @@ impl Product {
             attributes.insert("code".to_string(), serde_json::Value::String(code));
         }
         if let Some(distribution_strategy) = request.distribution_strategy {
-            attributes.insert("distributionStrategy".to_string(), serde_json::to_value(distribution_strategy)?);
+            attributes.insert(
+                "distributionStrategy".to_string(),
+                serde_json::to_value(distribution_strategy)?,
+            );
         }
         if let Some(url) = request.url {
             attributes.insert("url".to_string(), serde_json::Value::String(url));
@@ -224,7 +233,10 @@ impl Product {
             attributes.insert("platforms".to_string(), serde_json::to_value(platforms)?);
         }
         if let Some(permissions) = request.permissions {
-            attributes.insert("permissions".to_string(), serde_json::to_value(permissions)?);
+            attributes.insert(
+                "permissions".to_string(),
+                serde_json::to_value(permissions)?,
+            );
         }
         if let Some(metadata) = request.metadata {
             attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
@@ -254,17 +266,18 @@ impl Product {
     pub async fn generate_token(&self) -> Result<String, Error> {
         let client = Client::default();
         let endpoint = format!("products/{}/tokens", self.id);
-        let response: crate::client::Response<serde_json::Value> = client.post(&endpoint, None::<&()>, None::<&()>).await?;
-        
+        let response: crate::client::Response<serde_json::Value> =
+            client.post(&endpoint, None::<&()>, None::<&()>).await?;
+
         // Extract token from response
-        let token_data = response.body["data"]["attributes"]["token"].as_str()
+        let token_data = response.body["data"]["attributes"]["token"]
+            .as_str()
             .ok_or_else(|| Error::KeygenApiError {
                 code: "INVALID_RESPONSE".to_string(),
                 detail: "Invalid token response format".to_string(),
                 body: response.body.clone(),
             })?;
-        
+
         Ok(token_data.to_string())
     }
 }
-

@@ -1,14 +1,14 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    policy::Policy,
     errors::Error,
+    policy::Policy,
 };
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -30,9 +30,15 @@ async fn main() -> Result<(), Error> {
             println!("  ID: {}", policy.id);
             println!("  Name: {}", policy.name);
             println!("  Duration: {:?} seconds", policy.duration);
-            println!("  Authentication Strategy: {:?}", policy.authentication_strategy);
+            println!(
+                "  Authentication Strategy: {:?}",
+                policy.authentication_strategy
+            );
             println!("  Expiration Strategy: {:?}", policy.expiration_strategy);
-            println!("  Machine Leasing Strategy: {:?}", policy.machine_leasing_strategy);
+            println!(
+                "  Machine Leasing Strategy: {:?}",
+                policy.machine_leasing_strategy
+            );
             println!("  Max Machines: {:?}", policy.max_machines);
             println!("  Max Processes: {:?}", policy.max_processes);
             println!("  Max Uses: {:?}", policy.max_uses);
@@ -44,17 +50,23 @@ async fn main() -> Result<(), Error> {
             println!("  Require Heartbeat: {}", policy.require_heartbeat);
             if policy.require_heartbeat {
                 println!("  Heartbeat Duration: {:?}", policy.heartbeat_duration);
-                println!("  Heartbeat Cull Strategy: {:?}", policy.heartbeat_cull_strategy);
+                println!(
+                    "  Heartbeat Cull Strategy: {:?}",
+                    policy.heartbeat_cull_strategy
+                );
             }
             println!("  Require Check-in: {}", policy.require_check_in);
             if policy.require_check_in {
                 println!("  Check-in Interval: {:?}", policy.check_in_interval);
-                println!("  Check-in Interval Count: {:?}", policy.check_in_interval_count);
+                println!(
+                    "  Check-in Interval Count: {:?}",
+                    policy.check_in_interval_count
+                );
             }
             println!("  Metadata: {:?}", policy.metadata);
             println!("  Created: {}", policy.created);
             println!("  Updated: {}", policy.updated);
-        },
+        }
         Err(e) => {
             println!("❌ Failed to get policy: {:?}", e);
         }

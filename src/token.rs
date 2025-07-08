@@ -100,7 +100,6 @@ pub(crate) struct TokensResponse {
     pub data: Vec<KeygenResponseData<TokenAttributes>>,
 }
 
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListTokensOptions {
     pub limit: Option<u32>,
@@ -146,17 +145,12 @@ impl Token {
         }
     }
 
-
     /// List tokens with optional pagination and filtering
     pub async fn list(options: Option<ListTokensOptions>) -> Result<Vec<Token>, Error> {
         let client = Client::default();
         let response = client.get("tokens", options.as_ref()).await?;
         let tokens_response: TokensResponse = serde_json::from_value(response.body)?;
-        Ok(tokens_response
-            .data
-            .into_iter()
-            .map(Token::from)
-            .collect())
+        Ok(tokens_response.data.into_iter().map(Token::from).collect())
     }
 
     /// Get a token by ID
@@ -172,7 +166,7 @@ impl Token {
     pub async fn regenerate(&self, request: RegenerateTokenRequest) -> Result<Token, Error> {
         let client = Client::default();
         let endpoint = format!("tokens/{}", self.id);
-        
+
         let mut attributes = serde_json::Map::new();
         if let Some(name) = request.name {
             attributes.insert("name".to_string(), serde_json::Value::String(name));
@@ -181,7 +175,10 @@ impl Token {
             attributes.insert("expiry".to_string(), serde_json::Value::String(expiry));
         }
         if let Some(permissions) = request.permissions {
-            attributes.insert("permissions".to_string(), serde_json::to_value(permissions)?);
+            attributes.insert(
+                "permissions".to_string(),
+                serde_json::to_value(permissions)?,
+            );
         }
         if let Some(metadata) = request.metadata {
             attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);

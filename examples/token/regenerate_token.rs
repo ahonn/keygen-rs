@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    token::{Token, RegenerateTokenRequest, Permission},
     errors::Error,
+    token::{Permission, RegenerateTokenRequest, Token},
 };
 use std::env;
 
@@ -9,7 +9,7 @@ use std::env;
 async fn main() -> Result<(), Error> {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Error> {
             println!("  Current Name: {:?}", token.name);
             println!("  Current Kind: {:?}", token.kind);
             println!("  Current Permissions: {:?}", token.permissions);
-            
+
             // Regenerate the token with updated permissions
             let current_name = token.name.clone().unwrap_or("Token".to_string());
             let regenerate_request = RegenerateTokenRequest {
@@ -45,7 +45,7 @@ async fn main() -> Result<(), Error> {
                 ]),
                 metadata: None,
             };
-            
+
             match token.regenerate(regenerate_request).await {
                 Ok(regenerated_token) => {
                     println!("\n✅ Token regenerated successfully!");
@@ -56,12 +56,12 @@ async fn main() -> Result<(), Error> {
                         println!("\n⚠️  Keep this new token secure! The old token is now invalid.");
                     }
                     println!("  Updated: {}", regenerated_token.updated);
-                },
+                }
                 Err(e) => {
                     println!("❌ Failed to regenerate token: {:?}", e);
                 }
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to find token: {:?}", e);
         }

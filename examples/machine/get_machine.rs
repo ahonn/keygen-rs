@@ -1,8 +1,8 @@
 use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
-    machine::Machine,
     errors::Error,
+    machine::Machine,
 };
 use std::env;
 
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Error> {
 
     // Get a machine by ID
     let machine_id = env::var("MACHINE_ID").expect("MACHINE_ID must be set");
-    
+
     match Machine::get(&machine_id).await {
         Ok(machine) => {
             println!("✅ Machine found!");
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Error> {
             println!("Heartbeat Duration: {:?}", machine.heartbeat_duration);
             println!("Created: {}", machine.created);
             println!("Updated: {}", machine.updated);
-        },
+        }
         Err(e) => {
             println!("❌ Failed to get machine: {:?}", e);
         }

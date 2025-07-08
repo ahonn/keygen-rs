@@ -1,8 +1,8 @@
 use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
-    machine::Machine,
     errors::Error,
+    machine::Machine,
 };
 use std::env;
 
@@ -19,10 +19,10 @@ async fn main() -> Result<(), Error> {
 
     // Reset a machine
     let machine_id = env::var("MACHINE_ID").expect("MACHINE_ID must be set");
-    
+
     // First get the machine
     let machine = Machine::get(&machine_id).await?;
-    
+
     match machine.reset().await {
         Ok(updated_machine) => {
             println!("✅ Machine reset successfully!");
@@ -30,9 +30,12 @@ async fn main() -> Result<(), Error> {
             println!("Fingerprint: {}", updated_machine.fingerprint);
             println!("Name: {:?}", updated_machine.name);
             println!("Heartbeat Status: {}", updated_machine.heartbeat_status);
-            println!("Heartbeat Duration: {:?}", updated_machine.heartbeat_duration);
+            println!(
+                "Heartbeat Duration: {:?}",
+                updated_machine.heartbeat_duration
+            );
             println!("Updated: {}", updated_machine.updated);
-        },
+        }
         Err(e) => {
             println!("❌ Failed to reset machine: {:?}", e);
         }

@@ -1,8 +1,8 @@
 use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
-    machine::Machine,
     errors::Error,
+    machine::Machine,
 };
 use std::env;
 
@@ -35,7 +35,7 @@ async fn main() -> Result<(), Error> {
                 println!("  Created: {}", machine.created);
                 println!("  ---");
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to list machines: {:?}", e);
         }

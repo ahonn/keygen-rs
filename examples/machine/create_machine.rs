@@ -1,11 +1,11 @@
 use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
-    machine::{Machine, MachineCreateRequest},
     errors::Error,
+    machine::{Machine, MachineCreateRequest},
 };
-use std::env;
 use std::collections::HashMap;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -21,11 +21,17 @@ async fn main() -> Result<(), Error> {
     // Create a new machine
     let license_id = env::var("LICENSE_ID").expect("LICENSE_ID must be set");
     let fingerprint = machine_uid::get().unwrap_or("example-fingerprint".into());
-    
+
     let mut metadata = HashMap::new();
-    metadata.insert("environment".to_string(), serde_json::Value::String("production".to_string()));
-    metadata.insert("version".to_string(), serde_json::Value::String("1.0.0".to_string()));
-    
+    metadata.insert(
+        "environment".to_string(),
+        serde_json::Value::String("production".to_string()),
+    );
+    metadata.insert(
+        "version".to_string(),
+        serde_json::Value::String("1.0.0".to_string()),
+    );
+
     let request = MachineCreateRequest {
         fingerprint,
         name: Some("My Machine".to_string()),
@@ -49,7 +55,7 @@ async fn main() -> Result<(), Error> {
             println!("Cores: {:?}", machine.cores);
             println!("Metadata: {:?}", machine.metadata);
             println!("Created: {}", machine.created);
-        },
+        }
         Err(e) => {
             println!("❌ Failed to create machine: {:?}", e);
         }

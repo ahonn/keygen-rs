@@ -118,12 +118,18 @@ impl User {
 /// Create a new user
 pub async fn create(request: CreateUserRequest) -> Result<User, Error> {
     let client = Client::default();
-    
+
     let mut attributes = serde_json::Map::new();
-    attributes.insert("email".to_string(), serde_json::Value::String(request.email));
-    
+    attributes.insert(
+        "email".to_string(),
+        serde_json::Value::String(request.email),
+    );
+
     if let Some(first_name) = request.first_name {
-        attributes.insert("firstName".to_string(), serde_json::Value::String(first_name));
+        attributes.insert(
+            "firstName".to_string(),
+            serde_json::Value::String(first_name),
+        );
     }
     if let Some(last_name) = request.last_name {
         attributes.insert("lastName".to_string(), serde_json::Value::String(last_name));
@@ -132,7 +138,10 @@ pub async fn create(request: CreateUserRequest) -> Result<User, Error> {
         attributes.insert("role".to_string(), serde_json::to_value(role)?);
     }
     if let Some(permissions) = request.permissions {
-        attributes.insert("permissions".to_string(), serde_json::to_value(permissions)?);
+        attributes.insert(
+            "permissions".to_string(),
+            serde_json::to_value(permissions)?,
+        );
     }
     if let Some(password) = request.password {
         attributes.insert("password".to_string(), serde_json::Value::String(password));
@@ -140,26 +149,38 @@ pub async fn create(request: CreateUserRequest) -> Result<User, Error> {
     if let Some(metadata) = request.metadata {
         attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
     }
-    
+
     let mut data = serde_json::Map::new();
-    data.insert("type".to_string(), serde_json::Value::String("users".to_string()));
-    data.insert("attributes".to_string(), serde_json::Value::Object(attributes));
-    
+    data.insert(
+        "type".to_string(),
+        serde_json::Value::String("users".to_string()),
+    );
+    data.insert(
+        "attributes".to_string(),
+        serde_json::Value::Object(attributes),
+    );
+
     if let Some(group_id) = request.group_id {
         let mut relationships = serde_json::Map::new();
         let mut group = serde_json::Map::new();
         let mut group_data = serde_json::Map::new();
-        group_data.insert("type".to_string(), serde_json::Value::String("groups".to_string()));
+        group_data.insert(
+            "type".to_string(),
+            serde_json::Value::String("groups".to_string()),
+        );
         group_data.insert("id".to_string(), serde_json::Value::String(group_id));
         group.insert("data".to_string(), serde_json::Value::Object(group_data));
         relationships.insert("group".to_string(), serde_json::Value::Object(group));
-        data.insert("relationships".to_string(), serde_json::Value::Object(relationships));
+        data.insert(
+            "relationships".to_string(),
+            serde_json::Value::Object(relationships),
+        );
     }
-    
+
     let body = serde_json::json!({
         "data": data
     });
-    
+
     let response = client.post("users", Some(&body), None::<&()>).await?;
     let user_response: UserResponse = serde_json::from_value(response.body)?;
     Ok(User::from(user_response.data))
@@ -247,7 +268,11 @@ pub async fn unban(user_id: &str) -> Result<User, Error> {
 }
 
 /// Change a user's password
-pub async fn change_password(user_id: &str, current_password: &str, new_password: &str) -> Result<(), Error> {
+pub async fn change_password(
+    user_id: &str,
+    current_password: &str,
+    new_password: &str,
+) -> Result<(), Error> {
     let client = Client::default();
     let endpoint = format!("users/{}/actions/change-password", user_id);
     let body = serde_json::json!({
@@ -256,7 +281,9 @@ pub async fn change_password(user_id: &str, current_password: &str, new_password
             "newPassword": new_password
         }
     });
-    client.post::<_, (), _>(&endpoint, Some(&body), None::<&()>).await?;
+    client
+        .post::<_, (), _>(&endpoint, Some(&body), None::<&()>)
+        .await?;
     Ok(())
 }
 
@@ -269,7 +296,9 @@ pub async fn reset_password(user_id: &str, new_password: &str) -> Result<(), Err
             "password": new_password
         }
     });
-    client.post::<_, (), _>(&endpoint, Some(&body), None::<&()>).await?;
+    client
+        .post::<_, (), _>(&endpoint, Some(&body), None::<&()>)
+        .await?;
     Ok(())
 }
 
@@ -311,24 +340,34 @@ impl Token {
 }
 
 /// Generate a user token
-pub async fn generate_token(user_id: &str, name: Option<&str>, expiry: Option<&str>) -> Result<Token, Error> {
+pub async fn generate_token(
+    user_id: &str,
+    name: Option<&str>,
+    expiry: Option<&str>,
+) -> Result<Token, Error> {
     let client = Client::default();
     let endpoint = format!("users/{}/tokens", user_id);
-    
+
     let mut attributes = serde_json::Map::new();
-    attributes.insert("name".to_string(), serde_json::Value::String(name.unwrap_or("User Token").to_string()));
-    
+    attributes.insert(
+        "name".to_string(),
+        serde_json::Value::String(name.unwrap_or("User Token").to_string()),
+    );
+
     if let Some(expiry) = expiry {
-        attributes.insert("expiry".to_string(), serde_json::Value::String(expiry.to_string()));
+        attributes.insert(
+            "expiry".to_string(),
+            serde_json::Value::String(expiry.to_string()),
+        );
     }
-    
+
     let body = serde_json::json!({
         "data": {
             "type": "tokens",
             "attributes": attributes
         }
     });
-    
+
     let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
     let token_response: TokenResponse = serde_json::from_value(response.body)?;
     Ok(Token::from(token_response.data))
@@ -338,7 +377,7 @@ pub async fn generate_token(user_id: &str, name: Option<&str>, expiry: Option<&s
 pub async fn change_group(user_id: &str, group_id: Option<&str>) -> Result<User, Error> {
     let client = Client::default();
     let endpoint = format!("users/{}/group", user_id);
-    
+
     let body = if let Some(group_id) = group_id {
         serde_json::json!({
             "data": {
@@ -351,9 +390,8 @@ pub async fn change_group(user_id: &str, group_id: Option<&str>) -> Result<User,
             "data": null
         })
     };
-    
+
     let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
     let user_response: UserResponse = serde_json::from_value(response.body)?;
     Ok(User::from(user_response.data))
 }
-

@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    product::Product,
     errors::Error,
+    product::Product,
 };
 use std::env;
 
@@ -9,7 +9,7 @@ use std::env;
 async fn main() -> Result<(), Error> {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -25,12 +25,15 @@ async fn main() -> Result<(), Error> {
             for product in products {
                 println!("  ID: {}", product.id);
                 println!("  Name: {}", product.name);
-                println!("  Distribution Strategy: {:?}", product.distribution_strategy);
+                println!(
+                    "  Distribution Strategy: {:?}",
+                    product.distribution_strategy
+                );
                 println!("  Platforms: {:?}", product.platforms);
                 println!("  Created: {}", product.created);
                 println!("  ---");
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to list products: {:?}", e);
         }

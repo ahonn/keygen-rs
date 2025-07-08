@@ -1,14 +1,14 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    user,
     errors::Error,
+    user,
 };
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -18,7 +18,9 @@ async fn main() -> Result<(), Error> {
     });
 
     // Get user ID from command line argument
-    let user_id = env::args().nth(1).expect("Usage: cargo run --example generate_token <user_id>");
+    let user_id = env::args()
+        .nth(1)
+        .expect("Usage: cargo run --example generate_token <user_id>");
 
     // Generate user token
     match user::generate_token(&user_id, Some("API Access Token"), None).await {
@@ -33,7 +35,7 @@ async fn main() -> Result<(), Error> {
             } else {
                 println!("Expires: Never");
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to generate token: {:?}", e);
         }

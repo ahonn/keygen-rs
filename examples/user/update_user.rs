@@ -1,15 +1,15 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    user::{self, UpdateUserRequest, UserRole},
     errors::Error,
+    user::{self, UpdateUserRequest, UserRole},
 };
-use std::env;
 use std::collections::HashMap;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -19,12 +19,20 @@ async fn main() -> Result<(), Error> {
     });
 
     // Get user ID from command line argument
-    let user_id = env::args().nth(1).expect("Usage: cargo run --example update_user <user_id>");
+    let user_id = env::args()
+        .nth(1)
+        .expect("Usage: cargo run --example update_user <user_id>");
 
     // Update metadata for the user
     let mut metadata = HashMap::new();
-    metadata.insert("department".to_string(), serde_json::Value::String("Product Management".to_string()));
-    metadata.insert("last_updated".to_string(), serde_json::Value::String("2024-01-01T00:00:00Z".to_string()));
+    metadata.insert(
+        "department".to_string(),
+        serde_json::Value::String("Product Management".to_string()),
+    );
+    metadata.insert(
+        "last_updated".to_string(),
+        serde_json::Value::String("2024-01-01T00:00:00Z".to_string()),
+    );
 
     // Update user
     let request = UpdateUserRequest {
@@ -46,7 +54,7 @@ async fn main() -> Result<(), Error> {
             if let Some(metadata) = user.metadata {
                 println!("Metadata: {:?}", metadata);
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to update user: {:?}", e);
         }

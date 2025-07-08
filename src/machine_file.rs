@@ -67,7 +67,7 @@ impl MachineFile {
 
     pub fn verify(&self) -> Result<(), Error> {
         self.validate_ttl()?;
-        
+
         let config = get_config();
 
         if let Some(public_key) = config.public_key {
@@ -101,9 +101,7 @@ impl MachineFile {
                             suspended: None,
                             metadata: HashMap::new(),
                         },
-                        relationships: crate::KeygenRelationships {
-                            policy: None,
-                        },
+                        relationships: crate::KeygenRelationships { policy: None },
                     }),
                     machine: Machine::from(crate::KeygenResponseData {
                         id: "".to_string(),
@@ -122,9 +120,7 @@ impl MachineFile {
                             created: Utc::now(),
                             updated: Utc::now(),
                         },
-                        relationships: crate::KeygenRelationships {
-                            policy: None,
-                        },
+                        relationships: crate::KeygenRelationships { policy: None },
                     }),
                     issued: self.issued,
                     expiry: self.expiry,

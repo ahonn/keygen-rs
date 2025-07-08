@@ -30,18 +30,18 @@ pub mod user;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationshipData {
-  pub r#type: String,
-  pub id: String,
+    pub r#type: String,
+    pub id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationship {
-  data: KeygenRelationshipData,
+    data: KeygenRelationshipData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationships {
-  pub policy: Option<KeygenRelationship>,
+    pub policy: Option<KeygenRelationship>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,14 +1,14 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    policy::{Policy, CreatePolicyRequest},
     errors::Error,
+    policy::{CreatePolicyRequest, Policy},
 };
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Error> {
             println!("Duration: {:?} seconds", policy.duration);
             println!("Max Machines: {:?}", policy.max_machines);
             println!("Expiration Strategy: {:?}", policy.expiration_strategy);
-        },
+        }
         Err(e) => {
             println!("❌ Failed to create policy: {:?}", e);
         }
