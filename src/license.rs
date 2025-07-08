@@ -48,6 +48,17 @@ pub(crate) struct LicenseAttributes {
     pub name: Option<String>,
     pub expiry: Option<DateTime<Utc>>,
     pub status: Option<String>,
+    pub uses: Option<i32>,
+    #[serde(rename = "maxMachines")]
+    pub max_machines: Option<i32>,
+    #[serde(rename = "maxCores")]
+    pub max_cores: Option<i32>,
+    #[serde(rename = "maxUses")]
+    pub max_uses: Option<i32>,
+    #[serde(rename = "maxProcesses")]
+    pub max_processes: Option<i32>,
+    pub protected: Option<bool>,
+    pub suspended: Option<bool>,
     pub metadata: HashMap<String, Value>,
 }
 
@@ -60,6 +71,13 @@ pub struct License {
     pub name: Option<String>,
     pub expiry: Option<DateTime<Utc>>,
     pub status: Option<String>,
+    pub uses: Option<i32>,
+    pub max_machines: Option<i32>,
+    pub max_cores: Option<i32>,
+    pub max_uses: Option<i32>,
+    pub max_processes: Option<i32>,
+    pub protected: Option<bool>,
+    pub suspended: Option<bool>,
     pub policy: Option<String>,
     pub metadata: HashMap<String, Value>,
 }
@@ -68,6 +86,30 @@ pub struct LicenseCheckoutOpts {
     pub ttl: Option<i64>,
     pub include: Option<Vec<String>>,
 }
+
+#[derive(Debug, Default)]
+pub struct PaginationOptions {
+    pub limit: Option<i32>,
+    pub page: Option<i32>,
+    pub offset: Option<i32>,
+}
+
+/// Simple license list options with common filters
+#[derive(Debug, Default)]
+pub struct LicenseListOptions {
+    // Pagination
+    pub limit: Option<i32>,
+    pub page: Option<i32>,
+    pub offset: Option<i32>,
+    
+    // Common filters
+    pub status: Option<String>,      // "ACTIVE", "EXPIRED", "SUSPENDED", etc.
+    pub product: Option<String>,     // Product ID
+    pub policy: Option<String>,      // Policy ID
+    pub owner: Option<String>,       // Owner ID or email
+    pub user: Option<String>,        // User ID or email
+}
+
 
 impl License {
     pub(crate) fn from(data: KeygenResponseData<LicenseAttributes>) -> License {
@@ -78,6 +120,13 @@ impl License {
             name: data.attributes.name,
             expiry: data.attributes.expiry,
             status: data.attributes.status,
+            uses: data.attributes.uses,
+            max_machines: data.attributes.max_machines,
+            max_cores: data.attributes.max_cores,
+            max_uses: data.attributes.max_uses,
+            max_processes: data.attributes.max_processes,
+            protected: data.attributes.protected,
+            suspended: data.attributes.suspended,
             policy: data.relationships.policy.map(|p| p.data.id),
             metadata: data.attributes.metadata,
         }
@@ -91,9 +140,40 @@ impl License {
             name: None,
             expiry: None,
             status: None,
+            uses: None,
+            max_machines: None,
+            max_cores: None,
+            max_uses: None,
+            max_processes: None,
+            protected: None,
+            suspended: None,
             policy: None,
             metadata: HashMap::new(),
         }
+    }
+
+    fn build_scope(fingerprints: &[String], entitlements: &[String]) -> Value {
+        let config = get_config();
+        let mut scope = json!({
+            "product": config.product.to_string(),
+        });
+        
+        if !fingerprints.is_empty() {
+            scope["fingerprint"] = json!(fingerprints[0]);
+            if fingerprints.len() > 1 {
+                scope["components"] = json!(fingerprints[1..].to_vec());
+            }
+        }
+        
+        if !entitlements.is_empty() {
+            scope["entitlements"] = json!(entitlements);
+        }
+        
+        if let Some(env) = config.environment.as_ref() {
+            scope["environment"] = json!(env);
+        }
+        
+        scope
     }
 
     pub async fn validate(
@@ -102,7 +182,7 @@ impl License {
         entitlements: &[String],
     ) -> Result<License, Error> {
         let client = Client::default();
-        let scope = License::build_scope(fingerprints, entitlements);
+        let scope = Self::build_scope(fingerprints, entitlements);
         let params = json!({
             "meta": {
                 "nonce": chrono::Utc::now().timestamp(),
@@ -132,7 +212,7 @@ impl License {
         entitlements: &[String],
     ) -> Result<License, Error> {
         let client = Client::default();
-        let scope = License::build_scope(fingerprints, entitlements);
+        let scope = Self::build_scope(fingerprints, entitlements);
         let params = json!({
             "meta": {
                 "key": self.key.clone(),
@@ -152,25 +232,6 @@ impl License {
         Ok(license)
     }
 
-    fn build_scope(fingerprints: &[String], entitlements: &[String]) -> serde_json::Value {
-        let config = get_config();
-        let mut scope = json!({
-            "product": config.product.to_string(),
-        });
-        if !fingerprints.is_empty() {
-            scope["fingerprint"] = json!(fingerprints[0]);
-            if fingerprints.len() > 1 {
-                scope["components"] = json!(fingerprints[1..].to_vec());
-            }
-        }
-        if !entitlements.is_empty() {
-            scope["entitlements"] = json!(entitlements);
-        }
-        if let Some(env) = config.environment.as_ref() {
-            scope["environment"] = json!(env);
-        }
-        scope
-    }
 
     pub fn verify(&self) -> Result<Vec<u8>, Error> {
         if self.scheme.is_none() {
@@ -247,12 +308,32 @@ impl License {
         Ok(machine)
     }
 
-    pub async fn machines(&self) -> Result<Vec<Machine>, Error> {
+    pub async fn machines(&self, options: Option<&PaginationOptions>) -> Result<Vec<Machine>, Error> {
         let client = Client::default();
+        let mut query = json!({});
+        
+        if let Some(opts) = options {
+            if let Some(limit) = opts.limit {
+                query["limit"] = json!(limit);
+            } else {
+                query["limit"] = json!(100);
+            }
+            
+            if let Some(page) = opts.page {
+                query["page"] = json!(page);
+            }
+            
+            if let Some(offset) = opts.offset {
+                query["offset"] = json!(offset);
+            }
+        } else {
+            query["limit"] = json!(100);
+        }
+        
         let response = client
             .get(
                 &format!("licenses/{}/machines", self.id),
-                Some(&json!({"limit": 100})),
+                Some(&query),
             )
             .await?;
         let machines_response: MachinesResponse = serde_json::from_value(response.body)?;
@@ -264,12 +345,32 @@ impl License {
         Ok(machines)
     }
 
-    pub async fn entitlements(&self) -> Result<Vec<Entitlement>, Error> {
+    pub async fn entitlements(&self, options: Option<&PaginationOptions>) -> Result<Vec<Entitlement>, Error> {
         let client = Client::default();
+        let mut query = json!({});
+        
+        if let Some(opts) = options {
+            if let Some(limit) = opts.limit {
+                query["limit"] = json!(limit);
+            } else {
+                query["limit"] = json!(100);
+            }
+            
+            if let Some(page) = opts.page {
+                query["page"] = json!(page);
+            }
+            
+            if let Some(offset) = opts.offset {
+                query["offset"] = json!(offset);
+            }
+        } else {
+            query["limit"] = json!(100);
+        }
+        
         let response = client
             .get(
                 &format!("licenses/{}/entitlements", self.id),
-                Some(&json!({"limit": 100})),
+                Some(&query),
             )
             .await?;
         let entitlements_response: EntitlementsResponse = serde_json::from_value(response.body)?;
@@ -377,11 +478,43 @@ impl License {
         Ok(License::from(license_response.data))
     }
 
-    /// List all licenses
+    /// List all licenses with optional filtering
     #[cfg(feature = "token")]
-    pub async fn list() -> Result<Vec<License>, Error> {
+    pub async fn list(options: Option<&LicenseListOptions>) -> Result<Vec<License>, Error> {
         let client = Client::default();
-        let response = client.get("licenses", None::<&()>).await?;
+        let mut query = json!({});
+        
+        if let Some(opts) = options {
+            // Pagination
+            if let Some(limit) = opts.limit {
+                query["limit"] = json!(limit);
+            }
+            if let Some(page) = opts.page {
+                query["page"] = json!(page);
+            }
+            if let Some(offset) = opts.offset {
+                query["offset"] = json!(offset);
+            }
+            
+            // Simple filters
+            if let Some(ref status) = opts.status {
+                query["status"] = json!(status);
+            }
+            if let Some(ref product) = opts.product {
+                query["product"] = json!(product);
+            }
+            if let Some(ref policy) = opts.policy {
+                query["policy"] = json!(policy);
+            }
+            if let Some(ref owner) = opts.owner {
+                query["owner"] = json!(owner);
+            }
+            if let Some(ref user) = opts.user {
+                query["user"] = json!(user);
+            }
+        }
+        
+        let response = client.get("licenses", Some(&query)).await?;
         
         #[derive(Debug, Clone, Serialize, Deserialize)]
         struct LicensesResponse {
@@ -500,6 +633,13 @@ mod tests {
             key: "TEST-LICENSE-KEY".to_string(),
             expiry: None,
             status: None,
+            uses: None,
+            max_machines: None,
+            max_cores: None,
+            max_uses: None,
+            max_processes: None,
+            protected: None,
+            suspended: None,
             policy: None,
             metadata: HashMap::new(),
         }
@@ -665,6 +805,221 @@ mod tests {
         assert!(validated_license.metadata.contains_key("is_premium"));
         assert!(validated_license.metadata.get("is_premium").unwrap().as_bool().unwrap());
         
+        reset_config();
+    }
+
+    #[tokio::test]
+    async fn test_pagination_options() {
+        let license = create_test_license();
+        let _m = mock("GET", "/v1/licenses/test_license_id/machines")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("limit".into(), "50".into()),
+                mockito::Matcher::UrlEncoded("page".into(), "2".into()),
+                mockito::Matcher::UrlEncoded("offset".into(), "10".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "data": []
+            }).to_string())
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        });
+
+        let pagination_options = PaginationOptions {
+            limit: Some(50),
+            page: Some(2),
+            offset: Some(10),
+        };
+
+        let result = license.machines(Some(&pagination_options)).await;
+        assert!(result.is_ok());
+        reset_config();
+    }
+
+
+    #[tokio::test]
+    async fn test_validation_errors() {
+        let license = create_test_license();
+        
+        // Test expired license
+        let _m = mock("POST", "/v1/licenses/test_license_id/actions/validate")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "meta": {
+                    "ts": "2021-01-01T00:00:00Z",
+                    "valid": false,
+                    "detail": "license expired",
+                    "code": "EXPIRED",
+                    "scope": {
+                        "fingerprint": "test_fingerprint"
+                    }
+                },
+                "data": {
+                    "id": "test_license_id",
+                    "type": "licenses",
+                    "attributes": {
+                        "key": "TEST-LICENSE-KEY",
+                        "name": "Test License",
+                        "expiry": null,
+                        "status": "expired",
+                        "uses": null,
+                        "maxMachines": null,
+                        "maxCores": null,
+                        "maxUses": null,
+                        "maxProcesses": null,
+                        "protected": null,
+                        "suspended": null,
+                        "metadata": {}
+                    },
+                    "relationships": {
+                        "policy": {
+                            "data": {
+                                "type": "policies",
+                                "id": "policy_123"
+                            }
+                        }
+                    }
+                }
+            }).to_string())
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        });
+
+        let result = license.validate(&["test_fingerprint".to_string()], &[]).await;
+        assert!(matches!(result, Err(Error::LicenseExpired { .. })));
+        reset_config();
+    }
+
+    #[tokio::test]
+    async fn test_validation_with_empty_scope() {
+        let license = create_test_license();
+        let _m = mock("POST", "/v1/licenses/test_license_id/actions/validate")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(get_mock_body())
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        });
+
+        let result = license.validate(&[], &[]).await;
+        assert!(result.is_ok());
+        reset_config();
+    }
+
+    #[tokio::test]
+    async fn test_license_with_all_attributes() {
+        let license = create_test_license();
+        let _m = mock("POST", "/v1/licenses/test_license_id/actions/validate")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "meta": {
+                    "ts": "2021-01-01T00:00:00Z",
+                    "valid": true,
+                    "detail": "is valid",
+                    "code": "VALID",
+                    "scope": {
+                        "fingerprint": "test_fingerprint"
+                    }
+                },
+                "data": {
+                    "id": "test_license_id",
+                    "type": "licenses",
+                    "attributes": {
+                        "key": "TEST-LICENSE-KEY",
+                        "name": "Test License",
+                        "expiry": "2025-12-31T23:59:59Z",
+                        "status": "active",
+                        "uses": 5,
+                        "maxMachines": 10,
+                        "maxCores": 20,
+                        "maxUses": 100,
+                        "maxProcesses": 5,
+                        "protected": true,
+                        "suspended": false,
+                        "metadata": {
+                            "tier": "premium",
+                            "features": ["feature_a", "feature_b"]
+                        }
+                    },
+                    "relationships": {
+                        "policy": {
+                            "data": {
+                                "type": "policies",
+                                "id": "policy_123"
+                            }
+                        }
+                    }
+                }
+            }).to_string())
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        });
+
+        let result = license.validate(&["test_fingerprint".to_string()], &[]).await;
+        assert!(result.is_ok());
+        
+        let validated_license = result.unwrap();
+        assert_eq!(validated_license.uses, Some(5));
+        assert_eq!(validated_license.max_machines, Some(10));
+        assert_eq!(validated_license.max_cores, Some(20));
+        assert_eq!(validated_license.max_uses, Some(100));
+        assert_eq!(validated_license.max_processes, Some(5));
+        assert_eq!(validated_license.protected, Some(true));
+        assert_eq!(validated_license.suspended, Some(false));
+        assert!(validated_license.metadata.contains_key("tier"));
+        assert_eq!(validated_license.metadata.get("tier").unwrap().as_str().unwrap(), "premium");
+        
+        reset_config();
+    }
+
+
+    #[tokio::test]
+    async fn test_machine_activation_errors() {
+        let license = create_test_license();
+        let _m = mock("POST", "/v1/machines")
+            .with_status(422)
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "errors": [{
+                    "title": "Unprocessable Entity",
+                    "detail": "License has reached machine limit",
+                    "code": "MACHINE_LIMIT_EXCEEDED"
+                }]
+            }).to_string())
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        });
+
+        let result = license.activate("test_fingerprint", &[]).await;
+        assert!(result.is_err());
         reset_config();
     }
 }

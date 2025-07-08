@@ -1,6 +1,6 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    policy::{Policy, UpdatePolicyRequest, ExpirationStrategy, OverageStrategy},
+    policy::{Policy, UpdatePolicyRequest, ExpirationStrategy, AuthenticationStrategy},
     errors::Error,
 };
 use std::env;
@@ -42,6 +42,7 @@ async fn main() -> Result<(), Error> {
                 name: Some(format!("{} (Updated)", policy.name)),
                 duration: Some(63072000), // 2 years in seconds
                 expiration_strategy: Some(ExpirationStrategy::MaintainAccess), // Change strategy
+                authentication_strategy: Some(AuthenticationStrategy::License), // Allow license key auth
                 metadata: Some(metadata),
                 ..Default::default()
             };

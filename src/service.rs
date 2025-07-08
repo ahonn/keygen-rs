@@ -105,6 +105,7 @@ mod tests {
         let service_info = ServiceInfo {
             timestamp: None,
             api_version: Some("1.8.0".to_string()),
+            message: None,
             headers: HashMap::new(),
         };
         

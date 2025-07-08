@@ -329,6 +329,13 @@ mod tests {
             key: key.to_string(),
             expiry: None,
             status: None,
+            uses: None,
+            max_machines: None,
+            max_cores: None,
+            max_uses: None,
+            max_processes: None,
+            protected: None,
+            suspended: None,
             policy: None,
             metadata: HashMap::new(),
         }

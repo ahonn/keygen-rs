@@ -154,6 +154,61 @@ path = "examples/user/change_password.rs"
 name = "reset_password"
 path = "examples/user/reset_password.rs"
 
+[[example]]
+name = "validate_license"
+path = "examples/license/validate_license.rs"
+
+[[example]]
+name = "create_license"
+path = "examples/license/create_license.rs"
+
+[[example]]
+name = "list_licenses"
+path = "examples/license/list_licenses.rs"
+
+[[example]]
+name = "checkout_license"
+path = "examples/license/checkout_license.rs"
+
+[[example]]
+name = "read_license_metadata"
+path = "examples/license/read_license_metadata.rs"
+
+[[example]]
+name = "reinstate_license"
+path = "examples/license/reinstate_license.rs"
+
+[[example]]
+name = "suspend_license"
+path = "examples/license/suspend_license.rs"
+
+[[example]]
+name = "verify_offline_key"
+path = "examples/license/verify_offline_key.rs"
+
+[[example]]
+name = "activate_machine"
+path = "examples/machine/activate_machine.rs"
+
+[[example]]
+name = "deactivate_machine"
+path = "examples/machine/deactivate_machine.rs"
+
+[[example]]
+name = "list_machines"
+path = "examples/machine/list_machines.rs"
+
+[[example]]
+name = "checkout_machine"
+path = "examples/machine/checkout_machine.rs"
+
+[[example]]
+name = "reset_machine"
+path = "examples/machine/reset_machine.rs"
+
+[[example]]
+name = "start_heartbeat"
+path = "examples/machine/start_heartbeat.rs"
 
 [lib]
 doctest = false

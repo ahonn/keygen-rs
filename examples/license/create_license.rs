@@ -1,6 +1,6 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
-    license,
+    license::License,
     errors::Error,
 };
 use std::env;
@@ -8,6 +8,9 @@ use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
+    
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -24,18 +27,21 @@ async fn main() -> Result<(), Error> {
     // Create a new license
     let policy_id = env::var("POLICY_ID").expect("POLICY_ID must be set (get from list_policies example)");
     
-    match license::create(&policy_id, None, Some(metadata)).await {
+    match License::create(&policy_id, None, Some(metadata)).await {
         Ok(license) => {
             println!("✅ License created successfully!");
             println!("ID: {}", license.id);
             println!("Key: {}", license.key);
             println!("Status: {:?}", license.status);
-            if let Some(expiry) = license.expiry {
-                println!("Expiry: {}", expiry);
-            }
-            if let Some(metadata) = license.metadata {
-                println!("Metadata: {:?}", metadata);
-            }
+            println!("Uses: {:?}", license.uses);
+            println!("Max Machines: {:?}", license.max_machines);
+            println!("Max Cores: {:?}", license.max_cores);
+            println!("Max Uses: {:?}", license.max_uses);
+            println!("Max Processes: {:?}", license.max_processes);
+            println!("Protected: {:?}", license.protected);
+            println!("Suspended: {:?}", license.suspended);
+            println!("Expiry: {:?}", license.expiry);
+            println!("Metadata: {:?}", license.metadata);
         },
         Err(e) => {
             println!("❌ Failed to create license: {:?}", e);
