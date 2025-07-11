@@ -120,12 +120,12 @@ impl Machine {
             heartbeat_duration: data.attributes.heartbeat_duration,
             created: data.attributes.created,
             updated: data.attributes.updated,
-            account_id: data.relationships.account.as_ref().map(|a| a.data.id.clone()),
-            environment_id: data.relationships.environment.as_ref().map(|e| e.data.id.clone()),
-            product_id: data.relationships.product.as_ref().map(|p| p.data.id.clone()),
-            license_id: data.relationships.license.as_ref().map(|l| l.data.id.clone()),
-            owner_id: data.relationships.owner.as_ref().map(|o| o.data.id.clone()),
-            group_id: data.relationships.group.as_ref().map(|g| g.data.id.clone()),
+            account_id: data.relationships.account.as_ref().and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
+            environment_id: data.relationships.environment.as_ref().and_then(|e| e.data.as_ref().map(|d| d.id.clone())),
+            product_id: data.relationships.product.as_ref().and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
+            license_id: data.relationships.license.as_ref().and_then(|l| l.data.as_ref().map(|d| d.id.clone())),
+            owner_id: data.relationships.owner.as_ref().and_then(|o| o.data.as_ref().map(|d| d.id.clone())),
+            group_id: data.relationships.group.as_ref().and_then(|g| g.data.as_ref().map(|d| d.id.clone())),
         }
     }
 

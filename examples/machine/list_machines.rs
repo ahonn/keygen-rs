@@ -33,6 +33,13 @@ async fn main() -> Result<(), Error> {
                 println!("  Require Heartbeat: {}", machine.require_heartbeat);
                 println!("  Heartbeat Status: {}", machine.heartbeat_status);
                 println!("  Created: {}", machine.created);
+                println!("  🔗 Relationships:");
+                println!("    Account ID: {:?}", machine.account_id);
+                println!("    Environment ID: {:?}", machine.environment_id);
+                println!("    Product ID: {:?}", machine.product_id);
+                println!("    License ID: {:?}", machine.license_id);
+                println!("    Owner ID: {:?}", machine.owner_id);
+                println!("    Group ID: {:?}", machine.group_id);
                 println!("  ---");
             }
         }

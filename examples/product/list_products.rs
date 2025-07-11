@@ -31,6 +31,8 @@ async fn main() -> Result<(), Error> {
                 );
                 println!("  Platforms: {:?}", product.platforms);
                 println!("  Created: {}", product.created);
+                println!("  🔗 Relationships:");
+                println!("    Account ID: {:?}", product.account_id);
                 println!("  ---");
             }
         }

@@ -130,12 +130,12 @@ impl License {
             max_processes: data.attributes.max_processes,
             protected: data.attributes.protected,
             suspended: data.attributes.suspended,
-            policy: data.relationships.policy.as_ref().map(|p| p.data.id.clone()),
+            policy: data.relationships.policy.as_ref().and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
             metadata: data.attributes.metadata,
-            account_id: data.relationships.account.as_ref().map(|a| a.data.id.clone()),
-            product_id: data.relationships.product.as_ref().map(|p| p.data.id.clone()),
-            group_id: data.relationships.group.as_ref().map(|g| g.data.id.clone()),
-            owner_id: data.relationships.owner.as_ref().map(|o| o.data.id.clone()),
+            account_id: data.relationships.account.as_ref().and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
+            product_id: data.relationships.product.as_ref().and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
+            group_id: data.relationships.group.as_ref().and_then(|g| g.data.as_ref().map(|d| d.id.clone())),
+            owner_id: data.relationships.owner.as_ref().and_then(|o| o.data.as_ref().map(|d| d.id.clone())),
         }
     }
 

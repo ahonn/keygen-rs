@@ -143,7 +143,7 @@ impl Product {
             metadata: data.attributes.metadata,
             created: data.attributes.created,
             updated: data.attributes.updated,
-            account_id: data.relationships.account.as_ref().map(|a| a.data.id.clone()),
+            account_id: data.relationships.account.as_ref().and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
         }
     }
 
@@ -307,20 +307,14 @@ mod tests {
                 updated: "2023-01-01T00:00:00Z".to_string(),
             },
             relationships: KeygenRelationships {
-                policy: None,
                 account: Some(KeygenRelationship {
-                    data: KeygenRelationshipData {
+                    data: Some(KeygenRelationshipData {
                         r#type: "accounts".to_string(),
                         id: "test-account-id".to_string(),
-                    },
+                    }),
+                    links: None,
                 }),
-                product: None,
-                group: None,
-                owner: None,
-                users: None,
-                machines: None,
-                environment: None,
-                license: None,
+                ..Default::default()
             },
         };
 
@@ -348,17 +342,7 @@ mod tests {
                 created: "2023-01-01T00:00:00Z".to_string(),
                 updated: "2023-01-01T00:00:00Z".to_string(),
             },
-            relationships: KeygenRelationships {
-                policy: None,
-                account: None,
-                product: None,
-                group: None,
-                owner: None,
-                users: None,
-                machines: None,
-                environment: None,
-                license: None,
-            },
+            relationships: KeygenRelationships::default(),
         };
 
         let product = Product::from(product_data);

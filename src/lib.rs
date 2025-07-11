@@ -36,20 +36,35 @@ pub(crate) struct KeygenRelationshipData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationship {
-    data: KeygenRelationshipData,
+    #[serde(default)]
+    pub data: Option<KeygenRelationshipData>,
+    #[serde(default)]
+    pub links: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub(crate) struct KeygenRelationships {
+    #[serde(default)]
     pub policy: Option<KeygenRelationship>,
+    #[serde(default)]
     pub account: Option<KeygenRelationship>,
+    #[serde(default)]
     pub product: Option<KeygenRelationship>,
+    #[serde(default)]
     pub group: Option<KeygenRelationship>,
+    #[serde(default)]
     pub owner: Option<KeygenRelationship>,
+    #[serde(default)]
     pub users: Option<KeygenRelationship>,
+    #[serde(default)]
     pub machines: Option<KeygenRelationship>,
+    #[serde(default)]
     pub environment: Option<KeygenRelationship>,
+    #[serde(default)]
     pub license: Option<KeygenRelationship>,
+    // Use flatten to capture any other relationship fields we don't explicitly handle
+    #[serde(flatten)]
+    pub other: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

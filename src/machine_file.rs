@@ -101,7 +101,7 @@ impl MachineFile {
                             suspended: None,
                             metadata: HashMap::new(),
                         },
-                        relationships: crate::KeygenRelationships { policy: None, account: None, product: None, group: None, owner: None, users: None, machines: None, environment: None, license: None },
+                        relationships: crate::KeygenRelationships::default(),
                     }),
                     machine: Machine::from(crate::KeygenResponseData {
                         id: "".to_string(),
@@ -120,7 +120,7 @@ impl MachineFile {
                             created: Utc::now(),
                             updated: Utc::now(),
                         },
-                        relationships: crate::KeygenRelationships { policy: None, account: None, product: None, group: None, owner: None, users: None, machines: None, environment: None, license: None },
+                        relationships: crate::KeygenRelationships::default(),
                     }),
                     issued: self.issued,
                     expiry: self.expiry,

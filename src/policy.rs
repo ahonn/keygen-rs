@@ -471,8 +471,8 @@ impl Policy {
             metadata: data.attributes.metadata,
             created: data.attributes.created,
             updated: data.attributes.updated,
-            account_id: data.relationships.account.as_ref().map(|a| a.data.id.clone()),
-            product_id: data.relationships.product.as_ref().map(|p| p.data.id.clone()),
+            account_id: data.relationships.account.as_ref().and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
+            product_id: data.relationships.product.as_ref().and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
         }
     }
 
@@ -981,16 +981,18 @@ mod tests {
             relationships: KeygenRelationships {
                 policy: None,
                 account: Some(KeygenRelationship {
-                    data: KeygenRelationshipData {
+                    data: Some(KeygenRelationshipData {
                         r#type: "accounts".to_string(),
                         id: "test-account-id".to_string(),
-                    },
+                    }),
+                    links: None,
                 }),
                 product: Some(KeygenRelationship {
-                    data: KeygenRelationshipData {
+                    data: Some(KeygenRelationshipData {
                         r#type: "products".to_string(),
                         id: "test-product-id".to_string(),
-                    },
+                    }),
+                    links: None,
                 }),
                 group: None,
                 owner: None,

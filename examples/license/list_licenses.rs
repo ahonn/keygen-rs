@@ -34,6 +34,12 @@ async fn main() -> Result<(), Error> {
                 println!("  Protected: {:?}", license.protected);
                 println!("  Suspended: {:?}", license.suspended);
                 println!("  Expiry: {:?}", license.expiry);
+                println!("  🔗 Relationships:");
+                println!("    Account ID: {:?}", license.account_id);
+                println!("    Product ID: {:?}", license.product_id);
+                println!("    Group ID: {:?}", license.group_id);
+                println!("    Owner ID: {:?}", license.owner_id);
+                println!("    Policy ID: {:?}", license.policy);
                 println!("  ---");
             }
         }

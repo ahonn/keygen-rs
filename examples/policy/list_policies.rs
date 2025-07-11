@@ -28,6 +28,9 @@ async fn main() -> Result<(), Error> {
                 println!("  Max Machines: {:?}", policy.max_machines);
                 println!("  Expiration Strategy: {:?}", policy.expiration_strategy);
                 println!("  Created: {}", policy.created);
+                println!("  🔗 Relationships:");
+                println!("    Account ID: {:?}", policy.account_id);
+                println!("    Product ID: {:?}", policy.product_id);
                 println!("  ---");
             }
         }
