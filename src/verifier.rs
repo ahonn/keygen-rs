@@ -357,6 +357,10 @@ mod tests {
             suspended: None,
             policy: None,
             metadata: HashMap::new(),
+            account_id: None,
+            product_id: None,
+            group_id: None,
+            owner_id: None,
         }
     }
 

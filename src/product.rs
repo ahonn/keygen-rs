@@ -127,6 +127,7 @@ pub struct Product {
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: String,
     pub updated: String,
+    pub account_id: Option<String>,
 }
 
 impl Product {
@@ -142,6 +143,7 @@ impl Product {
             metadata: data.attributes.metadata,
             created: data.attributes.created,
             updated: data.attributes.updated,
+            account_id: data.relationships.account.as_ref().map(|a| a.data.id.clone()),
         }
     }
 
@@ -279,5 +281,88 @@ impl Product {
             })?;
 
         Ok(token_data.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData};
+
+    #[test]
+    fn test_product_account_relationship() {
+        // Test that account_id is properly extracted from relationships
+        let product_data = KeygenResponseData {
+            id: "test-product-id".to_string(),
+            r#type: "products".to_string(),
+            attributes: ProductAttributes {
+                name: "Test Product".to_string(),
+                code: Some("test-product".to_string()),
+                distribution_strategy: Some(DistributionStrategy::Open),
+                url: Some("https://example.com".to_string()),
+                platforms: Some(vec![Platform::Windows, Platform::MacOs]),
+                permissions: Some(vec![Permission::LicenseRead, Permission::LicenseCreate]),
+                metadata: Some(HashMap::new()),
+                created: "2023-01-01T00:00:00Z".to_string(),
+                updated: "2023-01-01T00:00:00Z".to_string(),
+            },
+            relationships: KeygenRelationships {
+                policy: None,
+                account: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "accounts".to_string(),
+                        id: "test-account-id".to_string(),
+                    },
+                }),
+                product: None,
+                group: None,
+                owner: None,
+                users: None,
+                machines: None,
+                environment: None,
+                license: None,
+            },
+        };
+
+        let product = Product::from(product_data);
+        
+        assert_eq!(product.account_id, Some("test-account-id".to_string()));
+        assert_eq!(product.id, "test-product-id");
+        assert_eq!(product.name, "Test Product");
+    }
+
+    #[test]
+    fn test_product_without_account_relationship() {
+        // Test that account_id is None when no account relationship exists
+        let product_data = KeygenResponseData {
+            id: "test-product-id".to_string(),
+            r#type: "products".to_string(),
+            attributes: ProductAttributes {
+                name: "Test Product".to_string(),
+                code: Some("test-product".to_string()),
+                distribution_strategy: Some(DistributionStrategy::Open),
+                url: None,
+                platforms: None,
+                permissions: None,
+                metadata: None,
+                created: "2023-01-01T00:00:00Z".to_string(),
+                updated: "2023-01-01T00:00:00Z".to_string(),
+            },
+            relationships: KeygenRelationships {
+                policy: None,
+                account: None,
+                product: None,
+                group: None,
+                owner: None,
+                users: None,
+                machines: None,
+                environment: None,
+                license: None,
+            },
+        };
+
+        let product = Product::from(product_data);
+        
+        assert_eq!(product.account_id, None);
     }
 }

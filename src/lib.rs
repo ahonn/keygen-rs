@@ -42,6 +42,14 @@ pub(crate) struct KeygenRelationship {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationships {
     pub policy: Option<KeygenRelationship>,
+    pub account: Option<KeygenRelationship>,
+    pub product: Option<KeygenRelationship>,
+    pub group: Option<KeygenRelationship>,
+    pub owner: Option<KeygenRelationship>,
+    pub users: Option<KeygenRelationship>,
+    pub machines: Option<KeygenRelationship>,
+    pub environment: Option<KeygenRelationship>,
+    pub license: Option<KeygenRelationship>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

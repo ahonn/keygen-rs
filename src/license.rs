@@ -80,6 +80,10 @@ pub struct License {
     pub suspended: Option<bool>,
     pub policy: Option<String>,
     pub metadata: HashMap<String, Value>,
+    pub account_id: Option<String>,
+    pub product_id: Option<String>,
+    pub group_id: Option<String>,
+    pub owner_id: Option<String>,
 }
 
 pub struct LicenseCheckoutOpts {
@@ -126,8 +130,12 @@ impl License {
             max_processes: data.attributes.max_processes,
             protected: data.attributes.protected,
             suspended: data.attributes.suspended,
-            policy: data.relationships.policy.map(|p| p.data.id),
+            policy: data.relationships.policy.as_ref().map(|p| p.data.id.clone()),
             metadata: data.attributes.metadata,
+            account_id: data.relationships.account.as_ref().map(|a| a.data.id.clone()),
+            product_id: data.relationships.product.as_ref().map(|p| p.data.id.clone()),
+            group_id: data.relationships.group.as_ref().map(|g| g.data.id.clone()),
+            owner_id: data.relationships.owner.as_ref().map(|o| o.data.id.clone()),
         }
     }
 
@@ -148,6 +156,10 @@ impl License {
             suspended: None,
             policy: None,
             metadata: HashMap::new(),
+            account_id: None,
+            product_id: None,
+            group_id: None,
+            owner_id: None,
         }
     }
 
@@ -655,6 +667,10 @@ mod tests {
             suspended: None,
             policy: None,
             metadata: HashMap::new(),
+            account_id: None,
+            product_id: None,
+            group_id: None,
+            owner_id: None,
         }
     }
 
@@ -1071,5 +1087,120 @@ mod tests {
         let result = license.activate("test_fingerprint", &[]).await;
         assert!(result.is_err());
         reset_config();
+    }
+
+    #[test]
+    fn test_license_relationships() {
+        use crate::{KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData};
+        
+        // Test that all relationship IDs are properly extracted
+        let license_data = KeygenResponseData {
+            id: "test-license-id".to_string(),
+            r#type: "licenses".to_string(),
+            attributes: LicenseAttributes {
+                key: "TEST-LICENSE-KEY".to_string(),
+                name: Some("Test License".to_string()),
+                expiry: None,
+                status: Some("active".to_string()),
+                uses: Some(5),
+                max_machines: Some(10),
+                max_cores: Some(20),
+                max_uses: Some(100),
+                max_processes: Some(5),
+                protected: Some(true),
+                suspended: Some(false),
+                metadata: HashMap::new(),
+            },
+            relationships: KeygenRelationships {
+                policy: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "policies".to_string(),
+                        id: "test-policy-id".to_string(),
+                    },
+                }),
+                account: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "accounts".to_string(),
+                        id: "test-account-id".to_string(),
+                    },
+                }),
+                product: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "products".to_string(),
+                        id: "test-product-id".to_string(),
+                    },
+                }),
+                group: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "groups".to_string(),
+                        id: "test-group-id".to_string(),
+                    },
+                }),
+                owner: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "users".to_string(),
+                        id: "test-owner-id".to_string(),
+                    },
+                }),
+                users: None,
+                machines: None,
+                environment: None,
+                license: None,
+            },
+        };
+
+        let license = License::from(license_data);
+        
+        assert_eq!(license.policy, Some("test-policy-id".to_string()));
+        assert_eq!(license.account_id, Some("test-account-id".to_string()));
+        assert_eq!(license.product_id, Some("test-product-id".to_string()));
+        assert_eq!(license.group_id, Some("test-group-id".to_string()));
+        assert_eq!(license.owner_id, Some("test-owner-id".to_string()));
+        assert_eq!(license.id, "test-license-id");
+        assert_eq!(license.key, "TEST-LICENSE-KEY");
+    }
+
+    #[test]
+    fn test_license_without_relationships() {
+        use crate::{KeygenRelationships, KeygenResponseData};
+        
+        // Test that all relationship IDs are None when no relationships exist
+        let license_data = KeygenResponseData {
+            id: "test-license-id".to_string(),
+            r#type: "licenses".to_string(),
+            attributes: LicenseAttributes {
+                key: "TEST-LICENSE-KEY".to_string(),
+                name: Some("Test License".to_string()),
+                expiry: None,
+                status: Some("active".to_string()),
+                uses: None,
+                max_machines: None,
+                max_cores: None,
+                max_uses: None,
+                max_processes: None,
+                protected: None,
+                suspended: None,
+                metadata: HashMap::new(),
+            },
+            relationships: KeygenRelationships {
+                policy: None,
+                account: None,
+                product: None,
+                group: None,
+                owner: None,
+                users: None,
+                machines: None,
+                environment: None,
+                license: None,
+            },
+        };
+
+        let license = License::from(license_data);
+        
+        assert_eq!(license.policy, None);
+        assert_eq!(license.account_id, None);
+        assert_eq!(license.product_id, None);
+        assert_eq!(license.group_id, None);
+        assert_eq!(license.owner_id, None);
     }
 }

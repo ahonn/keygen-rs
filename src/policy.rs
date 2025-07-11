@@ -416,6 +416,8 @@ pub struct Policy {
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: String,
     pub updated: String,
+    pub account_id: Option<String>,
+    pub product_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -469,6 +471,8 @@ impl Policy {
             metadata: data.attributes.metadata,
             created: data.attributes.created,
             updated: data.attributes.updated,
+            account_id: data.relationships.account.as_ref().map(|a| a.data.id.clone()),
+            product_id: data.relationships.product.as_ref().map(|p| p.data.id.clone()),
         }
     }
 
@@ -925,5 +929,81 @@ mod tests {
         let json = "\"RSA_2048_PKCS1_SIGN\"";
         let scheme: Scheme = serde_json::from_str(json).unwrap();
         assert_eq!(scheme, Scheme::Rsa2048Pkcs1Sign);
+    }
+
+    #[test]
+    fn test_policy_relationships() {
+        use crate::{KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData};
+        
+        // Test that account_id and product_id are properly extracted from relationships
+        let policy_data = KeygenResponseData {
+            id: "test-policy-id".to_string(),
+            r#type: "policies".to_string(),
+            attributes: PolicyAttributes {
+                name: "Test Policy".to_string(),
+                duration: Some(3600),
+                strict: false,
+                floating: false,
+                require_heartbeat: false,
+                heartbeat_duration: None,
+                heartbeat_cull_strategy: None,
+                heartbeat_resurrection_strategy: None,
+                heartbeat_basis: None,
+                machine_uniqueness_strategy: None,
+                component_uniqueness_strategy: None,
+                machine_matching_strategy: None,
+                component_matching_strategy: None,
+                expiration_strategy: ExpirationStrategy::RestrictAccess,
+                expiration_basis: None,
+                renewal_basis: None,
+                authentication_strategy: AuthenticationStrategy::Token,
+                machine_leasing_strategy: LeasingStrategy::PerMachine,
+                process_leasing_strategy: LeasingStrategy::PerMachine,
+                overage_strategy: OverageStrategy::NoOverage,
+                transfer_strategy: TransferStrategy::KeepPolicy,
+                max_machines: Some(5),
+                max_processes: None,
+                max_cores: None,
+                max_uses: None,
+                encrypted: false,
+                protected: false,
+                require_check_in: false,
+                check_in_interval: None,
+                check_in_interval_count: None,
+                use_pool: false,
+                max_licenses: None,
+                max_users: None,
+                scheme: None,
+                metadata: None,
+                created: "2023-01-01T00:00:00Z".to_string(),
+                updated: "2023-01-01T00:00:00Z".to_string(),
+            },
+            relationships: KeygenRelationships {
+                policy: None,
+                account: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "accounts".to_string(),
+                        id: "test-account-id".to_string(),
+                    },
+                }),
+                product: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "products".to_string(),
+                        id: "test-product-id".to_string(),
+                    },
+                }),
+                group: None,
+                owner: None,
+                users: None,
+                machines: None,
+                environment: None,
+                license: None,
+            },
+        };
+
+        let policy = Policy::from(policy_data);
+        
+        assert_eq!(policy.account_id, Some("test-account-id".to_string()));
+        assert_eq!(policy.product_id, Some("test-product-id".to_string()));
     }
 }

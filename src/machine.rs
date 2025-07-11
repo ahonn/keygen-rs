@@ -60,6 +60,12 @@ pub struct Machine {
     pub heartbeat_duration: Option<i32>,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
+    pub account_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub product_id: Option<String>,
+    pub license_id: Option<String>,
+    pub owner_id: Option<String>,
+    pub group_id: Option<String>,
 }
 
 pub struct MachineCheckoutOpts {
@@ -114,6 +120,12 @@ impl Machine {
             heartbeat_duration: data.attributes.heartbeat_duration,
             created: data.attributes.created,
             updated: data.attributes.updated,
+            account_id: data.relationships.account.as_ref().map(|a| a.data.id.clone()),
+            environment_id: data.relationships.environment.as_ref().map(|e| e.data.id.clone()),
+            product_id: data.relationships.product.as_ref().map(|p| p.data.id.clone()),
+            license_id: data.relationships.license.as_ref().map(|l| l.data.id.clone()),
+            owner_id: data.relationships.owner.as_ref().map(|o| o.data.id.clone()),
+            group_id: data.relationships.group.as_ref().map(|g| g.data.id.clone()),
         }
     }
 
@@ -349,5 +361,130 @@ impl Machine {
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData};
+    use chrono::Utc;
+
+    #[test]
+    fn test_machine_relationships() {
+        // Test that all relationship IDs are properly extracted
+        let machine_data = KeygenResponseData {
+            id: "test-machine-id".to_string(),
+            r#type: "machines".to_string(),
+            attributes: MachineAttributes {
+                fingerprint: "test-fingerprint".to_string(),
+                name: Some("Test Machine".to_string()),
+                platform: Some("linux".to_string()),
+                hostname: Some("test-host".to_string()),
+                ip: Some("192.168.1.1".to_string()),
+                cores: Some(8),
+                metadata: Some(HashMap::new()),
+                require_heartbeat: true,
+                heartbeat_status: "ALIVE".to_string(),
+                heartbeat_duration: Some(3600),
+                created: Utc::now(),
+                updated: Utc::now(),
+            },
+            relationships: KeygenRelationships {
+                policy: None,
+                account: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "accounts".to_string(),
+                        id: "test-account-id".to_string(),
+                    },
+                }),
+                product: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "products".to_string(),
+                        id: "test-product-id".to_string(),
+                    },
+                }),
+                group: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "groups".to_string(),
+                        id: "test-group-id".to_string(),
+                    },
+                }),
+                owner: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "users".to_string(),
+                        id: "test-owner-id".to_string(),
+                    },
+                }),
+                users: None,
+                machines: None,
+                environment: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "environments".to_string(),
+                        id: "test-environment-id".to_string(),
+                    },
+                }),
+                license: Some(KeygenRelationship {
+                    data: KeygenRelationshipData {
+                        r#type: "licenses".to_string(),
+                        id: "test-license-id".to_string(),
+                    },
+                }),
+            },
+        };
+
+        let machine = Machine::from(machine_data);
+        
+        assert_eq!(machine.account_id, Some("test-account-id".to_string()));
+        assert_eq!(machine.environment_id, Some("test-environment-id".to_string()));
+        assert_eq!(machine.product_id, Some("test-product-id".to_string()));
+        assert_eq!(machine.license_id, Some("test-license-id".to_string()));
+        assert_eq!(machine.owner_id, Some("test-owner-id".to_string()));
+        assert_eq!(machine.group_id, Some("test-group-id".to_string()));
+        assert_eq!(machine.id, "test-machine-id");
+        assert_eq!(machine.fingerprint, "test-fingerprint");
+    }
+
+    #[test]
+    fn test_machine_without_relationships() {
+        // Test that all relationship IDs are None when no relationships exist
+        let machine_data = KeygenResponseData {
+            id: "test-machine-id".to_string(),
+            r#type: "machines".to_string(),
+            attributes: MachineAttributes {
+                fingerprint: "test-fingerprint".to_string(),
+                name: Some("Test Machine".to_string()),
+                platform: Some("linux".to_string()),
+                hostname: Some("test-host".to_string()),
+                ip: Some("192.168.1.1".to_string()),
+                cores: Some(8),
+                metadata: Some(HashMap::new()),
+                require_heartbeat: true,
+                heartbeat_status: "ALIVE".to_string(),
+                heartbeat_duration: Some(3600),
+                created: Utc::now(),
+                updated: Utc::now(),
+            },
+            relationships: KeygenRelationships {
+                policy: None,
+                account: None,
+                product: None,
+                group: None,
+                owner: None,
+                users: None,
+                machines: None,
+                environment: None,
+                license: None,
+            },
+        };
+
+        let machine = Machine::from(machine_data);
+        
+        assert_eq!(machine.account_id, None);
+        assert_eq!(machine.environment_id, None);
+        assert_eq!(machine.product_id, None);
+        assert_eq!(machine.license_id, None);
+        assert_eq!(machine.owner_id, None);
+        assert_eq!(machine.group_id, None);
     }
 }
