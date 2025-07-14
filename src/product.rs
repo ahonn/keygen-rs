@@ -27,36 +27,6 @@ pub enum Platform {
     Web,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub enum Permission {
-    #[serde(rename = "license.read")]
-    LicenseRead,
-    #[serde(rename = "license.create")]
-    LicenseCreate,
-    #[serde(rename = "license.update")]
-    LicenseUpdate,
-    #[serde(rename = "license.delete")]
-    LicenseDelete,
-    #[serde(rename = "license.validate")]
-    LicenseValidate,
-    #[serde(rename = "machine.read")]
-    MachineRead,
-    #[serde(rename = "machine.create")]
-    MachineCreate,
-    #[serde(rename = "machine.update")]
-    MachineUpdate,
-    #[serde(rename = "machine.delete")]
-    MachineDelete,
-    #[serde(rename = "user.read")]
-    UserRead,
-    #[serde(rename = "user.create")]
-    UserCreate,
-    #[serde(rename = "user.update")]
-    UserUpdate,
-    #[serde(rename = "user.delete")]
-    UserDelete,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProductAttributes {
@@ -66,7 +36,7 @@ pub struct ProductAttributes {
     pub distribution_strategy: Option<DistributionStrategy>,
     pub url: Option<String>,
     pub platforms: Option<Vec<Platform>>,
-    pub permissions: Option<Vec<Permission>>,
+    pub permissions: Option<Vec<String>>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: String,
     pub updated: String,
@@ -90,7 +60,7 @@ pub struct CreateProductRequest {
     pub distribution_strategy: Option<DistributionStrategy>,
     pub url: Option<String>,
     pub platforms: Option<Vec<Platform>>,
-    pub permissions: Option<Vec<Permission>>,
+    pub permissions: Option<Vec<String>>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
@@ -111,7 +81,7 @@ pub struct UpdateProductRequest {
     pub distribution_strategy: Option<DistributionStrategy>,
     pub url: Option<String>,
     pub platforms: Option<Vec<Platform>>,
-    pub permissions: Option<Vec<Permission>>,
+    pub permissions: Option<Vec<String>>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
@@ -123,7 +93,7 @@ pub struct Product {
     pub distribution_strategy: Option<DistributionStrategy>,
     pub url: Option<String>,
     pub platforms: Option<Vec<Platform>>,
-    pub permissions: Option<Vec<Permission>>,
+    pub permissions: Option<Vec<String>>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: String,
     pub updated: String,
@@ -301,7 +271,7 @@ mod tests {
                 distribution_strategy: Some(DistributionStrategy::Open),
                 url: Some("https://example.com".to_string()),
                 platforms: Some(vec![Platform::Windows, Platform::MacOs]),
-                permissions: Some(vec![Permission::LicenseRead, Permission::LicenseCreate]),
+                permissions: Some(vec!["license.read".to_string(), "license.create".to_string()]),
                 metadata: Some(HashMap::new()),
                 created: "2023-01-01T00:00:00Z".to_string(),
                 updated: "2023-01-01T00:00:00Z".to_string(),

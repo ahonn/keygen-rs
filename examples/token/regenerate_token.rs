@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    token::{Permission, RegenerateTokenRequest, Token},
+    token::{RegenerateTokenRequest, Token},
 };
 use std::env;
 
@@ -38,10 +38,10 @@ async fn main() -> Result<(), Error> {
                 name: Some(format!("{} (Regenerated)", current_name)),
                 expiry: None, // Keep no expiration
                 permissions: Some(vec![
-                    Permission::ProductRead,
-                    Permission::LicenseRead,
-                    Permission::LicenseValidate,
-                    Permission::UserRead,
+                    "product.read".to_string(),
+                    "license.read".to_string(),
+                    "license.validate".to_string(),
+                    "user.read".to_string(),
                 ]),
                 metadata: None,
             };

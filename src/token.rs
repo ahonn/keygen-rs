@@ -23,60 +23,6 @@ pub enum TokenKind {
     AdminToken,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub enum Permission {
-    #[serde(rename = "license.read")]
-    LicenseRead,
-    #[serde(rename = "license.create")]
-    LicenseCreate,
-    #[serde(rename = "license.update")]
-    LicenseUpdate,
-    #[serde(rename = "license.delete")]
-    LicenseDelete,
-    #[serde(rename = "license.validate")]
-    LicenseValidate,
-    #[serde(rename = "machine.read")]
-    MachineRead,
-    #[serde(rename = "machine.create")]
-    MachineCreate,
-    #[serde(rename = "machine.update")]
-    MachineUpdate,
-    #[serde(rename = "machine.delete")]
-    MachineDelete,
-    #[serde(rename = "user.read")]
-    UserRead,
-    #[serde(rename = "user.create")]
-    UserCreate,
-    #[serde(rename = "user.update")]
-    UserUpdate,
-    #[serde(rename = "user.delete")]
-    UserDelete,
-    #[serde(rename = "product.read")]
-    ProductRead,
-    #[serde(rename = "product.create")]
-    ProductCreate,
-    #[serde(rename = "product.update")]
-    ProductUpdate,
-    #[serde(rename = "product.delete")]
-    ProductDelete,
-    #[serde(rename = "policy.read")]
-    PolicyRead,
-    #[serde(rename = "policy.create")]
-    PolicyCreate,
-    #[serde(rename = "policy.update")]
-    PolicyUpdate,
-    #[serde(rename = "policy.delete")]
-    PolicyDelete,
-    #[serde(rename = "token.generate")]
-    TokenGenerate,
-    #[serde(rename = "token.read")]
-    TokenRead,
-    #[serde(rename = "token.regenerate")]
-    TokenRegenerate,
-    #[serde(rename = "token.revoke")]
-    TokenRevoke,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenAttributes {
@@ -84,7 +30,7 @@ pub struct TokenAttributes {
     pub token: Option<String>, // Only present on creation/regeneration
     pub name: Option<String>,
     pub expiry: Option<String>,
-    pub permissions: Option<Vec<Permission>>,
+    pub permissions: Option<Vec<String>>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: String,
     pub updated: String,
@@ -113,7 +59,7 @@ pub struct ListTokensOptions {
 pub struct RegenerateTokenRequest {
     pub name: Option<String>,
     pub expiry: Option<String>,
-    pub permissions: Option<Vec<Permission>>,
+    pub permissions: Option<Vec<String>>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
@@ -124,7 +70,7 @@ pub struct Token {
     pub token: Option<String>,
     pub name: Option<String>,
     pub expiry: Option<String>,
-    pub permissions: Option<Vec<Permission>>,
+    pub permissions: Option<Vec<String>>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: String,
     pub updated: String,
@@ -215,9 +161,9 @@ impl Token {
     }
 
     /// Check if token has specific permission
-    pub fn has_permission(&self, permission: &Permission) -> bool {
+    pub fn has_permission(&self, permission: &str) -> bool {
         if let Some(permissions) = &self.permissions {
-            permissions.contains(permission)
+            permissions.contains(&permission.to_string())
         } else {
             false
         }
