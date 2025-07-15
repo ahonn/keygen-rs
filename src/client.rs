@@ -167,7 +167,7 @@ impl Client {
 
     /// Get request that returns plain text response (for ping endpoint)
     pub async fn get_text(&self, path: &str) -> Result<Response<String>, Error> {
-        let request = self.new_request(reqwest::Method::GET, path, None::<&()>)?;
+        let request = self.new_request_no_version(reqwest::Method::GET, path, None::<&()>)?;
         self.send_text(request).await
     }
 
@@ -220,6 +220,73 @@ impl Client {
             "Keygen-Version",
             HeaderValue::from_str(&self.options.api_version)?,
         );
+
+        if let Some(key) = &self.options.license_key {
+            headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("License {}", key))?,
+            );
+        } else if let Some(token) = &self.options.token {
+            headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("Bearer {}", token))?,
+            );
+        }
+
+        let mut request = self.inner.request(method.clone(), url).headers(headers);
+
+        if method != reqwest::Method::GET && params.is_some() {
+            request = request.json(&json!(params));
+        }
+        Ok(request.build()?)
+    }
+
+    fn new_request_no_version<T: Serialize + ?Sized>(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        params: Option<&T>,
+    ) -> Result<Request, Error> {
+        let mut url = Url::parse(&self.options.api_url)?;
+
+        if self.options.api_url == "https://api.keygen.sh" {
+            url.path_segments_mut()
+                .map_err(|_| Error::InvalidUrl)?
+                .push(self.options.api_prefix.as_str())
+                .push("accounts")
+                .push(self.options.account.as_str())
+                .extend(path.split('/'));
+        } else {
+            url.path_segments_mut()
+                .map_err(|_| Error::InvalidUrl)?
+                .push(self.options.api_prefix.as_str())
+                .extend(path.split('/'));
+        }
+
+        if method == reqwest::Method::GET {
+            if let Some(params) = params {
+                let query = serde_urlencoded::to_string(params)?;
+                url.set_query(Some(&query));
+            }
+        }
+
+        let mut headers = HeaderMap::new();
+        headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.api+json"));
+        if params.is_some() {
+            headers.insert(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/vnd.api+json"),
+            );
+        }
+        if let Some(user_agent) = &self.options.user_agent {
+            headers.insert(USER_AGENT, HeaderValue::from_str(user_agent)?);
+        }
+
+        if let Some(env) = &self.options.environment {
+            headers.insert("Keygen-Environment", HeaderValue::from_str(env)?);
+        }
+
+        // Note: Intentionally NOT setting Keygen-Version header for service introspection
 
         if let Some(key) = &self.options.license_key {
             headers.insert(
