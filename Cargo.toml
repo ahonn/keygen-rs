@@ -187,6 +187,26 @@ name = "verify_offline_key"
 path = "examples/license/verify_offline_key.rs"
 
 [[example]]
+name = "update_license"
+path = "examples/license/update_license.rs"
+
+[[example]]
+name = "delete_license"
+path = "examples/license/delete_license.rs"
+
+[[example]]
+name = "renew_license"
+path = "examples/license/renew_license.rs"
+
+[[example]]
+name = "revoke_license"
+path = "examples/license/revoke_license.rs"
+
+[[example]]
+name = "list_entitlements"
+path = "examples/license/list_entitlements.rs"
+
+[[example]]
 name = "activate_machine"
 path = "examples/machine/activate_machine.rs"
 

@@ -91,7 +91,7 @@ pub struct LicenseCheckoutOpts {
     pub include: Option<Vec<String>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct PaginationOptions {
     pub limit: Option<i32>,
     pub page: Option<i32>,
@@ -290,10 +290,18 @@ impl License {
           }
         });
         if components.len() > 0 {
-            params["data"]["relationships"]["components"] = json!(components
-                .iter()
-                .map(|comp| Component::create_object(comp))
-                .collect::<Vec<serde_json::Value>>());
+            params["data"]["relationships"]["components"] = json!({
+                "data": components
+                    .iter()
+                    .map(|comp| json!({
+                        "type": "components",
+                        "attributes": {
+                            "fingerprint": comp.fingerprint,
+                            "name": comp.name
+                        }
+                    }))
+                    .collect::<Vec<serde_json::Value>>()
+            });
         }
 
         let response = client.post("machines", Some(&params), None::<&()>).await?;
@@ -634,12 +642,11 @@ impl License {
 
     /// Revoke a license
     #[cfg(feature = "token")]
-    pub async fn revoke(&self) -> Result<License, Error> {
+    pub async fn revoke(&self) -> Result<(), Error> {
         let client = Client::default();
         let endpoint = format!("licenses/{}/actions/revoke", self.id);
-        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
-        let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        client.delete::<(), ()>(&endpoint, None::<&()>).await?;
+        Ok(())
     }
 }
 
