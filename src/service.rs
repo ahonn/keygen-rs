@@ -28,9 +28,7 @@ pub async fn get_service_info() -> Result<ServiceInfo, Error> {
     let client = Client::default();
 
     // Use the ping endpoint to get version information
-    let response = client
-        .get::<(), serde_json::Value>("ping", None::<&()>)
-        .await?;
+    let response = client.get_text("ping").await?;
 
     let mut headers = HashMap::new();
     for (name, value) in response.headers.iter() {
@@ -39,26 +37,19 @@ pub async fn get_service_info() -> Result<ServiceInfo, Error> {
         }
     }
 
-    // Try to parse the ping response
-    let ping_data: Option<PingResponse> = serde_json::from_value(response.body.clone()).ok();
+    // Extract API version from headers
+    let api_version = headers.get("keygen-version")
+        .or_else(|| headers.get("x-api-version"))
+        .or_else(|| headers.get("api-version"))
+        .cloned();
 
-    // Extract API version from response body first, then fallback to headers
-    let api_version = ping_data
-        .as_ref()
-        .and_then(|p| p.version.clone())
-        .or_else(|| headers.get("keygen-version").cloned())
-        .or_else(|| headers.get("x-api-version").cloned())
-        .or_else(|| headers.get("api-version").cloned());
+    // Extract server timestamp from headers
+    let timestamp = headers.get("date")
+        .or_else(|| headers.get("x-timestamp"))
+        .cloned();
 
-    // Extract server timestamp from response body first, then fallback to headers
-    let timestamp = ping_data
-        .as_ref()
-        .and_then(|p| p.timestamp.clone())
-        .or_else(|| headers.get("date").cloned())
-        .or_else(|| headers.get("x-timestamp").cloned());
-
-    // Extract message from ping response
-    let message = ping_data.as_ref().map(|p| p.message.clone());
+    // Use the ping response text as message
+    let message = Some(response.body.trim().to_string());
 
     Ok(ServiceInfo {
         timestamp,
@@ -82,18 +73,27 @@ pub fn supports_feature(service_info: &ServiceInfo, required_version: &str) -> b
 /// Ping the Keygen service and get basic information
 pub async fn ping() -> Result<PingResponse, Error> {
     let client = Client::default();
-    let response = client
-        .get::<(), serde_json::Value>("ping", None::<&()>)
-        .await?;
+    let response = client.get_text("ping").await?;
 
-    let ping_response: PingResponse =
-        serde_json::from_value(response.body).map_err(|e| Error::KeygenApiError {
-            code: "INVALID_RESPONSE".to_string(),
-            detail: format!("Failed to parse ping response: {}", e),
-            body: serde_json::Value::Null,
-        })?;
+    // The ping endpoint returns plain text (usually "ok")
+    // We'll extract version info from headers if available
+    let message = response.body.trim().to_string();
+    
+    let version = response.headers
+        .get("keygen-version")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    
+    let timestamp = response.headers
+        .get("date")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
 
-    Ok(ping_response)
+    Ok(PingResponse {
+        message,
+        version,
+        timestamp,
+    })
 }
 
 /// Check if product code field is supported (requires API v1.8+)

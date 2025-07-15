@@ -222,6 +222,13 @@ path = "examples/machine/get_machine.rs"
 name = "update_machine"
 path = "examples/machine/update_machine.rs"
 
+[[example]]
+name = "ping_service"
+path = "examples/service/ping_service.rs"
+
+[[example]]
+name = "health_check"
+path = "examples/service/health_check.rs"
 
 [lib]
 doctest = false

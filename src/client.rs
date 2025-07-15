@@ -165,6 +165,12 @@ impl Client {
             .await
     }
 
+    /// Get request that returns plain text response (for ping endpoint)
+    pub async fn get_text(&self, path: &str) -> Result<Response<String>, Error> {
+        let request = self.new_request(reqwest::Method::GET, path, None::<&()>)?;
+        self.send_text(request).await
+    }
+
     fn new_request<T: Serialize + ?Sized>(
         &self,
         method: reqwest::Method,
@@ -288,6 +294,54 @@ impl Client {
             status,
             headers,
             body,
+        })
+    }
+
+    async fn send_text(&self, request: Request) -> Result<Response<String>, Error> {
+        let method = request.method().as_str().to_owned();
+        let url = request.url().clone();
+        let host = match (url.host_str(), url.port()) {
+            (Some(h), Some(p)) => format!("{}:{}", h, p),
+            (Some(h), None) => h.to_string(),
+            _ => "api.keygen.sh".to_string(),
+        };
+
+        let response = self.inner.execute(request).await?;
+
+        let status = response.status();
+        let headers = response.headers().clone();
+
+        if status.is_client_error() || status.is_server_error() {
+            let error_body: serde_json::Value = response.json().await?;
+            return Err(self.handle_error(status, &headers, error_body));
+        }
+
+        let text = response.text().await?;
+
+        if self.options.verify_keygen_signature {
+            let config = get_config();
+            if let Some(public_key) = config.public_key {
+                let verifier = Verifier::new(public_key);
+
+                let base_path = url.path();
+                let full_path = if let Some(query) = url.query() {
+                    format!("{}?{}", base_path, query)
+                } else {
+                    base_path.to_string()
+                };
+
+                verifier
+                    .verify_keygen_signature(&headers, text.as_bytes(), &method, &full_path, &host)
+                    .map_err(|err| Error::KeygenSignatureInvalid {
+                        reason: format!("Keygen signature validation failed: {}", err),
+                    })?;
+            }
+        }
+
+        Ok(Response {
+            status,
+            headers,
+            body: text,
         })
     }
 
