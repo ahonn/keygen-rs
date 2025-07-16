@@ -1,9 +1,9 @@
+use chrono::{DateTime, Utc};
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
     license::{License, LicenseCreateRequest},
 };
-use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::env;
 
@@ -21,11 +21,12 @@ async fn main() -> Result<(), Error> {
     });
 
     // Get required policy ID
-    let policy_id = env::var("POLICY_ID").expect("POLICY_ID must be set (get from list_policies example)");
+    let policy_id =
+        env::var("POLICY_ID").expect("POLICY_ID must be set (get from list_policies example)");
 
     // Example 1: Create a basic license with all optional parameters
     println!("🔧 Creating license with all parameters...");
-    
+
     // Create metadata for the license
     let mut metadata = HashMap::new();
     metadata.insert(
@@ -46,7 +47,7 @@ async fn main() -> Result<(), Error> {
 
     // Set expiry to 1 year from now
     let expiry: DateTime<Utc> = Utc::now() + chrono::Duration::days(365);
-    
+
     // Optional: Get user ID and group ID from environment if available
     let owner_id = env::var("USER_ID").ok();
     let group_id = env::var("GROUP_ID").ok();
@@ -57,7 +58,7 @@ async fn main() -> Result<(), Error> {
         .with_expiry(expiry)
         .with_max_machines(5)
         .with_metadata(metadata);
-    
+
     if let Some(uid) = owner_id {
         request = request.with_owner_id(uid);
     }
@@ -67,7 +68,10 @@ async fn main() -> Result<(), Error> {
 
     match License::create(request).await {
         Ok(license) => {
-            println!("✅ Full-featured license created: {} ({})", license.id, license.key);
+            println!(
+                "✅ Full-featured license created: {} ({})",
+                license.id, license.key
+            );
         }
         Err(e) => {
             println!("❌ Failed to create full-featured license: {:?}", e);
@@ -77,12 +81,15 @@ async fn main() -> Result<(), Error> {
 
     // Example 2: Create a minimal license (only policy required)
     println!("🔧 Creating minimal license (policy only)...");
-    
+
     let minimal_request = LicenseCreateRequest::new(policy_id.clone());
-    
+
     match License::create(minimal_request).await {
         Ok(license) => {
-            println!("✅ Minimal license created: {} ({})", license.id, license.key);
+            println!(
+                "✅ Minimal license created: {} ({})",
+                license.id, license.key
+            );
         }
         Err(e) => {
             println!("❌ Failed to create minimal license: {:?}", e);
@@ -91,14 +98,17 @@ async fn main() -> Result<(), Error> {
 
     // Example 3: Create a license with just name and machine limit
     println!("🔧 Creating license with name and machine limit...");
-    
+
     let standard_request = LicenseCreateRequest::new(policy_id.clone())
         .with_name("Standard License".to_string())
         .with_max_machines(3);
-    
+
     match License::create(standard_request).await {
         Ok(license) => {
-            println!("✅ Standard license created: {} ({})", license.id, license.key);
+            println!(
+                "✅ Standard license created: {} ({})",
+                license.id, license.key
+            );
         }
         Err(e) => {
             println!("❌ Failed to create standard license: {:?}", e);
@@ -107,19 +117,28 @@ async fn main() -> Result<(), Error> {
 
     // Example 4: Create a comprehensive license with all available parameters
     println!("🔧 Creating comprehensive license with all parameters...");
-    
+
     let mut comprehensive_metadata = HashMap::new();
-    comprehensive_metadata.insert("tier".to_string(), serde_json::Value::String("enterprise".to_string()));
-    comprehensive_metadata.insert("support_level".to_string(), serde_json::Value::String("premium".to_string()));
-    comprehensive_metadata.insert("features".to_string(), serde_json::Value::Array(vec![
-        serde_json::Value::String("advanced_analytics".to_string()),
-        serde_json::Value::String("priority_support".to_string()),
-        serde_json::Value::String("custom_integrations".to_string()),
-    ]));
+    comprehensive_metadata.insert(
+        "tier".to_string(),
+        serde_json::Value::String("enterprise".to_string()),
+    );
+    comprehensive_metadata.insert(
+        "support_level".to_string(),
+        serde_json::Value::String("premium".to_string()),
+    );
+    comprehensive_metadata.insert(
+        "features".to_string(),
+        serde_json::Value::Array(vec![
+            serde_json::Value::String("advanced_analytics".to_string()),
+            serde_json::Value::String("priority_support".to_string()),
+            serde_json::Value::String("custom_integrations".to_string()),
+        ]),
+    );
 
     // Set expiry to 2 years from now
     let long_expiry: DateTime<Utc> = Utc::now() + chrono::Duration::days(730);
-    
+
     let comprehensive_request = LicenseCreateRequest::new(policy_id)
         .with_name("Enterprise License - Full Features".to_string())
         .with_key("ENTERPRISE-2024-FULL-ACCESS".to_string())
@@ -142,7 +161,10 @@ async fn main() -> Result<(), Error> {
 
     match License::create(comprehensive_request).await {
         Ok(license) => {
-            println!("✅ Comprehensive license created: {} ({})", license.id, license.key);
+            println!(
+                "✅ Comprehensive license created: {} ({})",
+                license.id, license.key
+            );
         }
         Err(e) => {
             println!("❌ Failed to create comprehensive license: {:?}", e);

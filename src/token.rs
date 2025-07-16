@@ -23,7 +23,6 @@ pub enum TokenKind {
     AdminToken,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenAttributes {
     pub kind: TokenKind,

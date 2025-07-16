@@ -471,8 +471,16 @@ impl Policy {
             metadata: data.attributes.metadata,
             created: data.attributes.created,
             updated: data.attributes.updated,
-            account_id: data.relationships.account.as_ref().and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
-            product_id: data.relationships.product.as_ref().and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
+            account_id: data
+                .relationships
+                .account
+                .as_ref()
+                .and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
+            product_id: data
+                .relationships
+                .product
+                .as_ref()
+                .and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
         }
     }
 
@@ -933,8 +941,10 @@ mod tests {
 
     #[test]
     fn test_policy_relationships() {
-        use crate::{KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData};
-        
+        use crate::{
+            KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData,
+        };
+
         // Test that account_id and product_id are properly extracted from relationships
         let policy_data = KeygenResponseData {
             id: "test-policy-id".to_string(),
@@ -1005,7 +1015,7 @@ mod tests {
         };
 
         let policy = Policy::from(policy_data);
-        
+
         assert_eq!(policy.account_id, Some("test-account-id".to_string()));
         assert_eq!(policy.product_id, Some("test-product-id".to_string()));
     }

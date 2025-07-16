@@ -32,10 +32,12 @@ async fn main() -> Result<(), Error> {
     // Prompt for confirmation (in production, you might want a more robust confirmation)
     println!("\n⚠️  WARNING: This action cannot be undone!");
     println!("Are you sure you want to delete this license? (type 'yes' to confirm)");
-    
+
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).expect("Failed to read line");
-    
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
+
     if input.trim().to_lowercase() == "yes" {
         // Delete the license
         license.delete().await?;

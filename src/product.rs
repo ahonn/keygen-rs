@@ -27,7 +27,6 @@ pub enum Platform {
     Web,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProductAttributes {
     pub name: String,
@@ -113,7 +112,11 @@ impl Product {
             metadata: data.attributes.metadata,
             created: data.attributes.created,
             updated: data.attributes.updated,
-            account_id: data.relationships.account.as_ref().and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
+            account_id: data
+                .relationships
+                .account
+                .as_ref()
+                .and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
         }
     }
 
@@ -257,7 +260,9 @@ impl Product {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData};
+    use crate::{
+        KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData,
+    };
 
     #[test]
     fn test_product_account_relationship() {
@@ -271,7 +276,10 @@ mod tests {
                 distribution_strategy: Some(DistributionStrategy::Open),
                 url: Some("https://example.com".to_string()),
                 platforms: Some(vec![Platform::Windows, Platform::MacOs]),
-                permissions: Some(vec!["license.read".to_string(), "license.create".to_string()]),
+                permissions: Some(vec![
+                    "license.read".to_string(),
+                    "license.create".to_string(),
+                ]),
                 metadata: Some(HashMap::new()),
                 created: "2023-01-01T00:00:00Z".to_string(),
                 updated: "2023-01-01T00:00:00Z".to_string(),
@@ -289,7 +297,7 @@ mod tests {
         };
 
         let product = Product::from(product_data);
-        
+
         assert_eq!(product.account_id, Some("test-account-id".to_string()));
         assert_eq!(product.id, "test-product-id");
         assert_eq!(product.name, "Test Product");
@@ -316,7 +324,7 @@ mod tests {
         };
 
         let product = Product::from(product_data);
-        
+
         assert_eq!(product.account_id, None);
     }
 }

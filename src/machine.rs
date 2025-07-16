@@ -126,12 +126,36 @@ impl Machine {
             heartbeat_duration: data.attributes.heartbeat_duration,
             created: data.attributes.created,
             updated: data.attributes.updated,
-            account_id: data.relationships.account.as_ref().and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
-            environment_id: data.relationships.environment.as_ref().and_then(|e| e.data.as_ref().map(|d| d.id.clone())),
-            product_id: data.relationships.product.as_ref().and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
-            license_id: data.relationships.license.as_ref().and_then(|l| l.data.as_ref().map(|d| d.id.clone())),
-            owner_id: data.relationships.owner.as_ref().and_then(|o| o.data.as_ref().map(|d| d.id.clone())),
-            group_id: data.relationships.group.as_ref().and_then(|g| g.data.as_ref().map(|d| d.id.clone())),
+            account_id: data
+                .relationships
+                .account
+                .as_ref()
+                .and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
+            environment_id: data
+                .relationships
+                .environment
+                .as_ref()
+                .and_then(|e| e.data.as_ref().map(|d| d.id.clone())),
+            product_id: data
+                .relationships
+                .product
+                .as_ref()
+                .and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
+            license_id: data
+                .relationships
+                .license
+                .as_ref()
+                .and_then(|l| l.data.as_ref().map(|d| d.id.clone())),
+            owner_id: data
+                .relationships
+                .owner
+                .as_ref()
+                .and_then(|o| o.data.as_ref().map(|d| d.id.clone())),
+            group_id: data
+                .relationships
+                .group
+                .as_ref()
+                .and_then(|g| g.data.as_ref().map(|d| d.id.clone())),
         }
     }
 
@@ -393,7 +417,9 @@ impl Machine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData};
+    use crate::{
+        KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData,
+    };
     use chrono::Utc;
 
     #[test]
@@ -467,9 +493,12 @@ mod tests {
         };
 
         let machine = Machine::from(machine_data);
-        
+
         assert_eq!(machine.account_id, Some("test-account-id".to_string()));
-        assert_eq!(machine.environment_id, Some("test-environment-id".to_string()));
+        assert_eq!(
+            machine.environment_id,
+            Some("test-environment-id".to_string())
+        );
         assert_eq!(machine.product_id, Some("test-product-id".to_string()));
         assert_eq!(machine.license_id, Some("test-license-id".to_string()));
         assert_eq!(machine.owner_id, Some("test-owner-id".to_string()));
@@ -513,7 +542,7 @@ mod tests {
         };
 
         let machine = Machine::from(machine_data);
-        
+
         assert_eq!(machine.account_id, None);
         assert_eq!(machine.environment_id, None);
         assert_eq!(machine.product_id, None);

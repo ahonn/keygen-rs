@@ -142,22 +142,6 @@ name = "unban_user"
 path = "examples/user/unban_user.rs"
 
 [[example]]
-name = "generate_token"
-path = "examples/user/generate_token.rs"
-
-[[example]]
-name = "change_group"
-path = "examples/user/change_group.rs"
-
-[[example]]
-name = "change_password"
-path = "examples/user/change_password.rs"
-
-[[example]]
-name = "reset_password"
-path = "examples/user/reset_password.rs"
-
-[[example]]
 name = "validate_license"
 path = "examples/license/validate_license.rs"
 

@@ -19,9 +19,21 @@ async fn main() -> Result<(), Error> {
 
     // List all users
     match user::list(None).await {
-        Ok(users) => {
-            println!("✅ Found {} users:", users.len());
-            for user in users {
+        Ok(result) => {
+            println!("✅ Found {} users:", result.users.len());
+            
+            // Display pagination metadata if available
+            if let Some(meta) = &result.meta {
+                if let Some(total) = meta.get("total") {
+                    println!("Total users: {}", total);
+                }
+                if let Some(page) = meta.get("page") {
+                    println!("Current page: {}", page);
+                }
+            }
+            
+            println!("\nUser list:");
+            for user in result.users {
                 println!("  ID: {}", user.id);
                 println!("  Email: {}", user.email);
                 println!("  Full Name: {:?}", user.full_name);

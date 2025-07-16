@@ -38,13 +38,15 @@ pub async fn get_service_info() -> Result<ServiceInfo, Error> {
     }
 
     // Extract API version from headers
-    let api_version = headers.get("keygen-version")
+    let api_version = headers
+        .get("keygen-version")
         .or_else(|| headers.get("x-api-version"))
         .or_else(|| headers.get("api-version"))
         .cloned();
 
     // Extract server timestamp from headers
-    let timestamp = headers.get("date")
+    let timestamp = headers
+        .get("date")
         .or_else(|| headers.get("x-timestamp"))
         .cloned();
 
@@ -78,13 +80,15 @@ pub async fn ping() -> Result<PingResponse, Error> {
     // The ping endpoint returns plain text (usually "ok")
     // We'll extract version info from headers if available
     let message = response.body.trim().to_string();
-    
-    let version = response.headers
+
+    let version = response
+        .headers
         .get("keygen-version")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
-    
-    let timestamp = response.headers
+
+    let timestamp = response
+        .headers
         .get("date")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());

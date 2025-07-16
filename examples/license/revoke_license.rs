@@ -33,14 +33,16 @@ async fn main() -> Result<(), Error> {
     println!("\n⚠️  WARNING: Revoking a license will permanently invalidate it!");
     println!("This action is typically used for licenses that have been compromised or misused.");
     println!("Are you sure you want to revoke this license? (type 'yes' to confirm)");
-    
+
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).expect("Failed to read line");
-    
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
+
     if input.trim().to_lowercase() == "yes" {
         // Revoke the license
         license.revoke().await?;
-        
+
         println!("\n✅ License revoked successfully!");
         println!("📋 Revoked License:");
         println!("  ID: {}", license.id);
