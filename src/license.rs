@@ -124,7 +124,7 @@ pub struct LicenseListOptions {
 pub struct LicenseCreateRequest {
     // Required relationship
     pub policy_id: String,
-    
+
     // Optional attributes
     pub name: Option<String>,
     pub key: Option<String>,
@@ -138,10 +138,10 @@ pub struct LicenseCreateRequest {
     pub suspended: Option<bool>,
     pub permissions: Option<Vec<String>>,
     pub metadata: Option<HashMap<String, Value>>,
-    
+
     // Optional relationships
-    pub owner_id: Option<String>,   // User ID
-    pub group_id: Option<String>,   // Group ID
+    pub owner_id: Option<String>, // User ID
+    pub group_id: Option<String>, // Group ID
 }
 
 /// Request structure for updating a license with complete API support
@@ -150,7 +150,7 @@ pub struct LicenseUpdateRequest {
     // All optional attributes that can be updated
     pub name: Option<String>,
     pub expiry: Option<DateTime<Utc>>,
-    pub max_machines: Option<Option<i32>>,    // None = don't update, Some(None) = set to null, Some(Some(val)) = set to val
+    pub max_machines: Option<Option<i32>>, // None = don't update, Some(None) = set to null, Some(Some(val)) = set to val
     pub max_processes: Option<Option<i32>>,
     pub max_users: Option<Option<i32>>,
     pub max_cores: Option<Option<i32>>,
@@ -169,96 +169,96 @@ impl LicenseCreateRequest {
             ..Default::default()
         }
     }
-    
+
     /// Set the license name
     pub fn with_name(mut self, name: String) -> Self {
         self.name = Some(name);
         self
     }
-    
+
     /// Set a custom license key
     pub fn with_key(mut self, key: String) -> Self {
         self.key = Some(key);
         self
     }
-    
+
     /// Set the expiry date
     pub fn with_expiry(mut self, expiry: DateTime<Utc>) -> Self {
         self.expiry = Some(expiry);
         self
     }
-    
+
     /// Set the maximum number of machines
     pub fn with_max_machines(mut self, max_machines: i32) -> Self {
         self.max_machines = Some(max_machines);
         self
     }
-    
+
     /// Set the maximum number of processes
     pub fn with_max_processes(mut self, max_processes: i32) -> Self {
         self.max_processes = Some(max_processes);
         self
     }
-    
+
     /// Set the maximum number of users
     pub fn with_max_users(mut self, max_users: i32) -> Self {
         self.max_users = Some(max_users);
         self
     }
-    
+
     /// Set the maximum number of cores
     pub fn with_max_cores(mut self, max_cores: i32) -> Self {
         self.max_cores = Some(max_cores);
         self
     }
-    
+
     /// Set the maximum number of uses
     pub fn with_max_uses(mut self, max_uses: i32) -> Self {
         self.max_uses = Some(max_uses);
         self
     }
-    
+
     /// Set the protected flag
     pub fn with_protected(mut self, protected: bool) -> Self {
         self.protected = Some(protected);
         self
     }
-    
+
     /// Set the suspended flag
     pub fn with_suspended(mut self, suspended: bool) -> Self {
         self.suspended = Some(suspended);
         self
     }
-    
+
     /// Set the permissions array
     pub fn with_permissions(mut self, permissions: Vec<String>) -> Self {
         self.permissions = Some(permissions);
         self
     }
-    
+
     /// Set the metadata
     pub fn with_metadata(mut self, metadata: HashMap<String, Value>) -> Self {
         self.metadata = Some(metadata);
         self
     }
-    
+
     /// Set the owner (user) ID
     pub fn with_owner_id(mut self, owner_id: String) -> Self {
         self.owner_id = Some(owner_id);
         self
     }
-    
+
     /// Set the group ID
     pub fn with_group_id(mut self, group_id: String) -> Self {
         self.group_id = Some(group_id);
         self
     }
-    
+
     /// Convert this request to attributes and relationships JSON maps for the API
     pub fn to_json_body(self) -> Value {
         let mut attributes = serde_json::Map::new();
         let mut relationships = serde_json::Map::new();
-        
+
         // Build attributes
         if let Some(name) = self.name {
             attributes.insert("name".to_string(), json!(name));
@@ -347,107 +347,107 @@ impl LicenseUpdateRequest {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Set the license name
     pub fn with_name(mut self, name: String) -> Self {
         self.name = Some(name);
         self
     }
-    
+
     /// Set the expiry date
     pub fn with_expiry(mut self, expiry: DateTime<Utc>) -> Self {
         self.expiry = Some(expiry);
         self
     }
-    
+
     /// Set the maximum number of machines
     pub fn with_max_machines(mut self, max_machines: i32) -> Self {
         self.max_machines = Some(Some(max_machines));
         self
     }
-    
+
     /// Clear the maximum number of machines (set to null)
     pub fn clear_max_machines(mut self) -> Self {
         self.max_machines = Some(None);
         self
     }
-    
+
     /// Set the maximum number of processes
     pub fn with_max_processes(mut self, max_processes: i32) -> Self {
         self.max_processes = Some(Some(max_processes));
         self
     }
-    
+
     /// Clear the maximum number of processes (set to null)
     pub fn clear_max_processes(mut self) -> Self {
         self.max_processes = Some(None);
         self
     }
-    
+
     /// Set the maximum number of users
     pub fn with_max_users(mut self, max_users: i32) -> Self {
         self.max_users = Some(Some(max_users));
         self
     }
-    
+
     /// Clear the maximum number of users (set to null)
     pub fn clear_max_users(mut self) -> Self {
         self.max_users = Some(None);
         self
     }
-    
+
     /// Set the maximum number of cores
     pub fn with_max_cores(mut self, max_cores: i32) -> Self {
         self.max_cores = Some(Some(max_cores));
         self
     }
-    
+
     /// Clear the maximum number of cores (set to null)
     pub fn clear_max_cores(mut self) -> Self {
         self.max_cores = Some(None);
         self
     }
-    
+
     /// Set the maximum number of uses
     pub fn with_max_uses(mut self, max_uses: i32) -> Self {
         self.max_uses = Some(Some(max_uses));
         self
     }
-    
+
     /// Clear the maximum number of uses (set to null)
     pub fn clear_max_uses(mut self) -> Self {
         self.max_uses = Some(None);
         self
     }
-    
+
     /// Set the protected flag
     pub fn with_protected(mut self, protected: bool) -> Self {
         self.protected = Some(protected);
         self
     }
-    
+
     /// Set the suspended flag
     pub fn with_suspended(mut self, suspended: bool) -> Self {
         self.suspended = Some(suspended);
         self
     }
-    
+
     /// Set the permissions array
     pub fn with_permissions(mut self, permissions: Vec<String>) -> Self {
         self.permissions = Some(permissions);
         self
     }
-    
+
     /// Set the metadata
     pub fn with_metadata(mut self, metadata: HashMap<String, Value>) -> Self {
         self.metadata = Some(metadata);
         self
     }
-    
+
     /// Convert this request to complete JSON body for the API
     pub fn to_json_body(self) -> Value {
         let mut attributes = serde_json::Map::new();
-        
+
         if let Some(name) = self.name {
             attributes.insert("name".to_string(), json!(name));
         }
@@ -481,7 +481,7 @@ impl LicenseUpdateRequest {
         if let Some(metadata) = self.metadata {
             attributes.insert("metadata".to_string(), json!(metadata));
         }
-        
+
         json!({
             "data": {
                 "type": "licenses",
@@ -509,12 +509,32 @@ impl License {
             protected: data.attributes.protected,
             suspended: data.attributes.suspended,
             permissions: data.attributes.permissions,
-            policy: data.relationships.policy.as_ref().and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
+            policy: data
+                .relationships
+                .policy
+                .as_ref()
+                .and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
             metadata: data.attributes.metadata,
-            account_id: data.relationships.account.as_ref().and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
-            product_id: data.relationships.product.as_ref().and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
-            group_id: data.relationships.group.as_ref().and_then(|g| g.data.as_ref().map(|d| d.id.clone())),
-            owner_id: data.relationships.owner.as_ref().and_then(|o| o.data.as_ref().map(|d| d.id.clone())),
+            account_id: data
+                .relationships
+                .account
+                .as_ref()
+                .and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
+            product_id: data
+                .relationships
+                .product
+                .as_ref()
+                .and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
+            group_id: data
+                .relationships
+                .group
+                .as_ref()
+                .and_then(|g| g.data.as_ref().map(|d| d.id.clone())),
+            owner_id: data
+                .relationships
+                .owner
+                .as_ref()
+                .and_then(|o| o.data.as_ref().map(|d| d.id.clone())),
         }
     }
 
@@ -975,9 +995,9 @@ impl License {
 mod tests {
     use super::*;
     use crate::config::{reset_config, set_config, KeygenConfig};
+    use chrono::TimeZone;
     use mockito::{mock, server_url};
     use serde_json::json;
-    use chrono::TimeZone;
 
     fn create_test_license() -> License {
         License {
@@ -1422,7 +1442,9 @@ mod tests {
 
     #[test]
     fn test_license_relationships() {
-        use crate::{KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData};
+        use crate::{
+            KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData,
+        };
 
         // Test that all relationship IDs are properly extracted
         let license_data = KeygenResponseData {
@@ -1619,7 +1641,7 @@ mod tests {
         assert_eq!(license.max_machines, Some(5));
         assert_eq!(license.owner_id, Some("user-123".to_string()));
         assert!(license.metadata.contains_key("tier"));
-        
+
         reset_config();
     }
 
@@ -1657,7 +1679,7 @@ mod tests {
                             },
                             "group": {
                                 "data": {
-                                    "type": "groups", 
+                                    "type": "groups",
                                     "id": "group-456"
                                 }
                             }
@@ -1699,7 +1721,7 @@ mod tests {
         assert_eq!(license.max_machines, Some(10));
         assert_eq!(license.group_id, Some("group-456".to_string()));
         assert!(license.owner_id.is_none());
-        
+
         reset_config();
     }
 
@@ -1760,7 +1782,7 @@ mod tests {
         assert!(license.max_machines.is_none());
         assert!(license.owner_id.is_none());
         assert!(license.group_id.is_none());
-        
+
         reset_config();
     }
 
@@ -1882,7 +1904,11 @@ mod tests {
             .with_max_uses(100)
             .with_protected(true)
             .with_suspended(false)
-            .with_permissions(vec!["activate".to_string(), "deactivate".to_string(), "read".to_string()])
+            .with_permissions(vec![
+                "activate".to_string(),
+                "deactivate".to_string(),
+                "read".to_string(),
+            ])
             .with_metadata(metadata)
             .with_owner_id("user-comprehensive".to_string())
             .with_group_id("group-comprehensive".to_string());
@@ -1903,8 +1929,11 @@ mod tests {
         assert_eq!(license.owner_id, Some("user-comprehensive".to_string()));
         assert_eq!(license.group_id, Some("group-comprehensive".to_string()));
         assert!(license.metadata.contains_key("tier"));
-        assert_eq!(license.metadata.get("tier").unwrap().as_str().unwrap(), "enterprise");
-        
+        assert_eq!(
+            license.metadata.get("tier").unwrap().as_str().unwrap(),
+            "enterprise"
+        );
+
         reset_config();
     }
 
@@ -1980,7 +2009,11 @@ mod tests {
             .with_max_uses(200)
             .with_protected(true)
             .with_suspended(false)
-            .with_permissions(vec!["read".to_string(), "write".to_string(), "activate".to_string()])
+            .with_permissions(vec![
+                "read".to_string(),
+                "write".to_string(),
+                "activate".to_string(),
+            ])
             .with_metadata(metadata);
 
         let result = license.update(request).await;
@@ -1988,7 +2021,10 @@ mod tests {
         assert!(result.is_ok());
         let updated_license = result.unwrap();
         assert_eq!(updated_license.id, "test_license_id");
-        assert_eq!(updated_license.name, Some("Updated License Name".to_string()));
+        assert_eq!(
+            updated_license.name,
+            Some("Updated License Name".to_string())
+        );
         assert_eq!(updated_license.max_machines, Some(20));
         assert_eq!(updated_license.max_processes, Some(10));
         assert_eq!(updated_license.max_users, Some(5));
@@ -1997,7 +2033,15 @@ mod tests {
         assert_eq!(updated_license.protected, Some(true));
         assert_eq!(updated_license.suspended, Some(false));
         assert!(updated_license.metadata.contains_key("tier"));
-        assert_eq!(updated_license.metadata.get("tier").unwrap().as_str().unwrap(), "enterprise");
+        assert_eq!(
+            updated_license
+                .metadata
+                .get("tier")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "enterprise"
+        );
 
         reset_config();
     }
@@ -2172,9 +2216,15 @@ mod tests {
         let body = request.to_json_body();
         let data = body.get("data").unwrap();
         let attributes = data.get("attributes").unwrap();
-        assert_eq!(attributes.get("name").unwrap().as_str().unwrap(), "Test License");
+        assert_eq!(
+            attributes.get("name").unwrap().as_str().unwrap(),
+            "Test License"
+        );
         assert_eq!(attributes.get("maxMachines").unwrap().as_i64().unwrap(), 10);
-        assert_eq!(attributes.get("protected").unwrap().as_bool().unwrap(), true);
+        assert_eq!(
+            attributes.get("protected").unwrap().as_bool().unwrap(),
+            true
+        );
         assert!(attributes.get("metadata").is_some());
     }
 }

@@ -40,7 +40,6 @@ async fn main() -> Result<(), Error> {
         first_name: Some("Jane".to_string()),
         last_name: Some("Smith".to_string()),
         role: Some(UserRole::Developer),
-        password: None,
         metadata: Some(metadata),
     };
 

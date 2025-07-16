@@ -35,7 +35,10 @@ async fn main() -> Result<(), Error> {
         if status == "EXPIRED" || status == "EXPIRING_SOON" {
             println!("\n🔄 License is eligible for renewal...");
         } else {
-            println!("\n⚠️  Note: License status is '{}', but proceeding with renewal anyway.", status);
+            println!(
+                "\n⚠️  Note: License status is '{}', but proceeding with renewal anyway.",
+                status
+            );
         }
     }
 

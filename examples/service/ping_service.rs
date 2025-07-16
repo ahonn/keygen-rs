@@ -7,9 +7,10 @@ use std::env;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file
     dotenv().ok();
-    
+
     // Load configuration from environment
-    let api_url = env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string());
+    let api_url =
+        env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string());
     let account = env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set");
 
     // Configure the client
@@ -45,15 +46,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match service::get_service_info().await {
         Ok(service_info) => {
             println!("✅ Service information retrieved!");
-            
+
             if let Some(api_version) = &service_info.api_version {
                 println!("   API Version: {}", api_version);
             }
-            
+
             if let Some(timestamp) = &service_info.timestamp {
                 println!("   Server Time: {}", timestamp);
             }
-            
+
             if let Some(message) = &service_info.message {
                 println!("   Message: {}", message);
             }
@@ -67,12 +68,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Check feature support
             println!("\n🔍 Feature support checks:");
-            
-            println!("   Product codes (v1.8+): {}", 
-                service::supports_feature(&service_info, "1.8"));
-            
-            println!("   Modern features (v1.5+): {}", 
-                service::supports_feature(&service_info, "1.5"));
+
+            println!(
+                "   Product codes (v1.8+): {}",
+                service::supports_feature(&service_info, "1.8")
+            );
+
+            println!(
+                "   Modern features (v1.5+): {}",
+                service::supports_feature(&service_info, "1.5")
+            );
         }
         Err(e) => {
             eprintln!("❌ Failed to get service info: {}", e);

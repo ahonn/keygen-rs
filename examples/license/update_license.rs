@@ -3,7 +3,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    license::License,
+    license::{License, LicenseUpdateRequest},
 };
 use std::{collections::HashMap, env};
 
@@ -38,13 +38,12 @@ async fn main() -> Result<(), Error> {
     metadata.insert("support_tier".to_string(), serde_json::json!("premium"));
     metadata.insert("max_api_calls".to_string(), serde_json::json!(10000));
 
-    let updated_license = license
-        .update(
-            Some("Premium License - Updated".to_string()),
-            Some(new_expiry),
-            Some(metadata),
-        )
-        .await?;
+    let request = LicenseUpdateRequest::new()
+        .with_name("Premium License - Updated".to_string())
+        .with_expiry(new_expiry)
+        .with_metadata(metadata);
+    
+    let updated_license = license.update(request).await?;
 
     println!("\n✅ License updated successfully!");
     println!("📋 Updated License Details:");

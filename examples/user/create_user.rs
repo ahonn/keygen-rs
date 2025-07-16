@@ -40,9 +40,7 @@ async fn main() -> Result<(), Error> {
         last_name: Some("Doe".to_string()),
         role: Some(UserRole::User),
         permissions: None,
-        password: Some("secure_password_123".to_string()),
         metadata: Some(metadata),
-        group_id: None,
     };
 
     match user::create(request).await {
