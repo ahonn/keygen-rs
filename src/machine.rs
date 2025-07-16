@@ -80,6 +80,12 @@ pub struct MachineListFilters {
     pub platform: Option<String>,
     pub name: Option<String>,
     pub fingerprint: Option<String>,
+    pub ip: Option<String>,
+    pub hostname: Option<String>,
+    pub product: Option<String>,
+    pub owner: Option<String>,
+    pub group: Option<String>,
+    pub metadata: Option<HashMap<String, Value>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -283,6 +289,26 @@ impl Machine {
             }
             if let Some(fingerprint) = filters.fingerprint {
                 query_params.push(("fingerprint".to_string(), fingerprint));
+            }
+            if let Some(ip) = filters.ip {
+                query_params.push(("ip".to_string(), ip));
+            }
+            if let Some(hostname) = filters.hostname {
+                query_params.push(("hostname".to_string(), hostname));
+            }
+            if let Some(product) = filters.product {
+                query_params.push(("product".to_string(), product));
+            }
+            if let Some(owner) = filters.owner {
+                query_params.push(("owner".to_string(), owner));
+            }
+            if let Some(group) = filters.group {
+                query_params.push(("group".to_string(), group));
+            }
+            if let Some(metadata) = filters.metadata {
+                for (key, value) in metadata {
+                    query_params.push((format!("metadata[{}]", key), value.to_string()));
+                }
             }
         }
 
