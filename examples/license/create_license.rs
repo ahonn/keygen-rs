@@ -1,8 +1,9 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    license::License,
+    license::{License, LicenseCreateRequest},
 };
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::env;
 
@@ -19,6 +20,12 @@ async fn main() -> Result<(), Error> {
         ..KeygenConfig::default()
     });
 
+    // Get required policy ID
+    let policy_id = env::var("POLICY_ID").expect("POLICY_ID must be set (get from list_policies example)");
+
+    // Example 1: Create a basic license with all optional parameters
+    println!("🔧 Creating license with all parameters...");
+    
     // Create metadata for the license
     let mut metadata = HashMap::new();
     metadata.insert(
@@ -29,31 +36,119 @@ async fn main() -> Result<(), Error> {
         "license_type".to_string(),
         serde_json::Value::String("premium".to_string()),
     );
+    metadata.insert(
+        "features".to_string(),
+        serde_json::Value::Array(vec![
+            serde_json::Value::String("feature_a".to_string()),
+            serde_json::Value::String("feature_b".to_string()),
+        ]),
+    );
 
-    // Create a new license
-    let policy_id =
-        env::var("POLICY_ID").expect("POLICY_ID must be set (get from list_policies example)");
+    // Set expiry to 1 year from now
+    let expiry: DateTime<Utc> = Utc::now() + chrono::Duration::days(365);
+    
+    // Optional: Get user ID and group ID from environment if available
+    let owner_id = env::var("USER_ID").ok();
+    let group_id = env::var("GROUP_ID").ok();
 
-    match License::create(&policy_id, None, Some(metadata)).await {
+    let mut request = LicenseCreateRequest::new(policy_id.clone())
+        .with_name("Premium License for John Doe".to_string())
+        .with_key("CUSTOM-LICENSE-KEY-12345".to_string())
+        .with_expiry(expiry)
+        .with_max_machines(5)
+        .with_metadata(metadata);
+    
+    if let Some(uid) = owner_id {
+        request = request.with_owner_id(uid);
+    }
+    if let Some(gid) = group_id {
+        request = request.with_group_id(gid);
+    }
+
+    match License::create(request).await {
         Ok(license) => {
-            println!("✅ License created successfully!");
-            println!("ID: {}", license.id);
-            println!("Key: {}", license.key);
-            println!("Status: {:?}", license.status);
-            println!("Uses: {:?}", license.uses);
-            println!("Max Machines: {:?}", license.max_machines);
-            println!("Max Cores: {:?}", license.max_cores);
-            println!("Max Uses: {:?}", license.max_uses);
-            println!("Max Processes: {:?}", license.max_processes);
-            println!("Protected: {:?}", license.protected);
-            println!("Suspended: {:?}", license.suspended);
-            println!("Expiry: {:?}", license.expiry);
-            println!("Metadata: {:?}", license.metadata);
+            println!("✅ Full-featured license created: {} ({})", license.id, license.key);
         }
         Err(e) => {
-            println!("❌ Failed to create license: {:?}", e);
+            println!("❌ Failed to create full-featured license: {:?}", e);
+            return Err(e);
         }
     }
 
+    // Example 2: Create a minimal license (only policy required)
+    println!("🔧 Creating minimal license (policy only)...");
+    
+    let minimal_request = LicenseCreateRequest::new(policy_id.clone());
+    
+    match License::create(minimal_request).await {
+        Ok(license) => {
+            println!("✅ Minimal license created: {} ({})", license.id, license.key);
+        }
+        Err(e) => {
+            println!("❌ Failed to create minimal license: {:?}", e);
+        }
+    }
+
+    // Example 3: Create a license with just name and machine limit
+    println!("🔧 Creating license with name and machine limit...");
+    
+    let standard_request = LicenseCreateRequest::new(policy_id.clone())
+        .with_name("Standard License".to_string())
+        .with_max_machines(3);
+    
+    match License::create(standard_request).await {
+        Ok(license) => {
+            println!("✅ Standard license created: {} ({})", license.id, license.key);
+        }
+        Err(e) => {
+            println!("❌ Failed to create standard license: {:?}", e);
+        }
+    }
+
+    // Example 4: Create a comprehensive license with all available parameters
+    println!("🔧 Creating comprehensive license with all parameters...");
+    
+    let mut comprehensive_metadata = HashMap::new();
+    comprehensive_metadata.insert("tier".to_string(), serde_json::Value::String("enterprise".to_string()));
+    comprehensive_metadata.insert("support_level".to_string(), serde_json::Value::String("premium".to_string()));
+    comprehensive_metadata.insert("features".to_string(), serde_json::Value::Array(vec![
+        serde_json::Value::String("advanced_analytics".to_string()),
+        serde_json::Value::String("priority_support".to_string()),
+        serde_json::Value::String("custom_integrations".to_string()),
+    ]));
+
+    // Set expiry to 2 years from now
+    let long_expiry: DateTime<Utc> = Utc::now() + chrono::Duration::days(730);
+    
+    let comprehensive_request = LicenseCreateRequest::new(policy_id)
+        .with_name("Enterprise License - Full Features".to_string())
+        .with_key("ENTERPRISE-2024-FULL-ACCESS".to_string())
+        .with_expiry(long_expiry)
+        .with_max_machines(50)
+        .with_max_processes(100)
+        .with_max_users(25)
+        .with_max_cores(200)
+        .with_max_uses(10000)
+        .with_protected(true)
+        .with_suspended(false)
+        .with_permissions(vec![
+            "activate".to_string(),
+            "deactivate".to_string(),
+            "read".to_string(),
+            "update".to_string(),
+            "manage".to_string(),
+        ])
+        .with_metadata(comprehensive_metadata);
+
+    match License::create(comprehensive_request).await {
+        Ok(license) => {
+            println!("✅ Comprehensive license created: {} ({})", license.id, license.key);
+        }
+        Err(e) => {
+            println!("❌ Failed to create comprehensive license: {:?}", e);
+        }
+    }
+
+    println!("\n💡 All examples completed successfully!");
     Ok(())
 }

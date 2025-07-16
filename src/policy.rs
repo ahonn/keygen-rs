@@ -1000,6 +1000,7 @@ mod tests {
                 machines: None,
                 environment: None,
                 license: None,
+                other: HashMap::new(),
             },
         };
 

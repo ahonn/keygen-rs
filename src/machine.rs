@@ -393,43 +393,50 @@ mod tests {
             relationships: KeygenRelationships {
                 policy: None,
                 account: Some(KeygenRelationship {
-                    data: KeygenRelationshipData {
+                    data: Some(KeygenRelationshipData {
                         r#type: "accounts".to_string(),
                         id: "test-account-id".to_string(),
-                    },
+                    }),
+                    links: None,
                 }),
                 product: Some(KeygenRelationship {
-                    data: KeygenRelationshipData {
+                    data: Some(KeygenRelationshipData {
                         r#type: "products".to_string(),
                         id: "test-product-id".to_string(),
-                    },
+                    }),
+                    links: None,
                 }),
                 group: Some(KeygenRelationship {
-                    data: KeygenRelationshipData {
+                    data: Some(KeygenRelationshipData {
                         r#type: "groups".to_string(),
                         id: "test-group-id".to_string(),
-                    },
+                    }),
+                    links: None,
                 }),
                 owner: Some(KeygenRelationship {
-                    data: KeygenRelationshipData {
+                    data: Some(KeygenRelationshipData {
                         r#type: "users".to_string(),
                         id: "test-owner-id".to_string(),
-                    },
+                    }),
+                    links: None,
                 }),
                 users: None,
                 machines: None,
                 environment: Some(KeygenRelationship {
-                    data: KeygenRelationshipData {
+                    data: Some(KeygenRelationshipData {
                         r#type: "environments".to_string(),
                         id: "test-environment-id".to_string(),
-                    },
+                    }),
+                    links: None,
                 }),
                 license: Some(KeygenRelationship {
-                    data: KeygenRelationshipData {
+                    data: Some(KeygenRelationshipData {
                         r#type: "licenses".to_string(),
                         id: "test-license-id".to_string(),
-                    },
+                    }),
+                    links: None,
                 }),
+                other: HashMap::new(),
             },
         };
 
@@ -475,6 +482,7 @@ mod tests {
                 machines: None,
                 environment: None,
                 license: None,
+                other: HashMap::new(),
             },
         };
 

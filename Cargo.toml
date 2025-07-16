@@ -12,6 +12,9 @@ members = [
   "./packages/tauri-plugin-keygen-rs2"
 ]
 
+[package.metadata.rust-analyzer]
+cargo.features = ["token"]
+
 [features]
 default = ["rustls", "license-key"]
 # Use rustls as TLS backend (default)
