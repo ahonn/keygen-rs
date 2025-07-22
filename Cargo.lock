@@ -1963,36 +1963,6 @@ dependencies = [
 [[package]]
 name = "keygen-rs"
 version = "0.4.3"
-dependencies = [
- "aes-gcm",
- "async-trait",
- "base64 0.21.7",
- "chrono",
- "dotenv",
- "ed25519-dalek",
- "futures",
- "futures-timer",
- "hex",
- "hostname",
- "lazy_static",
- "log",
- "machine-uid",
- "mockito",
- "num_cpus",
- "rand 0.7.3",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sha2 0.10.8",
- "thiserror 1.0.69",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "keygen-rs"
-version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cb5af35d20c15ebe6fd6c6adec46b0829466400bf4fbaf2ead68cc25404195d"
 dependencies = [
@@ -2008,6 +1978,36 @@ dependencies = [
  "hostname",
  "lazy_static",
  "log",
+ "mockito",
+ "num_cpus",
+ "rand 0.7.3",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "sha2 0.10.8",
+ "thiserror 1.0.69",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "keygen-rs"
+version = "0.5.0"
+dependencies = [
+ "aes-gcm",
+ "async-trait",
+ "base64 0.21.7",
+ "chrono",
+ "dotenv",
+ "ed25519-dalek",
+ "futures",
+ "futures-timer",
+ "hex",
+ "hostname",
+ "lazy_static",
+ "log",
+ "machine-uid",
  "mockito",
  "num_cpus",
  "rand 0.7.3",
@@ -4142,7 +4142,7 @@ dependencies = [
 name = "tauri-plugin-keygen-rs2"
 version = "0.4.4"
 dependencies = [
- "keygen-rs 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "keygen-rs 0.4.3",
  "lazy_static",
  "log",
  "machine-uid",
