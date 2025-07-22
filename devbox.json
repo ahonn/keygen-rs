@@ -2,17 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.11.0/.schema/devbox.schema.json",
   "packages": [
     "nodejs@latest",
-    "rustup@latest",
-    "libiconv@latest",
-    "darwin.apple_sdk.frameworks.Security",
-    "darwin.apple_sdk.frameworks.CoreServices",
-    "darwin.apple_sdk.frameworks.CoreFoundation",
-    "darwin.apple_sdk.frameworks.Foundation",
-    "darwin.apple_sdk.frameworks.AppKit",
-    "darwin.apple_sdk.frameworks.WebKit",
-    "darwin.apple_sdk.frameworks.Cocoa",
-    "gtk3@latest",
-    "act@latest"
+    "rustup@latest"
   ],
   "env": {
     "DEVBOX_COREPACK_ENABLED": "true"

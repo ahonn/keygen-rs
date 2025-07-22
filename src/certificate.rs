@@ -38,7 +38,7 @@ pub fn validate_certificate_meta(meta: &CertificateFileMeta) -> Result<(), Error
     //         return Err(Error::SystemClockUnsynced);
     //     }
     // }
-    
+
     if meta.ttl != 0 && Utc::now() > meta.expiry {
         return Err(Error::CerificateFileExpired);
     }

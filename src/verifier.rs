@@ -73,45 +73,50 @@ impl Verifier {
     }
 
     pub fn verify_keygen_signature(
-        &self, 
-        headers: &HeaderMap, 
-        body: &[u8], 
-        method: &str, 
+        &self,
+        headers: &HeaderMap,
+        body: &[u8],
+        method: &str,
         path: &str,
         host: &str,
     ) -> Result<(), Error> {
         let signature_header = self.get_required_header(headers, "keygen-signature")?;
         let date_header = self.get_required_header(headers, "date")?;
         let digest_header = self.get_required_header(headers, "digest")?;
-        
+
         self.verify_digest(digest_header, body)?;
-        
+
         let signature_components = self.parse_signature_header(signature_header)?;
         if signature_components.algorithm != "ed25519" {
-            return Err(Error::KeygenSignatureInvalid { 
-                reason: format!("Unsupported algorithm: {}", signature_components.algorithm) 
+            return Err(Error::KeygenSignatureInvalid {
+                reason: format!("Unsupported algorithm: {}", signature_components.algorithm),
             });
         }
-        
+
         let request_target = format!("{} {}", method.to_lowercase(), path);
         let signing_data = format!(
             "(request-target): {}\nhost: {}\ndate: {}\ndigest: {}",
             request_target, host, date_header, digest_header
         );
-        
+
         self.verify_ed25519_signature(&signing_data, &signature_components.signature)?;
-        
+
         Ok(())
     }
 
-    fn get_required_header<'a>(&self, headers: &'a HeaderMap, name: &str) -> Result<&'a str, Error> {
-        headers.get(name)
-            .ok_or_else(|| Error::KeygenSignatureInvalid { 
-                reason: format!("Missing {} header", name) 
+    fn get_required_header<'a>(
+        &self,
+        headers: &'a HeaderMap,
+        name: &str,
+    ) -> Result<&'a str, Error> {
+        headers
+            .get(name)
+            .ok_or_else(|| Error::KeygenSignatureInvalid {
+                reason: format!("Missing {} header", name),
             })?
             .to_str()
-            .map_err(|_| Error::KeygenSignatureInvalid { 
-                reason: format!("Invalid {} header", name) 
+            .map_err(|_| Error::KeygenSignatureInvalid {
+                reason: format!("Invalid {} header", name),
             })
     }
 
@@ -120,7 +125,7 @@ impl Verifier {
         let mut algorithm = String::new();
         let mut signature_b64 = String::new();
         let mut headers = String::new();
-        
+
         for part in signature_header.split(',') {
             let part = part.trim();
             if let Some(value) = self.extract_header_value(part, "keyid=") {
@@ -133,19 +138,23 @@ impl Verifier {
                 headers = value;
             }
         }
-        
-        if keyid.is_empty() || algorithm.is_empty() || signature_b64.is_empty() || headers.is_empty() {
-            return Err(Error::KeygenSignatureInvalid { 
-                reason: "Missing signature components".to_string() 
+
+        if keyid.is_empty()
+            || algorithm.is_empty()
+            || signature_b64.is_empty()
+            || headers.is_empty()
+        {
+            return Err(Error::KeygenSignatureInvalid {
+                reason: "Missing signature components".to_string(),
             });
         }
-        
+
         let signature = general_purpose::STANDARD
             .decode(signature_b64)
-            .map_err(|_| Error::KeygenSignatureInvalid { 
-                reason: "Invalid signature encoding".to_string() 
+            .map_err(|_| Error::KeygenSignatureInvalid {
+                reason: "Invalid signature encoding".to_string(),
             })?;
-        
+
         Ok(SignatureComponents {
             keyid,
             algorithm,
@@ -156,7 +165,11 @@ impl Verifier {
 
     fn extract_header_value<'a>(&self, part: &'a str, prefix: &str) -> Option<String> {
         if part.starts_with(prefix) {
-            Some(part.trim_start_matches(prefix).trim_matches('"').to_string())
+            Some(
+                part.trim_start_matches(prefix)
+                    .trim_matches('"')
+                    .to_string(),
+            )
         } else {
             None
         }
@@ -164,45 +177,51 @@ impl Verifier {
 
     fn verify_digest(&self, digest_header: &str, body: &[u8]) -> Result<(), Error> {
         const SHA256_PREFIX: &str = "sha-256=";
-        
+
         if digest_header.starts_with(SHA256_PREFIX) {
             let provided_digest = &digest_header[SHA256_PREFIX.len()..];
-            
+
             let mut hasher = Sha256::new();
             hasher.update(body);
             let digest_bytes = hasher.finalize();
             let calculated_digest = general_purpose::STANDARD.encode(digest_bytes);
-            
+
             if provided_digest != calculated_digest {
-                return Err(Error::KeygenSignatureInvalid { 
-                    reason: "Body digest does not match digest header".to_string() 
+                return Err(Error::KeygenSignatureInvalid {
+                    reason: "Body digest does not match digest header".to_string(),
                 });
             }
             Ok(())
         } else {
-            Err(Error::KeygenSignatureInvalid { 
-                reason: "Unsupported digest algorithm".to_string() 
+            Err(Error::KeygenSignatureInvalid {
+                reason: "Unsupported digest algorithm".to_string(),
             })
         }
     }
 
-    fn verify_ed25519_signature(&self, signing_data: &str, signature_bytes: &[u8]) -> Result<(), Error> {
+    fn verify_ed25519_signature(
+        &self,
+        signing_data: &str,
+        signature_bytes: &[u8],
+    ) -> Result<(), Error> {
         let public_key_bytes = self.public_key_bytes()?;
-        let public_key = PublicKey::from_bytes(&public_key_bytes)
-            .map_err(|_| Error::KeygenSignatureInvalid { 
-                reason: "Invalid public key".to_string() 
+        let public_key = PublicKey::from_bytes(&public_key_bytes).map_err(|_| {
+            Error::KeygenSignatureInvalid {
+                reason: "Invalid public key".to_string(),
+            }
+        })?;
+
+        let signature =
+            Signature::try_from(signature_bytes).map_err(|_| Error::KeygenSignatureInvalid {
+                reason: "Invalid signature format".to_string(),
             })?;
-        
-        let signature = Signature::try_from(signature_bytes)
-            .map_err(|_| Error::KeygenSignatureInvalid { 
-                reason: "Invalid signature format".to_string() 
+
+        public_key
+            .verify(signing_data.as_bytes(), &signature)
+            .map_err(|_| Error::KeygenSignatureInvalid {
+                reason: "Signature verification failed".to_string(),
             })?;
-        
-        public_key.verify(signing_data.as_bytes(), &signature)
-            .map_err(|_| Error::KeygenSignatureInvalid { 
-                reason: "Signature verification failed".to_string() 
-            })?;
-        
+
         Ok(())
     }
 
@@ -292,8 +311,8 @@ mod tests {
     use base64::engine::general_purpose;
     use ed25519_dalek::{Keypair, Signer};
     use rand::rngs::OsRng;
-    use serde_json::json;
     use reqwest::header::{HeaderMap, HeaderValue};
+    use serde_json::json;
 
     fn generate_valid_keys() -> (String, String) {
         let mut csprng = OsRng::default();
@@ -329,8 +348,21 @@ mod tests {
             key: key.to_string(),
             expiry: None,
             status: None,
+            uses: None,
+            max_machines: None,
+            max_cores: None,
+            max_uses: None,
+            max_processes: None,
+            max_users: None,
+            protected: None,
+            suspended: None,
+            permissions: None,
             policy: None,
             metadata: HashMap::new(),
+            account_id: None,
+            product_id: None,
+            group_id: None,
+            owner_id: None,
         }
     }
 
@@ -405,45 +437,58 @@ mod tests {
 
         // Create a test body
         let body = b"test body";
-        
+
         // Calculate the SHA-256 digest of the body
         let mut hasher = Sha256::new();
         hasher.update(body);
         let digest_bytes = hasher.finalize();
         let encoded_digest = general_purpose::STANDARD.encode(digest_bytes);
         let digest_header = format!("sha-256={}", encoded_digest);
-        
+
         // Create date header
         let date = "Wed, 09 Jun 2021 16:08:15 GMT";
-        
+
         // Create the signing data
         let request_target = "get /v1/accounts/keygen/licenses?limit=1";
         let host = "api.keygen.sh";
-        
+
         let signing_data = format!(
             "(request-target): {}\nhost: {}\ndate: {}\ndigest: {}",
             request_target, host, date, digest_header
         );
-        
+
         // Sign the data
         let signature = keypair.sign(signing_data.as_bytes());
         let signature_b64 = general_purpose::STANDARD.encode(signature.to_bytes());
-        
+
         // Create the signature header
         let signature_header = format!(
             r#"keyid="test-account", algorithm="ed25519", signature="{}", headers="(request-target) host date digest""#,
             signature_b64
         );
-        
+
         // Create the headers map
         let mut headers = HeaderMap::new();
-        headers.insert("keygen-signature", HeaderValue::from_str(&signature_header).unwrap());
+        headers.insert(
+            "keygen-signature",
+            HeaderValue::from_str(&signature_header).unwrap(),
+        );
         headers.insert("date", HeaderValue::from_str(date).unwrap());
         headers.insert("digest", HeaderValue::from_str(&digest_header).unwrap());
 
         let verifier = Verifier::new(public_key);
-        let result = verifier.verify_keygen_signature(&headers, body, "GET", "/v1/accounts/keygen/licenses?limit=1", "api.keygen.sh");
-        assert!(result.is_ok(), "Signature verification should succeed: {:?}", result);
+        let result = verifier.verify_keygen_signature(
+            &headers,
+            body,
+            "GET",
+            "/v1/accounts/keygen/licenses?limit=1",
+            "api.keygen.sh",
+        );
+        assert!(
+            result.is_ok(),
+            "Signature verification should succeed: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -456,7 +501,13 @@ mod tests {
         let headers = HeaderMap::new();
 
         let verifier = Verifier::new(public_key);
-        let result = verifier.verify_keygen_signature(&headers, body, "GET", "/v1/accounts/keygen/licenses?limit=1", "api.keygen.sh");
+        let result = verifier.verify_keygen_signature(
+            &headers,
+            body,
+            "GET",
+            "/v1/accounts/keygen/licenses?limit=1",
+            "api.keygen.sh",
+        );
         assert!(matches!(result, Err(Error::KeygenSignatureInvalid { .. })));
     }
 }

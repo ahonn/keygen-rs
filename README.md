@@ -4,7 +4,16 @@
 [![Documentation](https://docs.rs/keygen-rs/badge.svg)](https://docs.rs/keygen-rs)
 
 The `keygen-rs` crate is an unofficial Rust SDK for integrating with the [keygen.sh](https://keygen.sh) licensing service.
-It provides a comprehensive framework for implementing software license management in Rust applications, including license validation, machine activation, and offline license verification capabilities.
+It provides a comprehensive framework for implementing software license management in Rust applications.
+
+## Features
+
+- **License Management**: Validate, activate, and verify licenses offline
+- **Machine Management**: Activate, deactivate, and manage machines
+- **Administrative APIs**: Full CRUD operations for products, policies, licenses, users, and tokens (requires admin token)
+- **Offline Verification**: Verify signed license keys without internet connectivity
+- **Type Safety**: Strongly-typed enums for all API options
+- **Service Introspection**: Check API availability and feature support
 
 ### Sponsored by
 
@@ -24,6 +33,24 @@ Add this to your `Cargo.toml`:
 keygen-rs = "0.4"
 ```
 
+### Feature Flags
+
+The SDK uses feature flags to minimize binary size:
+
+- **`license-key`** (default): End-user features for license validation and machine activation
+- **`token`**: Administrative features requiring token authentication
+
+```toml
+# For end-user features only (default)
+keygen-rs = "0.4"
+
+# For administrative features
+keygen-rs = { version = "0.4", features = ["token"] }
+
+# For both end-user and administrative features
+keygen-rs = { version = "0.4", features = ["license-key", "token"] }
+```
+
 ## Tauri Plugin
 
 Tauri plugins for this SDK are available:
@@ -39,14 +66,41 @@ These plugins provide an easy way to integrate Keygen licensing into your Tauri 
 
 Use `KeygenConfig` to configure the SDK globally. You should set this before making any API calls.
 
+#### For End Users (License Key Authentication)
+
+```rust
+use keygen_rs::config::{self, KeygenConfig};
+
+config::set_config(KeygenConfig::license_key(
+    "YOUR_KEYGEN_ACCOUNT_ID",
+    "YOUR_KEYGEN_PRODUCT_ID", 
+    "A_KEYGEN_LICENSE_KEY",
+    Some("YOUR_KEYGEN_PUBLIC_KEY"),
+));
+```
+
+#### For Administrators (Token Authentication)
+
+```rust
+use keygen_rs::config::{self, KeygenConfig};
+
+config::set_config(KeygenConfig::admin(
+    "YOUR_KEYGEN_ACCOUNT_ID",
+    "YOUR_ADMIN_TOKEN",
+));
+```
+
+#### Custom Configuration
+
 ```rust
 use keygen_rs::config::{self, KeygenConfig};
 
 config::set_config(KeygenConfig {
-    api_url: "https://api.keygen.sh".to_string(),
+    api_url: "https://api.keygen.sh".to_string(), // or your custom domain
     account: "YOUR_KEYGEN_ACCOUNT_ID".to_string(),
     product: "YOUR_KEYGEN_PRODUCT_ID".to_string(),
     license_key: Some("A_KEYGEN_LICENSE_KEY".to_string()),
+    token: Some("YOUR_ADMIN_TOKEN".to_string()),
     public_key: Some("YOUR_KEYGEN_PUBLIC_KEY".to_string()),
     ..KeygenConfig::default()
 });
@@ -63,14 +117,12 @@ use keygen_rs::{config::{self, KeygenConfig}, errors::Error};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    config::set_config(KeygenConfig {
-        api_url: "https://api.keygen.sh".to_string(),
-        account: "YOUR_KEYGEN_ACCOUNT_ID".to_string(),
-        product: "YOUR_KEYGEN_PRODUCT_ID".to_string(),
-        license_key: Some("A_KEYGEN_LICENSE_KEY".to_string()),
-        public_key: Some("YOUR_KEYGEN_PUBLIC_KEY".to_string()),
-        ..KeygenConfig::default()
-    });
+    config::set_config(KeygenConfig::license_key(
+        "YOUR_KEYGEN_ACCOUNT_ID",
+        "YOUR_KEYGEN_PRODUCT_ID",
+        "A_KEYGEN_LICENSE_KEY",
+        Some("YOUR_KEYGEN_PUBLIC_KEY"),
+    ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     let license = keygen_rs::validate(&[fingerprint]).await?;
@@ -92,14 +144,15 @@ use keygen_rs::{
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    dotenv().ok();
-
-    config::set_config(KeygenConfig {
-        // ... (configuration)
-    });
+    config::set_config(KeygenConfig::license_key(
+        "YOUR_KEYGEN_ACCOUNT_ID",
+        "YOUR_KEYGEN_PRODUCT_ID",
+        "A_KEYGEN_LICENSE_KEY",
+        Some("YOUR_KEYGEN_PUBLIC_KEY"),
+    ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Err(err) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
+    if let Err(err) = keygen_rs::validate(&[fingerprint.clone()]).await {
         match err {
             Error::LicenseNotActivated { license, .. } => {
                 let machine = license.activate(&fingerprint, &[]).await?;
@@ -125,9 +178,12 @@ To verify a signed license key offline:
 use keygen_rs::{config::{self, KeygenConfig}, license::SchemeCode};
 
 fn main() {
-    config::set_config(KeygenConfig {
-        // ... (configuration)
-    });
+    config::set_config(KeygenConfig::license_key(
+        "YOUR_KEYGEN_ACCOUNT_ID",
+        "YOUR_KEYGEN_PRODUCT_ID",
+        "A_KEYGEN_LICENSE_KEY",
+        Some("YOUR_KEYGEN_PUBLIC_KEY"),
+    ));
 
     let signed_key = "YOUR_SIGNED_LICENSE_KEY";
     if let Ok(data) = keygen_rs::verify(SchemeCode::Ed25519Sign, signed_key) {
@@ -147,9 +203,12 @@ use keygen_rs::{config::{self, KeygenConfig}, errors::Error};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    config::set_config(KeygenConfig {
-        // ... (configuration)
-    });
+    config::set_config(KeygenConfig::license_key(
+        "YOUR_KEYGEN_ACCOUNT_ID",
+        "YOUR_KEYGEN_PRODUCT_ID",
+        "A_KEYGEN_LICENSE_KEY",
+        Some("YOUR_KEYGEN_PUBLIC_KEY"),
+    ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     match keygen_rs::validate(&[fingerprint.clone()]).await {
@@ -166,9 +225,111 @@ async fn main() -> Result<(), Error> {
 }
 ```
 
+## Administrative APIs
+
+When configured with a token, you can access administrative features:
+
+### Product Management
+
+```rust
+use keygen_rs::product::{Product, CreateProductRequest, DistributionStrategy};
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    // Create a new product
+    let product = Product::create(CreateProductRequest {
+        name: "My App".to_string(),
+        distribution_strategy: Some(DistributionStrategy::Licensed),
+        platforms: Some(vec![Platform::MacOs, Platform::Windows]),
+        ..Default::default()
+    }).await?;
+
+    // List all products
+    let products = Product::list(None).await?;
+    
+    Ok(())
+}
+```
+
+### Policy Management
+
+```rust
+use keygen_rs::policy::{Policy, CreatePolicyRequest, AuthenticationStrategy};
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    // Create a new policy
+    let policy = Policy::create(CreatePolicyRequest {
+        name: "Standard License".to_string(),
+        authentication_strategy: Some(AuthenticationStrategy::License),
+        duration: Some(365), // days
+        max_machines: Some(3),
+        ..Default::default()
+    }).await?;
+    
+    Ok(())
+}
+```
+
+### License Management
+
+```rust
+use keygen_rs::license::{License, CreateLicenseRequest};
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    // Create a new license
+    let license = License::create(CreateLicenseRequest {
+        policy_id: "POLICY_ID".to_string(),
+        user_email: Some("user@example.com".to_string()),
+        ..Default::default()
+    }).await?;
+    
+    // Suspend a license
+    license.suspend().await?;
+    
+    // Reinstate a license
+    license.reinstate().await?;
+    
+    Ok(())
+}
+```
+
+### Service Introspection
+
+```rust
+use keygen_rs::service;
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    // Check if the service is available
+    service::ping().await?;
+    
+    // Get detailed service information
+    let info = service::get_service_info().await?;
+    println!("API Version: {}", info.api_version);
+    
+    // Check if a specific feature is supported
+    if service::supports_product_code().await? {
+        println!("Product codes are supported!");
+    }
+    
+    Ok(())
+}
+```
+
 ## Examples
 
-For more detailed examples, please refer to the `examples` directory in the repository.
+For more detailed examples, please refer to the `examples` directory in the repository:
+
+- **License Examples**: `/examples/license/` - License validation, activation, and management
+- **Machine Examples**: `/examples/machine/` - Machine activation and management
+- **Product Examples**: `/examples/product/` - Product CRUD operations (admin only)
+- **Policy Examples**: `/examples/policy/` - Policy management (admin only)
+- **User Examples**: `/examples/user/` - User management (admin only)
+- **Token Examples**: `/examples/token/` - Token management (admin only)
+- **Configuration Examples**: `/examples/config_examples.rs` - Different configuration approaches
+- **Service Info**: `/examples/service_info.rs` - Service introspection
 
 ## Testing
 

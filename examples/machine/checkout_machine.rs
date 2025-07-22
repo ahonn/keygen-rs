@@ -24,7 +24,7 @@ async fn main() -> Result<(), Error> {
     if let Ok(license) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
         let machine = license.machine(&fingerprint).await?;
         let options = MachineCheckoutOpts {
-            ttl: Some(chrono::Duration::days(7).num_seconds()),
+            ttl: Some(604800), // 7 days in seconds
             include: None,
         };
         let machine_file = machine.checkout(&options).await?;

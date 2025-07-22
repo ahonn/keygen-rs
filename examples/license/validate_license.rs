@@ -20,7 +20,18 @@ async fn main() -> Result<(), Error> {
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     let license = keygen_rs::validate(&[fingerprint], &[]).await?;
-    println!("License validated successfully: {:?}", license);
+
+    println!("✅ License validated successfully!");
+    println!("License ID: {}", license.id);
+    println!("License Key: {}", license.key);
+    println!("Status: {:?}", license.status);
+    println!("Uses: {:?}", license.uses);
+    println!("Max Machines: {:?}", license.max_machines);
+    println!("Max Cores: {:?}", license.max_cores);
+    println!("Max Uses: {:?}", license.max_uses);
+    println!("Max Processes: {:?}", license.max_processes);
+    println!("Protected: {:?}", license.protected);
+    println!("Suspended: {:?}", license.suspended);
 
     Ok(())
 }

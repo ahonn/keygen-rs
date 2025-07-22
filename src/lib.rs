@@ -16,21 +16,55 @@ pub mod license;
 pub mod license_file;
 pub mod machine;
 pub mod machine_file;
+pub mod service;
+
+// Management features only available with "token" feature flag
+#[cfg(feature = "token")]
+pub mod policy;
+#[cfg(feature = "token")]
+pub mod product;
+#[cfg(feature = "token")]
+pub mod token;
+#[cfg(feature = "token")]
+pub mod user;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationshipData {
-  pub r#type: String,
-  pub id: String,
+    pub r#type: String,
+    pub id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationship {
-  data: KeygenRelationshipData,
+    #[serde(default)]
+    pub data: Option<KeygenRelationshipData>,
+    #[serde(default)]
+    pub links: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub(crate) struct KeygenRelationships {
-  pub policy: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub policy: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub account: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub product: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub group: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub owner: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub users: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub machines: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub environment: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub license: Option<KeygenRelationship>,
+    // Use flatten to capture any other relationship fields we don't explicitly handle
+    #[serde(flatten)]
+    pub other: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

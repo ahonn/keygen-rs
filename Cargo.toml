@@ -12,12 +12,19 @@ members = [
   "./packages/tauri-plugin-keygen-rs2"
 ]
 
+[package.metadata.rust-analyzer]
+cargo.features = ["token"]
+
 [features]
-default = ["rustls"]
+default = ["rustls", "license-key"]
 # Use rustls as TLS backend (default)
 rustls = ["reqwest/rustls-tls"]
 # Use native-tls backend
 native-tls = ["reqwest/native-tls"]
+# License Key Authentication (for end users)
+license-key = []
+# Token Authentication (Environment/Product/License/Admin tokens)
+token = []
 
 [dependencies]
 reqwest = { version = "0.11", features = [
@@ -49,6 +56,202 @@ futures-timer = "3.0.3"
 
 [dev-dependencies]
 machine-uid = "0.5.3"
+
+[[example]]
+name = "create_product"
+path = "examples/product/create_product.rs"
+
+[[example]]
+name = "list_products"
+path = "examples/product/list_products.rs"
+
+[[example]]
+name = "delete_product"
+path = "examples/product/delete_product.rs"
+
+[[example]]
+name = "get_product"
+path = "examples/product/get_product.rs"
+
+[[example]]
+name = "update_product"
+path = "examples/product/update_product.rs"
+
+[[example]]
+name = "create_policy"
+path = "examples/policy/create_policy.rs"
+
+[[example]]
+name = "list_policies"
+path = "examples/policy/list_policies.rs"
+
+[[example]]
+name = "get_policy"
+path = "examples/policy/get_policy.rs"
+
+[[example]]
+name = "update_policy"
+path = "examples/policy/update_policy.rs"
+
+[[example]]
+name = "delete_policy"
+path = "examples/policy/delete_policy.rs"
+
+[[example]]
+name = "list_tokens"
+path = "examples/token/list_tokens.rs"
+
+[[example]]
+name = "get_token"
+path = "examples/token/get_token.rs"
+
+[[example]]
+name = "regenerate_token"
+path = "examples/token/regenerate_token.rs"
+
+[[example]]
+name = "revoke_token"
+path = "examples/token/revoke_token.rs"
+
+[[example]]
+name = "create_user"
+path = "examples/user/create_user.rs"
+
+[[example]]
+name = "list_users"
+path = "examples/user/list_users.rs"
+
+[[example]]
+name = "get_user"
+path = "examples/user/get_user.rs"
+
+[[example]]
+name = "update_user"
+path = "examples/user/update_user.rs"
+
+[[example]]
+name = "delete_user"
+path = "examples/user/delete_user.rs"
+
+[[example]]
+name = "ban_user"
+path = "examples/user/ban_user.rs"
+
+[[example]]
+name = "unban_user"
+path = "examples/user/unban_user.rs"
+
+[[example]]
+name = "generate_token"
+path = "examples/user/generate_token.rs"
+
+[[example]]
+name = "change_group"
+path = "examples/user/change_group.rs"
+
+[[example]]
+name = "change_password"
+path = "examples/user/change_password.rs"
+
+[[example]]
+name = "reset_password"
+path = "examples/user/reset_password.rs"
+
+[[example]]
+name = "validate_license"
+path = "examples/license/validate_license.rs"
+
+[[example]]
+name = "create_license"
+path = "examples/license/create_license.rs"
+
+[[example]]
+name = "list_licenses"
+path = "examples/license/list_licenses.rs"
+
+[[example]]
+name = "checkout_license"
+path = "examples/license/checkout_license.rs"
+
+[[example]]
+name = "read_license_metadata"
+path = "examples/license/read_license_metadata.rs"
+
+[[example]]
+name = "reinstate_license"
+path = "examples/license/reinstate_license.rs"
+
+[[example]]
+name = "suspend_license"
+path = "examples/license/suspend_license.rs"
+
+[[example]]
+name = "verify_offline_key"
+path = "examples/license/verify_offline_key.rs"
+
+[[example]]
+name = "update_license"
+path = "examples/license/update_license.rs"
+
+[[example]]
+name = "delete_license"
+path = "examples/license/delete_license.rs"
+
+[[example]]
+name = "renew_license"
+path = "examples/license/renew_license.rs"
+
+[[example]]
+name = "revoke_license"
+path = "examples/license/revoke_license.rs"
+
+[[example]]
+name = "list_entitlements"
+path = "examples/license/list_entitlements.rs"
+
+[[example]]
+name = "activate_machine"
+path = "examples/machine/activate_machine.rs"
+
+[[example]]
+name = "deactivate_machine"
+path = "examples/machine/deactivate_machine.rs"
+
+[[example]]
+name = "list_machines"
+path = "examples/machine/list_machines.rs"
+
+[[example]]
+name = "checkout_machine"
+path = "examples/machine/checkout_machine.rs"
+
+[[example]]
+name = "reset_machine"
+path = "examples/machine/reset_machine.rs"
+
+[[example]]
+name = "start_heartbeat"
+path = "examples/machine/start_heartbeat.rs"
+
+[[example]]
+name = "create_machine"
+path = "examples/machine/create_machine.rs"
+
+[[example]]
+name = "get_machine"
+path = "examples/machine/get_machine.rs"
+
+[[example]]
+name = "update_machine"
+path = "examples/machine/update_machine.rs"
+
+[[example]]
+name = "ping_service"
+path = "examples/service/ping_service.rs"
+
+[[example]]
+name = "health_check"
+path = "examples/service/health_check.rs"
 
 [lib]
 doctest = false

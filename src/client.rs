@@ -1,5 +1,6 @@
 use crate::config::get_config;
 use crate::errors::Error;
+use crate::verifier::Verifier;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::Deserialize;
@@ -7,7 +8,6 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use std::time::Duration;
 use url::Url;
-use crate::verifier::Verifier;
 
 pub struct Client {
     inner: ReqwestClient,
@@ -48,13 +48,22 @@ impl Client {
         Self::new(ClientOptions {
             account: config.account.to_string(),
             environment: config.environment.clone(),
+            #[cfg(feature = "license-key")]
             license_key: config.license_key.clone(),
+            #[cfg(not(feature = "license-key"))]
+            license_key: None,
+            #[cfg(feature = "token")]
             token: config.token.clone(),
+            #[cfg(not(feature = "token"))]
+            token: None,
             user_agent: config.user_agent.clone(),
             api_url: config.api_url.to_string(),
             api_version: config.api_version.to_string(),
             api_prefix: config.api_prefix.to_string(),
+            #[cfg(feature = "license-key")]
             verify_keygen_signature: config.verify_keygen_signature.unwrap_or(true),
+            #[cfg(not(feature = "license-key"))]
+            verify_keygen_signature: true,
         })
     }
 
@@ -156,6 +165,12 @@ impl Client {
             .await
     }
 
+    /// Get request that returns plain text response (for ping endpoint)
+    pub async fn get_text(&self, path: &str) -> Result<Response<String>, Error> {
+        let request = self.new_request_no_version(reqwest::Method::GET, path, None::<&()>)?;
+        self.send_text(request).await
+    }
+
     fn new_request<T: Serialize + ?Sized>(
         &self,
         method: reqwest::Method,
@@ -226,7 +241,77 @@ impl Client {
         Ok(request.build()?)
     }
 
-    async fn send<U: DeserializeOwned + Serialize>(&self, request: Request) -> Result<Response<U>, Error> {
+    fn new_request_no_version<T: Serialize + ?Sized>(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        params: Option<&T>,
+    ) -> Result<Request, Error> {
+        let mut url = Url::parse(&self.options.api_url)?;
+
+        if self.options.api_url == "https://api.keygen.sh" {
+            url.path_segments_mut()
+                .map_err(|_| Error::InvalidUrl)?
+                .push(self.options.api_prefix.as_str())
+                .push("accounts")
+                .push(self.options.account.as_str())
+                .extend(path.split('/'));
+        } else {
+            url.path_segments_mut()
+                .map_err(|_| Error::InvalidUrl)?
+                .push(self.options.api_prefix.as_str())
+                .extend(path.split('/'));
+        }
+
+        if method == reqwest::Method::GET {
+            if let Some(params) = params {
+                let query = serde_urlencoded::to_string(params)?;
+                url.set_query(Some(&query));
+            }
+        }
+
+        let mut headers = HeaderMap::new();
+        headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.api+json"));
+        if params.is_some() {
+            headers.insert(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/vnd.api+json"),
+            );
+        }
+        if let Some(user_agent) = &self.options.user_agent {
+            headers.insert(USER_AGENT, HeaderValue::from_str(user_agent)?);
+        }
+
+        if let Some(env) = &self.options.environment {
+            headers.insert("Keygen-Environment", HeaderValue::from_str(env)?);
+        }
+
+        // Note: Intentionally NOT setting Keygen-Version header for service introspection
+
+        if let Some(key) = &self.options.license_key {
+            headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("License {}", key))?,
+            );
+        } else if let Some(token) = &self.options.token {
+            headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("Bearer {}", token))?,
+            );
+        }
+
+        let mut request = self.inner.request(method.clone(), url).headers(headers);
+
+        if method != reqwest::Method::GET && params.is_some() {
+            request = request.json(&json!(params));
+        }
+        Ok(request.build()?)
+    }
+
+    async fn send<U: DeserializeOwned + Serialize>(
+        &self,
+        request: Request,
+    ) -> Result<Response<U>, Error> {
         let method = request.method().as_str().to_owned();
         let url = request.url().clone();
         let host = match (url.host_str(), url.port()) {
@@ -234,9 +319,9 @@ impl Client {
             (Some(h), None) => h.to_string(),
             _ => "api.keygen.sh".to_string(),
         };
-        
+
         let response = self.inner.execute(request).await?;
-        
+
         let status = response.status();
         let headers = response.headers().clone();
 
@@ -245,41 +330,85 @@ impl Client {
             return Err(self.handle_error(status, &headers, error_body));
         }
         let bytes = response.bytes().await?;
-        
+
         if self.options.verify_keygen_signature {
             let config = get_config();
             if let Some(public_key) = config.public_key {
                 let verifier = Verifier::new(public_key);
-                
+
                 let base_path = url.path();
                 let full_path = if let Some(query) = url.query() {
                     format!("{}?{}", base_path, query)
                 } else {
                     base_path.to_string()
                 };
-                
-                verifier.verify_keygen_signature(
-                    &headers, 
-                    &bytes, 
-                    &method, 
-                    &full_path,
-                    &host
-                ).map_err(|err| Error::KeygenSignatureInvalid { 
-                    reason: format!("Keygen signature validation failed: {}", err) 
-                })?;
+
+                verifier
+                    .verify_keygen_signature(&headers, &bytes, &method, &full_path, &host)
+                    .map_err(|err| Error::KeygenSignatureInvalid {
+                        reason: format!("Keygen signature validation failed: {}", err),
+                    })?;
             }
         }
-        
+
         let body: U = if status == StatusCode::NO_CONTENT {
             serde_json::from_value(serde_json::Value::Null)?
         } else {
             serde_json::from_slice(&bytes)?
         };
-        
+
         Ok(Response {
             status,
             headers,
             body,
+        })
+    }
+
+    async fn send_text(&self, request: Request) -> Result<Response<String>, Error> {
+        let method = request.method().as_str().to_owned();
+        let url = request.url().clone();
+        let host = match (url.host_str(), url.port()) {
+            (Some(h), Some(p)) => format!("{}:{}", h, p),
+            (Some(h), None) => h.to_string(),
+            _ => "api.keygen.sh".to_string(),
+        };
+
+        let response = self.inner.execute(request).await?;
+
+        let status = response.status();
+        let headers = response.headers().clone();
+
+        if status.is_client_error() || status.is_server_error() {
+            let error_body: serde_json::Value = response.json().await?;
+            return Err(self.handle_error(status, &headers, error_body));
+        }
+
+        let text = response.text().await?;
+
+        if self.options.verify_keygen_signature {
+            let config = get_config();
+            if let Some(public_key) = config.public_key {
+                let verifier = Verifier::new(public_key);
+
+                let base_path = url.path();
+                let full_path = if let Some(query) = url.query() {
+                    format!("{}?{}", base_path, query)
+                } else {
+                    base_path.to_string()
+                };
+
+                verifier
+                    .verify_keygen_signature(&headers, text.as_bytes(), &method, &full_path, &host)
+                    .map_err(|err| Error::KeygenSignatureInvalid {
+                        reason: format!("Keygen signature validation failed: {}", err),
+                    })?;
+            }
+        }
+
+        Ok(Response {
+            status,
+            headers,
+            body: text,
         })
     }
 
