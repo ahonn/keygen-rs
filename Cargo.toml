@@ -1,7 +1,7 @@
 [package]
 name = "keygen-rs"
-version = "0.4.3"
-description = "Unofficial Keygen SDK for Rust. Integrate license activation and offline licensing."
+version = "0.5.0"
+description = "Unofficial Rust SDK for integrating with the keygen.sh licensing service."
 license = "MIT"
 edition = "2021"
 

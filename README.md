@@ -4,7 +4,6 @@
 [![Documentation](https://docs.rs/keygen-rs/badge.svg)](https://docs.rs/keygen-rs)
 
 The `keygen-rs` crate is an unofficial Rust SDK for integrating with the [keygen.sh](https://keygen.sh) licensing service.
-It provides a comprehensive framework for implementing software license management in Rust applications.
 
 ## Features
 
