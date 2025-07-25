@@ -69,7 +69,7 @@ pub enum Error {
     LicenseSchemeUnsupported,
 
     #[error("{0}")]
-    CerificateFileInvalid(String),
+    CertificateFileInvalid(String),
 
     #[error("{0}")]
     CertificateFileNotGenuine(String),
@@ -77,8 +77,8 @@ pub enum Error {
     #[error("{0}")]
     CertificateFileNotSupported(String),
 
-    #[error("Cerificate file expired")]
-    CerificateFileExpired,
+    #[error("Certificate file expired")]
+    CertificateFileExpired,
 
     #[error("License file invalid: {0}")]
     LicenseFileInvalid(String),

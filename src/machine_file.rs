@@ -68,7 +68,7 @@ impl MachineFile {
     pub fn verify(&self) -> Result<(), Error> {
         self.validate_ttl()?;
 
-        let config = get_config();
+        let config = get_config()?;
 
         if let Some(public_key) = config.public_key {
             let verifier = Verifier::new(public_key);
@@ -190,7 +190,7 @@ impl MachineFile {
 
         if let Err(err) = validate_certificate_meta(&meta) {
             match err {
-                Error::CerificateFileExpired => Err(Error::MachineFileExpired(dataset)),
+                Error::CertificateFileExpired => Err(Error::MachineFileExpired(dataset)),
                 _ => Err(err),
             }
         } else {

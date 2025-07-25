@@ -131,7 +131,7 @@ impl User {
 
 /// Create a new user
 pub async fn create(request: CreateUserRequest) -> Result<User, Error> {
-    let client = Client::default();
+    let client = Client::default()?;
 
     let mut attributes = serde_json::Map::new();
     attributes.insert(
@@ -200,7 +200,7 @@ pub struct ListUsersOptions {
 
 /// List users with optional filtering and pagination, returning pagination metadata
 pub async fn list(options: Option<ListUsersOptions>) -> Result<UsersListResult, Error> {
-    let client = Client::default();
+    let client = Client::default()?;
     let response = client.get("users", options.as_ref()).await?;
     let users_response: UsersResponse = serde_json::from_value(response.body)?;
     Ok(UsersListResult {
@@ -212,7 +212,7 @@ pub async fn list(options: Option<ListUsersOptions>) -> Result<UsersListResult, 
 
 /// Get a specific user by ID
 pub async fn get(user_id: &str) -> Result<User, Error> {
-    let client = Client::default();
+    let client = Client::default()?;
     let endpoint = format!("users/{}", user_id);
     let response = client.get(&endpoint, None::<&()>).await?;
     let user_response: UserResponse = serde_json::from_value(response.body)?;
@@ -221,7 +221,7 @@ pub async fn get(user_id: &str) -> Result<User, Error> {
 
 /// Update a user
 pub async fn update(user_id: &str, request: UpdateUserRequest) -> Result<User, Error> {
-    let client = Client::default();
+    let client = Client::default()?;
     let endpoint = format!("users/{}", user_id);
     let mut attributes = serde_json::Map::new();
 
@@ -258,7 +258,7 @@ pub async fn update(user_id: &str, request: UpdateUserRequest) -> Result<User, E
 
 /// Delete a user
 pub async fn delete(user_id: &str) -> Result<(), Error> {
-    let client = Client::default();
+    let client = Client::default()?;
     let endpoint = format!("users/{}", user_id);
     client.delete::<(), ()>(&endpoint, None::<&()>).await?;
     Ok(())
@@ -266,7 +266,7 @@ pub async fn delete(user_id: &str) -> Result<(), Error> {
 
 /// Ban a user
 pub async fn ban(user_id: &str) -> Result<User, Error> {
-    let client = Client::default();
+    let client = Client::default()?;
     let endpoint = format!("users/{}/actions/ban", user_id);
     let body = serde_json::json!({
         "meta": {}
@@ -278,7 +278,7 @@ pub async fn ban(user_id: &str) -> Result<User, Error> {
 
 /// Unban a user
 pub async fn unban(user_id: &str) -> Result<User, Error> {
-    let client = Client::default();
+    let client = Client::default()?;
     let endpoint = format!("users/{}/actions/unban", user_id);
     let body = serde_json::json!({
         "meta": {}

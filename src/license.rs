@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::certificate::CartificateFileResponse;
+use crate::certificate::CertificateFileResponse;
 use crate::client::Client;
 use crate::component::Component;
 use crate::config::get_config;
@@ -564,8 +564,8 @@ impl License {
         }
     }
 
-    fn build_scope(fingerprints: &[String], entitlements: &[String]) -> Value {
-        let config = get_config();
+    fn build_scope(fingerprints: &[String], entitlements: &[String]) -> Result<Value, Error> {
+        let config = get_config()?;
         let mut scope = json!({
             "product": config.product.to_string(),
         });
@@ -585,7 +585,7 @@ impl License {
             scope["environment"] = json!(env);
         }
 
-        scope
+        Ok(scope)
     }
 
     pub async fn validate(
@@ -593,8 +593,8 @@ impl License {
         fingerprints: &[String],
         entitlements: &[String],
     ) -> Result<License, Error> {
-        let client = Client::default();
-        let scope = Self::build_scope(fingerprints, entitlements);
+        let client = Client::default()?;
+        let scope = Self::build_scope(fingerprints, entitlements)?;
         let params = json!({
             "meta": {
                 "nonce": chrono::Utc::now().timestamp(),
@@ -623,8 +623,8 @@ impl License {
         fingerprints: &[String],
         entitlements: &[String],
     ) -> Result<License, Error> {
-        let client = Client::default();
-        let scope = Self::build_scope(fingerprints, entitlements);
+        let client = Client::default()?;
+        let scope = Self::build_scope(fingerprints, entitlements)?;
         let params = json!({
             "meta": {
                 "key": self.key.clone(),
@@ -648,7 +648,7 @@ impl License {
         if self.scheme.is_none() {
             return Err(Error::LicenseNotSigned);
         }
-        let config = get_config();
+        let config = get_config()?;
         if let Some(public_key) = config.public_key {
             let verifier = Verifier::new(public_key);
             verifier.verify_license(self)
@@ -662,8 +662,8 @@ impl License {
         fingerprint: &str,
         components: &[Component],
     ) -> Result<Machine, Error> {
-        let config = get_config();
-        let client = Client::default();
+        let config = get_config()?;
+        let client = Client::default()?;
         let hostname = hostname::get()
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_else(|_| String::from("unknown"));
@@ -712,7 +712,7 @@ impl License {
     }
 
     pub async fn deactivate(&self, id: &str) -> Result<(), Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let _response = client
             .delete::<(), serde_json::Value>(&format!("machines/{}", id), None::<&()>)
             .await?;
@@ -720,7 +720,7 @@ impl License {
     }
 
     pub async fn machine(&self, id: &str) -> Result<Machine, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let response = client.get(&format!("machines/{}", id), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         let machine = Machine::from(machine_response.data);
@@ -731,7 +731,7 @@ impl License {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<Vec<Machine>, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let mut query = json!({});
 
         if let Some(opts) = options {
@@ -768,7 +768,7 @@ impl License {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<Vec<Entitlement>, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let mut query = json!({});
 
         if let Some(opts) = options {
@@ -802,7 +802,7 @@ impl License {
     }
 
     pub async fn checkout(&self, options: &LicenseCheckoutOpts) -> Result<LicenseFile, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let mut query = json!({
             "encrypt": 1,
             "include": "entitlements"
@@ -823,7 +823,7 @@ impl License {
                 Some(&query),
             )
             .await?;
-        let license_file_response: CartificateFileResponse = serde_json::from_value(response.body)?;
+        let license_file_response: CertificateFileResponse = serde_json::from_value(response.body)?;
         let license_file = LicenseFile::from(license_file_response.data);
         Ok(license_file)
     }
@@ -863,7 +863,7 @@ impl License {
     /// Create a new license using the comprehensive request structure
     #[cfg(feature = "token")]
     pub async fn create(request: LicenseCreateRequest) -> Result<License, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let body = request.to_json_body();
         let response = client.post("licenses", Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -873,7 +873,7 @@ impl License {
     /// List all licenses with optional filtering
     #[cfg(feature = "token")]
     pub async fn list(options: Option<&LicenseListOptions>) -> Result<Vec<License>, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let mut query = json!({});
 
         if let Some(opts) = options {
@@ -924,7 +924,7 @@ impl License {
     /// Get a license by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<License, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("licenses/{}", id);
         let response = client.get(&endpoint, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -934,7 +934,7 @@ impl License {
     /// Update a license
     #[cfg(feature = "token")]
     pub async fn update(&self, request: LicenseUpdateRequest) -> Result<License, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("licenses/{}", self.id);
         let body = request.to_json_body();
         let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
@@ -945,7 +945,7 @@ impl License {
     /// Delete a license
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("licenses/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
@@ -954,7 +954,7 @@ impl License {
     /// Suspend a license
     #[cfg(feature = "token")]
     pub async fn suspend(&self) -> Result<License, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("licenses/{}/actions/suspend", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -964,7 +964,7 @@ impl License {
     /// Reinstate a suspended license
     #[cfg(feature = "token")]
     pub async fn reinstate(&self) -> Result<License, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("licenses/{}/actions/reinstate", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -974,7 +974,7 @@ impl License {
     /// Renew a license
     #[cfg(feature = "token")]
     pub async fn renew(&self) -> Result<License, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("licenses/{}/actions/renew", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -984,7 +984,7 @@ impl License {
     /// Revoke a license
     #[cfg(feature = "token")]
     pub async fn revoke(&self) -> Result<(), Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("licenses/{}/actions/revoke", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())

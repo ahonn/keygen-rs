@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    policy::{CreatePolicyRequest, Policy},
+    policy::{AuthenticationStrategy, CreatePolicyRequest, Policy},
 };
 use std::env;
 
@@ -15,17 +15,18 @@ async fn main() -> Result<(), Error> {
         account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
         token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
         ..KeygenConfig::default()
-    });
+    })?;
 
     // Get product ID from environment variable
     let product_id = env::var("KEYGEN_PRODUCT_ID")
         .or_else(|_| env::var("PRODUCT_ID"))
         .expect("KEYGEN_PRODUCT_ID or PRODUCT_ID must be set");
 
-    // Create a new policy with only required fields (according to docs: name + product relationship)
+    // Create a new policy with License authentication strategy
     let request = CreatePolicyRequest {
-        name: "Basic Policy".to_string(),
+        name: "License Auth Policy".to_string(),
         product_id,
+        authentication_strategy: Some(AuthenticationStrategy::License),
         ..Default::default()
     };
 

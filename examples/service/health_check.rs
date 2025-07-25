@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         api_url,
         account,
         ..KeygenConfig::default()
-    });
+    })?;
 
     println!("🏥 Performing Keygen service health check...\n");
 

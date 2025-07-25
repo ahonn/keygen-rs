@@ -16,7 +16,7 @@ async fn main() -> Result<(), Error> {
         account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
         token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
         ..KeygenConfig::default()
-    });
+    }).expect("Failed to set config");
 
     // List all licenses (basic usage)
     match License::list(None).await {

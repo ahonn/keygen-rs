@@ -16,7 +16,7 @@ async fn main() -> Result<(), Error> {
         account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
         token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
         ..KeygenConfig::default()
-    });
+    })?;
 
     // Create a new machine
     let license_id = env::var("LICENSE_ID").expect("LICENSE_ID must be set");

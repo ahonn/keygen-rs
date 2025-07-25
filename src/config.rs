@@ -1,3 +1,4 @@
+use crate::errors::Error;
 use lazy_static::lazy_static;
 use std::sync::RwLock;
 
@@ -99,18 +100,31 @@ lazy_static! {
     static ref KEYGEN_CONFIG: RwLock<KeygenConfig> = RwLock::new(KeygenConfig::default());
 }
 
-pub fn get_config() -> KeygenConfig {
-    KEYGEN_CONFIG.read().unwrap().clone()
+pub fn get_config() -> Result<KeygenConfig, Error> {
+    KEYGEN_CONFIG.read()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?
+        .clone()
+        .into()
 }
 
-pub fn set_config(config: KeygenConfig) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+impl From<KeygenConfig> for Result<KeygenConfig, Error> {
+    fn from(config: KeygenConfig) -> Self {
+        Ok(config)
+    }
+}
+
+pub fn set_config(config: KeygenConfig) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG.write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     *current_config = config;
+    Ok(())
 }
 
-pub fn set_api_url(api_url: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_api_url(api_url: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG.write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.api_url = api_url.to_string();
+    Ok(())
 }
 
 pub fn set_api_version(api_version: &str) {

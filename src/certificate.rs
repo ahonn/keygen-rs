@@ -26,7 +26,7 @@ pub struct CertificateFileAttributes {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct CartificateFileResponse {
+pub(crate) struct CertificateFileResponse {
     pub data: KeygenResponseData<CertificateFileAttributes>,
 }
 
@@ -40,7 +40,7 @@ pub fn validate_certificate_meta(meta: &CertificateFileMeta) -> Result<(), Error
     // }
 
     if meta.ttl != 0 && Utc::now() > meta.expiry {
-        return Err(Error::CerificateFileExpired);
+        return Err(Error::CertificateFileExpired);
     }
     Ok(())
 }

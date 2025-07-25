@@ -43,8 +43,8 @@ struct ErrorMeta {
 }
 
 impl Client {
-    pub fn default() -> Self {
-        let config = get_config();
+    pub fn default() -> Result<Self, Error> {
+        let config = get_config()?;
         Self::new(ClientOptions {
             account: config.account.to_string(),
             environment: config.environment.clone(),
@@ -67,16 +67,16 @@ impl Client {
         })
     }
 
-    pub fn new(options: ClientOptions) -> Self {
+    pub fn new(options: ClientOptions) -> Result<Self, Error> {
         let client = ReqwestClient::builder()
             .timeout(Duration::from_secs(30))
             .build()
-            .unwrap();
+            .map_err(|e| Error::UnexpectedError(format!("Failed to build HTTP client: {}", e)))?;
 
-        Self {
+        Ok(Self {
             inner: client,
             options,
-        }
+        })
     }
 
     pub fn set_query<T: Serialize + ?Sized>(
@@ -332,7 +332,7 @@ impl Client {
         let bytes = response.bytes().await?;
 
         if self.options.verify_keygen_signature {
-            let config = get_config();
+            let config = get_config()?;
             if let Some(public_key) = config.public_key {
                 let verifier = Verifier::new(public_key);
 
@@ -386,7 +386,7 @@ impl Client {
         let text = response.text().await?;
 
         if self.options.verify_keygen_signature {
-            let config = get_config();
+            let config = get_config()?;
             if let Some(public_key) = config.public_key {
                 let verifier = Verifier::new(public_key);
 
@@ -554,7 +554,7 @@ mod tests {
             api_version: "1.0".to_string(),
             api_prefix: "v1".to_string(),
             verify_keygen_signature: true, // Enable Keygen-Signature verification for tests
-        })
+        }).expect("Failed to create test client")
     }
 
     #[tokio::test]

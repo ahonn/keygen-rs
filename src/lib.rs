@@ -77,7 +77,7 @@ pub(crate) struct KeygenResponseData<T> {
 
 /// Validates a license key
 ///
-/// # Exampled
+/// # Example
 /// ```
 /// #[tokio::main]
 /// async fn main() -> Result<(), Error> {
@@ -98,7 +98,7 @@ pub(crate) struct KeygenResponseData<T> {
 /// }
 /// ```
 pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Result<License, Error> {
-    let client = Client::default();
+    let client = Client::default()?;
     let response = client.get("me", None::<&()>).await?;
     let profile: LicenseResponse<()> = serde_json::from_value(response.body)?;
     let license = License::from(profile.data);
@@ -110,7 +110,7 @@ pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Resul
 /// Supported schemes are:
 /// - Ed25519Sign
 ///
-/// # Exampled
+/// # Example
 /// ```
 /// #[tokio::main]
 /// async fn main() {

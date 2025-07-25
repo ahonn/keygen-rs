@@ -486,7 +486,7 @@ impl Policy {
 
     /// Create a new policy
     pub async fn create(request: CreatePolicyRequest) -> Result<Policy, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
 
         // Build attributes dynamically, only including non-None values
         let mut attributes = serde_json::Map::new();
@@ -698,7 +698,7 @@ impl Policy {
 
     /// List policies with optional pagination and filtering
     pub async fn list(options: Option<ListPoliciesOptions>) -> Result<Vec<Policy>, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let response = client.get("policies", options.as_ref()).await?;
         let policies_response: PoliciesResponse = serde_json::from_value(response.body)?;
         Ok(policies_response
@@ -710,7 +710,7 @@ impl Policy {
 
     /// Get a policy by ID
     pub async fn get(id: &str) -> Result<Policy, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("policies/{}", id);
         let response = client.get(&endpoint, None::<&()>).await?;
         let policy_response: PolicyResponse = serde_json::from_value(response.body)?;
@@ -719,7 +719,7 @@ impl Policy {
 
     /// Update a policy
     pub async fn update(&self, request: UpdatePolicyRequest) -> Result<Policy, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("policies/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -858,7 +858,7 @@ impl Policy {
 
     /// Delete a policy
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("policies/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
@@ -866,7 +866,7 @@ impl Policy {
 
     /// Pop a key from policy pool
     pub async fn pop_key(&self) -> Result<String, Error> {
-        let client = Client::default();
+        let client = Client::default()?;
         let endpoint = format!("policies/{}/pool", self.id);
         let response: crate::client::Response<serde_json::Value> =
             client.delete(&endpoint, None::<&()>).await?;

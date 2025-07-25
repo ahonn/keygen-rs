@@ -1,6 +1,5 @@
 use aes_gcm::aead::Aead;
-use aes_gcm::NewAead;
-use aes_gcm::{Aes256Gcm, Key, Nonce};
+use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::engine::general_purpose;
 use base64::Engine;
 use sha2::Digest;
@@ -40,7 +39,7 @@ impl Decryptor {
         hasher.update(self.secret.as_bytes());
         let key = hasher.finalize();
 
-        let cipher = Aes256Gcm::new(Key::from_slice(&key));
+        let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| Error::DecryptionError("Invalid key length".into()))?;
         let nonce = Nonce::from_slice(&iv);
 
         let mut encrypted_data = ciphertext;

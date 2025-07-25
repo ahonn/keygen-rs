@@ -16,7 +16,7 @@ async fn main() -> Result<(), Error> {
         license_key: Some(env::var("KEYGEN_LICENSE_KEY").expect("KEYGEN_LICENSE_KEY must be set")),
         public_key: Some(env::var("KEYGEN_PUBLIC_KEY").expect("KEYGEN_PUBLIC_KEY must be set")),
         ..KeygenConfig::default()
-    });
+    }).expect("Failed to set config");
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     let license = keygen_rs::validate(&[fingerprint], &[]).await?;

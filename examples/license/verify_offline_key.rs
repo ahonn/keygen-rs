@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose, Engine as _};
 use dotenv::dotenv;
-use ed25519_dalek::{Keypair, Signer};
+use ed25519_dalek::{SigningKey, Signer};
 use keygen_rs::{
     config::{self, KeygenConfig},
     license::SchemeCode,
@@ -11,7 +11,7 @@ use std::env;
 
 fn generate_signed_license_key(key: String) -> (String, String) {
     let mut csprng = OsRng;
-    let keypair: Keypair = Keypair::generate(&mut csprng);
+    let keypair: SigningKey = SigningKey::generate(&mut csprng);
 
     let payload = json!({
         "lic": key,
@@ -28,7 +28,7 @@ fn generate_signed_license_key(key: String) -> (String, String) {
         signing_input,
         general_purpose::URL_SAFE.encode(signature.to_bytes())
     );
-    let public_key = hex::encode(keypair.public.as_bytes());
+    let public_key = hex::encode(keypair.verifying_key().as_bytes());
     (public_key, signed_key)
 }
 
@@ -45,7 +45,7 @@ async fn main() {
         license_key: Some(env::var("KEYGEN_LICENSE_KEY").expect("KEYGEN_LICENSE_KEY must be set")),
         public_key: Some(public_key.clone()),
         ..KeygenConfig::default()
-    });
+    }).expect("Failed to set config");
 
     println!("Signed key: {:?}", signed_key);
     if let Ok(data) = keygen_rs::verify(SchemeCode::Ed25519Sign, &signed_key) {

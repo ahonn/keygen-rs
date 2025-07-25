@@ -61,7 +61,7 @@ impl LicenseFile {
         };
         if let Err(err) = validate_certificate_meta(&meta) {
             match err {
-                Error::CerificateFileExpired => Err(Error::LicenseFileExpired(dataset)),
+                Error::CertificateFileExpired => Err(Error::LicenseFileExpired(dataset)),
                 _ => Err(err),
             }
         } else {
@@ -76,7 +76,7 @@ impl LicenseFile {
     }
 
     pub fn verify(&self) -> Result<(), Error> {
-        let config = get_config();
+        let config = get_config()?;
 
         if let Some(public_key) = config.public_key {
             let verifier = Verifier::new(public_key);
@@ -126,7 +126,7 @@ impl LicenseFile {
 
         if let Err(err) = validate_certificate_meta(&meta) {
             match err {
-                Error::CerificateFileExpired => Err(Error::LicenseFileExpired(dataset)),
+                Error::CertificateFileExpired => Err(Error::LicenseFileExpired(dataset)),
                 _ => Err(err),
             }
         } else {

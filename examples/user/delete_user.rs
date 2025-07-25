@@ -15,26 +15,39 @@ async fn main() -> Result<(), Error> {
         account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
         token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
         ..KeygenConfig::default()
-    });
+    })?;
 
+    // Parse command line arguments
+    let args: Vec<String> = env::args().collect();
+    let auto_confirm = args.contains(&"--yes".to_string());
+    
     // Get user ID from command line argument
-    let user_id = env::args()
-        .nth(1)
-        .expect("Usage: cargo run --example delete_user <user_id>");
+    let user_id = args
+        .iter()
+        .find(|arg| !arg.starts_with("--") && !arg.contains("delete_user"))
+        .cloned()
+        .expect("Usage: cargo run --example delete_user <user_id> [--yes]");
 
     // Confirm deletion
-    println!(
-        "⚠️  Are you sure you want to delete user '{}'? This action cannot be undone.",
-        user_id
-    );
-    println!("Type 'yes' to confirm:");
+    let should_delete = if auto_confirm {
+        println!("🔥 Deleting user '{}' automatically (--yes flag provided)...", user_id);
+        true
+    } else {
+        println!(
+            "⚠️  Are you sure you want to delete user '{}'? This action cannot be undone.",
+            user_id
+        );
+        println!("Type 'yes' to confirm (or use --yes flag):");
 
-    let mut input = String::new();
-    std::io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read input");
+        let mut input = String::new();
+        std::io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read input");
 
-    if input.trim().to_lowercase() != "yes" {
+        input.trim().to_lowercase() == "yes"
+    };
+
+    if !should_delete {
         println!("❌ Deletion cancelled.");
         return Ok(());
     }

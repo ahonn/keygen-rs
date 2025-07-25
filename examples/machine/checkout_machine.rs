@@ -17,8 +17,7 @@ async fn main() -> Result<(), Error> {
         license_key: Some(env::var("KEYGEN_LICENSE_KEY").expect("KEYGEN_LICENSE_KEY must be set")),
         public_key: Some(env::var("KEYGEN_PUBLIC_KEY").expect("KEYGEN_PUBLIC_KEY must be set")),
         ..KeygenConfig::default()
-    });
-    let config = config::get_config();
+    })?;
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     if let Ok(license) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
@@ -31,6 +30,7 @@ async fn main() -> Result<(), Error> {
         if machine_file.verify().is_ok() {
             // the encryption secret for a machine file is the license key concatenated with the machine fingerprint
             // https://keygen.sh/docs/api/cryptography/#cryptographic-lic-decrypt
+            let config = config::get_config()?;
             let key = format!("{}{}", config.license_key.unwrap(), machine.fingerprint);
             let dataset = machine_file.decrypt(&key)?;
             println!("Machine checkout successful: {:?}", dataset);

@@ -25,7 +25,7 @@ pub struct ServiceInfo {
 /// Get service information using the /v1/ping endpoint
 /// This can help determine the Keygen.sh service version and capabilities
 pub async fn get_service_info() -> Result<ServiceInfo, Error> {
-    let client = Client::default();
+    let client = Client::default()?;
 
     // Use the ping endpoint to get version information
     let response = client.get_text("ping").await?;
@@ -74,7 +74,7 @@ pub fn supports_feature(service_info: &ServiceInfo, required_version: &str) -> b
 
 /// Ping the Keygen service and get basic information
 pub async fn ping() -> Result<PingResponse, Error> {
-    let client = Client::default();
+    let client = Client::default()?;
     let response = client.get_text("ping").await?;
 
     // The ping endpoint returns plain text (usually "ok")

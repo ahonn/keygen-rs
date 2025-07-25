@@ -18,7 +18,7 @@ async fn main() -> Result<(), Error> {
         account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
         token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
         ..KeygenConfig::default()
-    });
+    }).expect("Failed to set config");
 
     // Get required policy ID
     let policy_id =
@@ -54,9 +54,8 @@ async fn main() -> Result<(), Error> {
 
     let mut request = LicenseCreateRequest::new(policy_id.clone())
         .with_name("Premium License for John Doe".to_string())
-        .with_key("CUSTOM-LICENSE-KEY-12345".to_string())
         .with_expiry(expiry)
-        .with_max_machines(5)
+        .with_max_machines(1)
         .with_metadata(metadata);
 
     if let Some(uid) = owner_id {

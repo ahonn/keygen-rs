@@ -1,7 +1,8 @@
 use base64::{engine::general_purpose, Engine};
-use ed25519_dalek::{PublicKey, Signature, Verifier as Ed25519Verifier};
+use ed25519_dalek::{VerifyingKey, Signature, Verifier as Ed25519Verifier};
 use reqwest::header::HeaderMap;
 use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
 
 use crate::certificate::Certificate;
 use crate::errors::Error;
@@ -186,7 +187,7 @@ impl Verifier {
             let digest_bytes = hasher.finalize();
             let calculated_digest = general_purpose::STANDARD.encode(digest_bytes);
 
-            if provided_digest != calculated_digest {
+            if !bool::from(provided_digest.as_bytes().ct_eq(calculated_digest.as_bytes())) {
                 return Err(Error::KeygenSignatureInvalid {
                     reason: "Body digest does not match digest header".to_string(),
                 });
@@ -205,7 +206,7 @@ impl Verifier {
         signature_bytes: &[u8],
     ) -> Result<(), Error> {
         let public_key_bytes = self.public_key_bytes()?;
-        let public_key = PublicKey::from_bytes(&public_key_bytes).map_err(|_| {
+        let public_key = VerifyingKey::from_bytes(&public_key_bytes).map_err(|_| {
             Error::KeygenSignatureInvalid {
                 reason: "Invalid public key".to_string(),
             }
@@ -235,9 +236,9 @@ impl Verifier {
                     .decode(&cert.sig)
                     .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
 
-                let public_key = PublicKey::from_bytes(&public_key)
+                let public_key = VerifyingKey::from_bytes(&public_key)
                     .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
-                let signature = Signature::from_bytes(&sig)
+                let signature = Signature::try_from(&sig[..])
                     .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
 
                 if let Err(e) = public_key.verify(&msg, &signature) {
@@ -276,8 +277,8 @@ impl Verifier {
             .decode(enc_dataset)
             .map_err(|_| Error::LicenseKeyNotGenuine)?;
 
-        let public_key = PublicKey::from_bytes(&public_key).map_err(|_| Error::PublicKeyInvalid)?;
-        let signature = Signature::from_bytes(&sig).map_err(|_| Error::LicenseKeyNotGenuine)?;
+        let public_key = VerifyingKey::from_bytes(&public_key).map_err(|_| Error::PublicKeyInvalid)?;
+        let signature = Signature::try_from(&sig[..]).map_err(|_| Error::LicenseKeyNotGenuine)?;
 
         if public_key.verify(&msg, &signature).is_ok() {
             Ok(dataset)
@@ -309,16 +310,16 @@ mod tests {
     use super::*;
     use crate::license::SchemeCode;
     use base64::engine::general_purpose;
-    use ed25519_dalek::{Keypair, Signer};
+    use ed25519_dalek::{SigningKey, Signer};
     use rand::rngs::OsRng;
     use reqwest::header::{HeaderMap, HeaderValue};
     use serde_json::json;
 
     fn generate_valid_keys() -> (String, String) {
         let mut csprng = OsRng::default();
-        let keypair: Keypair = Keypair::generate(&mut csprng);
+        let keypair: SigningKey = SigningKey::generate(&mut csprng);
 
-        let public_key = hex::encode(keypair.public.as_bytes());
+        let public_key = hex::encode(keypair.verifying_key().as_bytes());
 
         let payload = json!({
           "lic": "TEST-LICENSE-KEY",
@@ -432,8 +433,8 @@ mod tests {
     fn test_verify_keygen_signature() {
         // Generate keypair for testing
         let mut csprng = OsRng::default();
-        let keypair: Keypair = Keypair::generate(&mut csprng);
-        let public_key = hex::encode(keypair.public.as_bytes());
+        let keypair: SigningKey = SigningKey::generate(&mut csprng);
+        let public_key = hex::encode(keypair.verifying_key().as_bytes());
 
         // Create a test body
         let body = b"test body";
@@ -494,8 +495,8 @@ mod tests {
     #[test]
     fn test_verify_keygen_signature_with_missing_header() {
         let mut csprng = OsRng::default();
-        let keypair: Keypair = Keypair::generate(&mut csprng);
-        let public_key = hex::encode(keypair.public.as_bytes());
+        let keypair: SigningKey = SigningKey::generate(&mut csprng);
+        let public_key = hex::encode(keypair.verifying_key().as_bytes());
 
         let body = b"test body";
         let headers = HeaderMap::new();
