@@ -73,7 +73,7 @@ pub struct MachineCheckoutOpts {
     pub include: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MachineListFilters {
     pub license: Option<String>,
     pub user: Option<String>,
@@ -86,6 +86,9 @@ pub struct MachineListFilters {
     pub owner: Option<String>,
     pub group: Option<String>,
     pub metadata: Option<HashMap<String, Value>>,
+    pub page_number: Option<i32>,
+    pub page_size: Option<i32>,
+    pub limit: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -334,6 +337,16 @@ impl Machine {
                     query_params.push((format!("metadata[{}]", key), value.to_string()));
                 }
             }
+            // Add pagination parameters
+            if let Some(page_number) = filters.page_number {
+                query_params.push(("page[number]".to_string(), page_number.to_string()));
+            }
+            if let Some(page_size) = filters.page_size {
+                query_params.push(("page[size]".to_string(), page_size.to_string()));
+            }
+            if let Some(limit) = filters.limit {
+                query_params.push(("limit".to_string(), limit.to_string()));
+            }
         }
 
         let query = if query_params.is_empty() {
@@ -421,6 +434,7 @@ mod tests {
         KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData,
     };
     use chrono::Utc;
+
 
     #[test]
     fn test_machine_relationships() {

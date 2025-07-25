@@ -2,7 +2,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    machine::Machine,
+    machine::{Machine, MachineListFilters},
 };
 use std::env;
 
@@ -17,10 +17,46 @@ async fn main() -> Result<(), Error> {
         ..KeygenConfig::default()
     })?;
 
-    // List all machines
+    // Example 1: List all machines without pagination
+    println!("📋 Example 1: List all machines without pagination");
     match Machine::list(None).await {
         Ok(machines) => {
-            println!("✅ Found {} machines:", machines.len());
+            println!("✅ Found {} machines", machines.len());
+        }
+        Err(e) => {
+            println!("❌ Failed to list machines: {:?}", e);
+        }
+    }
+
+    println!("\n---\n");
+
+    // Example 2: List machines with limit
+    println!("📋 Example 2: List machines with limit (25 results)");
+    let filters_with_limit = MachineListFilters {
+        limit: Some(25),
+        ..Default::default()
+    };
+    match Machine::list(Some(filters_with_limit)).await {
+        Ok(machines) => {
+            println!("✅ Found {} machines (limited to 25)", machines.len());
+        }
+        Err(e) => {
+            println!("❌ Failed to list machines: {:?}", e);
+        }
+    }
+
+    println!("\n---\n");
+
+    // Example 3: List machines with pagination (page 1, 10 per page)
+    println!("📋 Example 3: List machines with pagination (page 1, 10 per page)");
+    let filters_with_pagination = MachineListFilters {
+        page_number: Some(1),
+        page_size: Some(10),
+        ..Default::default()
+    };
+    match Machine::list(Some(filters_with_pagination)).await {
+        Ok(machines) => {
+            println!("✅ Found {} machines on page 1:", machines.len());
             for machine in machines {
                 println!("  ID: {}", machine.id);
                 println!("  Fingerprint: {}", machine.fingerprint);
@@ -41,6 +77,28 @@ async fn main() -> Result<(), Error> {
                 println!("    Owner ID: {:?}", machine.owner_id);
                 println!("    Group ID: {:?}", machine.group_id);
                 println!("  ---");
+            }
+        }
+        Err(e) => {
+            println!("❌ Failed to list machines: {:?}", e);
+        }
+    }
+
+    println!("\n---\n");
+
+    // Example 4: List machines with filters and pagination
+    println!("📋 Example 4: List machines with filters and pagination");
+    let filters_combined = MachineListFilters {
+        platform: Some("linux".to_string()),
+        page_number: Some(1),
+        page_size: Some(5),
+        ..Default::default()
+    };
+    match Machine::list(Some(filters_combined)).await {
+        Ok(machines) => {
+            println!("✅ Found {} Linux machines on page 1 (5 per page):", machines.len());
+            for machine in machines {
+                println!("  - {} (Platform: {:?})", machine.id, machine.platform);
             }
         }
         Err(e) => {
