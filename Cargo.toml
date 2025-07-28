@@ -1,6 +1,6 @@
 [package]
 name = "keygen-rs"
-version = "0.6.1"
+version = "0.6.2"
 description = "Unofficial Rust SDK for integrating with the keygen.sh licensing service."
 license = "MIT"
 edition = "2021"
@@ -193,6 +193,10 @@ path = "examples/license/revoke_license.rs"
 [[example]]
 name = "list_entitlements"
 path = "examples/license/list_entitlements.rs"
+
+[[example]]
+name = "list_licenses_pagination"
+path = "examples/license/list_licenses_pagination.rs"
 
 [[example]]
 name = "activate_machine"

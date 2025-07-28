@@ -98,18 +98,18 @@ pub struct LicenseCheckoutOpts {
 
 #[derive(Debug, Default, Serialize)]
 pub struct PaginationOptions {
-    pub limit: Option<i32>,
-    pub page: Option<i32>,
-    pub offset: Option<i32>,
+    pub limit: Option<i32>,           // Number of resources to return (1-100, default 10)
+    pub page_number: Option<i32>,     // Page number to retrieve
+    pub page_size: Option<i32>,       // Number of resources per page (1-100)
 }
 
 /// Simple license list options with common filters
 #[derive(Debug, Default)]
 pub struct LicenseListOptions {
-    // Pagination
-    pub limit: Option<i32>,
-    pub page: Option<i32>,
-    pub offset: Option<i32>,
+    // Pagination - following Keygen API standards
+    pub limit: Option<i32>,           // Number of resources to return (1-100, default 10)
+    pub page_number: Option<i32>,     // Page number to retrieve
+    pub page_size: Option<i32>,       // Number of resources per page (1-100)
 
     // Common filters
     pub status: Option<String>,  // "ACTIVE", "EXPIRED", "SUSPENDED", etc.
@@ -741,12 +741,12 @@ impl License {
                 query["limit"] = json!(100);
             }
 
-            if let Some(page) = opts.page {
-                query["page"] = json!(page);
+            if let Some(page_number) = opts.page_number {
+                query["page[number]"] = json!(page_number);
             }
 
-            if let Some(offset) = opts.offset {
-                query["offset"] = json!(offset);
+            if let Some(page_size) = opts.page_size {
+                query["page[size]"] = json!(page_size);
             }
         } else {
             query["limit"] = json!(100);
@@ -778,12 +778,12 @@ impl License {
                 query["limit"] = json!(100);
             }
 
-            if let Some(page) = opts.page {
-                query["page"] = json!(page);
+            if let Some(page_number) = opts.page_number {
+                query["page[number]"] = json!(page_number);
             }
 
-            if let Some(offset) = opts.offset {
-                query["offset"] = json!(offset);
+            if let Some(page_size) = opts.page_size {
+                query["page[size]"] = json!(page_size);
             }
         } else {
             query["limit"] = json!(100);
@@ -877,15 +877,15 @@ impl License {
         let mut query = json!({});
 
         if let Some(opts) = options {
-            // Pagination
+            // Pagination - following Keygen API standards
             if let Some(limit) = opts.limit {
                 query["limit"] = json!(limit);
             }
-            if let Some(page) = opts.page {
-                query["page"] = json!(page);
+            if let Some(page_number) = opts.page_number {
+                query["page[number]"] = json!(page_number);
             }
-            if let Some(offset) = opts.offset {
-                query["offset"] = json!(offset);
+            if let Some(page_size) = opts.page_size {
+                query["page[size]"] = json!(page_size);
             }
 
             // Simple filters
@@ -1209,8 +1209,8 @@ mod tests {
         let _m = mock("GET", "/v1/licenses/test_license_id/machines")
             .match_query(mockito::Matcher::AllOf(vec![
                 mockito::Matcher::UrlEncoded("limit".into(), "50".into()),
-                mockito::Matcher::UrlEncoded("page".into(), "2".into()),
-                mockito::Matcher::UrlEncoded("offset".into(), "10".into()),
+                mockito::Matcher::UrlEncoded("page[number]".into(), "2".into()),
+                mockito::Matcher::UrlEncoded("page[size]".into(), "10".into()),
             ]))
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -1231,8 +1231,8 @@ mod tests {
 
         let pagination_options = PaginationOptions {
             limit: Some(50),
-            page: Some(2),
-            offset: Some(10),
+            page_number: Some(2),
+            page_size: Some(10),
         };
 
         let result = license.machines(Some(&pagination_options)).await;
@@ -2227,4 +2227,143 @@ mod tests {
         );
         assert!(attributes.get("metadata").is_some());
     }
+
+    #[cfg(feature = "token")]
+    #[tokio::test]
+    async fn test_license_list_pagination_with_page_number() {
+        let _m = mock("GET", "/v1/licenses")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("page[number]".into(), "2".into()),
+                mockito::Matcher::UrlEncoded("page[size]".into(), "15".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "data": [
+                        {
+                            "id": "license-1",
+                            "type": "licenses",
+                            "attributes": {
+                                "key": "TEST-LICENSE-1",
+                                "name": "Test License 1",
+                                "expiry": null,
+                                "status": "active",
+                                "uses": null,
+                                "maxMachines": null,
+                                "maxCores": null,
+                                "maxUses": null,
+                                "maxProcesses": null,
+                                "protected": null,
+                                "suspended": false,
+                                "metadata": {}
+                            },
+                            "relationships": {
+                                "policy": {
+                                    "data": {
+                                        "type": "policies",
+                                        "id": "policy-123"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                })
+                .to_string(),
+            )
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+
+        let options = LicenseListOptions {
+            page_number: Some(2),
+            page_size: Some(15),
+            ..Default::default()
+        };
+
+        let result = License::list(Some(&options)).await;
+        assert!(result.is_ok());
+        let licenses = result.unwrap();
+        assert_eq!(licenses.len(), 1);
+        assert_eq!(licenses[0].id, "license-1");
+
+        reset_config();
+    }
+
+    #[cfg(feature = "token")]
+    #[tokio::test]
+    async fn test_license_list_pagination_with_limit_only() {
+        let _m = mock("GET", "/v1/licenses")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "5".into()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "data": []
+                })
+                .to_string(),
+            )
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+
+        let options = LicenseListOptions {
+            limit: Some(5),
+            ..Default::default()
+        };
+
+        let result = License::list(Some(&options)).await;
+        assert!(result.is_ok());
+
+        reset_config();
+    }
+
+    #[tokio::test]
+    async fn test_pagination_options_with_new_parameters() {
+        let license = create_test_license();
+        let _m = mock("GET", "/v1/licenses/test_license_id/machines")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("page[number]".into(), "3".into()),
+                mockito::Matcher::UrlEncoded("page[size]".into(), "25".into()),
+                mockito::Matcher::UrlEncoded("limit".into(), "50".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "data": []
+                })
+                .to_string(),
+            )
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        });
+
+        let pagination_options = PaginationOptions {
+            limit: Some(50),
+            page_number: Some(3),
+            page_size: Some(25),
+            ..Default::default()
+        };
+
+        let result = license.machines(Some(&pagination_options)).await;
+        assert!(result.is_ok());
+        reset_config();
+    }
+
 }
