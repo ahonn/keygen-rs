@@ -20,7 +20,7 @@ async fn main() -> Result<(), Error> {
 
     // Get the license first, then suspend it
     let license_id =
-        env::var("LICENSE_ID").expect("LICENSE_ID must be set (get from list_licenses example)");
+        env::var("KEYGEN_LICENSE_ID").expect("KEYGEN_LICENSE_ID must be set (get from list_licenses example)");
 
     // First get the license
     match License::get(&license_id).await {

@@ -26,8 +26,8 @@ async fn main() -> Result<(), Error> {
         .iter()
         .find(|arg| !arg.starts_with("--") && !arg.contains("delete_policy"))
         .cloned()
-        .or_else(|| env::var("POLICY_ID").ok())
-        .expect("Please provide a policy ID as argument or set POLICY_ID environment variable");
+        .or_else(|| env::var("KEYGEN_POLICY_ID").ok())
+        .expect("Please provide a policy ID as argument or set KEYGEN_POLICY_ID environment variable");
 
     // First, get the policy to confirm it exists
     match Policy::get(&policy_id).await {

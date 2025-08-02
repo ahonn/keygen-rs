@@ -19,8 +19,7 @@ async fn main() -> Result<(), Error> {
 
     // Get product ID from environment variable
     let product_id = env::var("KEYGEN_PRODUCT_ID")
-        .or_else(|_| env::var("PRODUCT_ID"))
-        .expect("KEYGEN_PRODUCT_ID or PRODUCT_ID must be set");
+        .expect("KEYGEN_PRODUCT_ID must be set (get from list_products example)");
 
     // Create a new policy with License authentication strategy
     let request = CreatePolicyRequest {

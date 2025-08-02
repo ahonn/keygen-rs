@@ -19,7 +19,7 @@ async fn main() -> Result<(), Error> {
     })?;
 
     // Create a new machine
-    let license_id = env::var("LICENSE_ID").expect("LICENSE_ID must be set");
+    let license_id = env::var("KEYGEN_LICENSE_ID").expect("KEYGEN_LICENSE_ID must be set");
     let fingerprint = machine_uid::get().unwrap_or("example-fingerprint".into());
 
     let mut metadata = HashMap::new();

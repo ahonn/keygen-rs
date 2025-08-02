@@ -21,8 +21,8 @@ async fn main() -> Result<(), Error> {
     // Get token ID from command line argument or environment variable
     let token_id = env::args()
         .nth(1)
-        .or_else(|| env::var("TOKEN_ID").ok())
-        .expect("Please provide a token ID as argument or set TOKEN_ID environment variable");
+        .or_else(|| env::var("KEYGEN_TOKEN_ID").ok())
+        .expect("Please provide a token ID as argument or set KEYGEN_TOKEN_ID environment variable");
 
     // First, get the token
     match Token::get(&token_id).await {

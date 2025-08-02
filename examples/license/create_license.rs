@@ -22,7 +22,7 @@ async fn main() -> Result<(), Error> {
 
     // Get required policy ID
     let policy_id =
-        env::var("POLICY_ID").expect("POLICY_ID must be set (get from list_policies example)");
+        env::var("KEYGEN_POLICY_ID").expect("KEYGEN_POLICY_ID must be set (get from list_policies example)");
 
     // Example 1: Create a basic license with all optional parameters
 
@@ -48,8 +48,8 @@ async fn main() -> Result<(), Error> {
     let expiry: DateTime<Utc> = Utc::now() + chrono::Duration::days(365);
 
     // Optional: Get user ID and group ID from environment if available
-    let owner_id = env::var("USER_ID").ok();
-    let group_id = env::var("GROUP_ID").ok();
+    let owner_id = env::var("KEYGEN_USER_ID").ok();
+    let group_id = env::var("KEYGEN_GROUP_ID").ok();
 
     let mut request = LicenseCreateRequest::new(policy_id.clone())
         .with_name("Premium License for John Doe".to_string())

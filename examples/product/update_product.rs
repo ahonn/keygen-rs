@@ -21,8 +21,8 @@ async fn main() -> Result<(), Error> {
     // Get product ID from command line argument or environment variable
     let product_id = env::args()
         .nth(1)
-        .or_else(|| env::var("PRODUCT_ID").ok())
-        .expect("Please provide a product ID as argument or set PRODUCT_ID environment variable");
+        .or_else(|| env::var("KEYGEN_PRODUCT_ID").ok())
+        .expect("Please provide a product ID as argument or set KEYGEN_PRODUCT_ID environment variable");
 
     // First, get the product
     match Product::get(&product_id).await {

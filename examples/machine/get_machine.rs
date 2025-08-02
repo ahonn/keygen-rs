@@ -18,7 +18,7 @@ async fn main() -> Result<(), Error> {
     })?;
 
     // Get a machine by ID
-    let machine_id = env::var("MACHINE_ID").expect("MACHINE_ID must be set");
+    let machine_id = env::var("KEYGEN_MACHINE_ID").expect("KEYGEN_MACHINE_ID must be set");
 
     match Machine::get(&machine_id).await {
         Ok(machine) => {
