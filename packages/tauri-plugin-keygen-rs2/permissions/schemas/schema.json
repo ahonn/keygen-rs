@@ -49,7 +49,7 @@
           "minimum": 1.0
         },
         "description": {
-          "description": "Human-readable description of what the permission does. Tauri convention is to use `<h4>` headings in markdown content for Tauri documentation generation purposes.",
+          "description": "Human-readable description of what the permission does. Tauri convention is to use <h4> headings in markdown content for Tauri documentation generation purposes.",
           "type": [
             "string",
             "null"
@@ -111,7 +111,7 @@
           "type": "string"
         },
         "description": {
-          "description": "Human-readable description of what the permission does. Tauri internal convention is to use `<h4>` headings in markdown content for Tauri documentation generation purposes.",
+          "description": "Human-readable description of what the permission does. Tauri internal convention is to use <h4> headings in markdown content for Tauri documentation generation purposes.",
           "type": [
             "string",
             "null"
@@ -297,128 +297,107 @@
         {
           "description": "Enables the activate command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-activate",
-          "markdownDescription": "Enables the activate command without any pre-configured scope."
+          "const": "allow-activate"
         },
         {
           "description": "Denies the activate command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-activate",
-          "markdownDescription": "Denies the activate command without any pre-configured scope."
+          "const": "deny-activate"
         },
         {
           "description": "Enables the checkout_license command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-checkout-license",
-          "markdownDescription": "Enables the checkout_license command without any pre-configured scope."
+          "const": "allow-checkout-license"
         },
         {
           "description": "Denies the checkout_license command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-checkout-license",
-          "markdownDescription": "Denies the checkout_license command without any pre-configured scope."
+          "const": "deny-checkout-license"
         },
         {
           "description": "Enables the checkout_machine command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-checkout-machine",
-          "markdownDescription": "Enables the checkout_machine command without any pre-configured scope."
+          "const": "allow-checkout-machine"
         },
         {
           "description": "Denies the checkout_machine command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-checkout-machine",
-          "markdownDescription": "Denies the checkout_machine command without any pre-configured scope."
+          "const": "deny-checkout-machine"
         },
         {
           "description": "Enables the deactivate command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-deactivate",
-          "markdownDescription": "Enables the deactivate command without any pre-configured scope."
+          "const": "allow-deactivate"
         },
         {
           "description": "Denies the deactivate command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-deactivate",
-          "markdownDescription": "Denies the deactivate command without any pre-configured scope."
+          "const": "deny-deactivate"
         },
         {
           "description": "Enables the get_license command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-get-license",
-          "markdownDescription": "Enables the get_license command without any pre-configured scope."
+          "const": "allow-get-license"
         },
         {
           "description": "Denies the get_license command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-get-license",
-          "markdownDescription": "Denies the get_license command without any pre-configured scope."
+          "const": "deny-get-license"
         },
         {
           "description": "Enables the get_license_key command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-get-license-key",
-          "markdownDescription": "Enables the get_license_key command without any pre-configured scope."
+          "const": "allow-get-license-key"
         },
         {
           "description": "Denies the get_license_key command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-get-license-key",
-          "markdownDescription": "Denies the get_license_key command without any pre-configured scope."
+          "const": "deny-get-license-key"
         },
         {
           "description": "Enables the get_license_metadata command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-get-license-metadata",
-          "markdownDescription": "Enables the get_license_metadata command without any pre-configured scope."
+          "const": "allow-get-license-metadata"
         },
         {
           "description": "Denies the get_license_metadata command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-get-license-metadata",
-          "markdownDescription": "Denies the get_license_metadata command without any pre-configured scope."
+          "const": "deny-get-license-metadata"
         },
         {
           "description": "Enables the is_license_valid command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-is-license-valid",
-          "markdownDescription": "Enables the is_license_valid command without any pre-configured scope."
+          "const": "allow-is-license-valid"
         },
         {
           "description": "Denies the is_license_valid command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-is-license-valid",
-          "markdownDescription": "Denies the is_license_valid command without any pre-configured scope."
+          "const": "deny-is-license-valid"
         },
         {
           "description": "Enables the reset_license command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-reset-license",
-          "markdownDescription": "Enables the reset_license command without any pre-configured scope."
+          "const": "allow-reset-license"
         },
         {
           "description": "Denies the reset_license command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-reset-license",
-          "markdownDescription": "Denies the reset_license command without any pre-configured scope."
+          "const": "deny-reset-license"
         },
         {
           "description": "Enables the validate_key command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-validate-key",
-          "markdownDescription": "Enables the validate_key command without any pre-configured scope."
+          "const": "allow-validate-key"
         },
         {
           "description": "Denies the validate_key command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-validate-key",
-          "markdownDescription": "Denies the validate_key command without any pre-configured scope."
+          "const": "deny-validate-key"
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-license`\n- `allow-is-license-valid`\n- `allow-get-license-key`\n- `allow-validate-key`\n- `allow-activate`\n- `allow-deactivate`\n- `allow-checkout-license`\n- `allow-checkout-machine`\n- `allow-reset-license`\n- `allow-get-license-metadata`",
+          "description": "Default permissions for the plugin",
           "type": "string",
-          "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-license`\n- `allow-is-license-valid`\n- `allow-get-license-key`\n- `allow-validate-key`\n- `allow-activate`\n- `allow-deactivate`\n- `allow-checkout-license`\n- `allow-checkout-machine`\n- `allow-reset-license`\n- `allow-get-license-metadata`"
+          "const": "default"
         }
       ]
     }

@@ -243,18 +243,19 @@ impl MachineFile {
         Ok(dataset.offline_entitlements().unwrap_or(&vec![]).clone())
     }
 
-    /// Get machines from the machine file without making an API call
-    /// Requires the decryption key and the machine file to include machines
-    pub fn machines(&self, key: &str) -> Result<Vec<Machine>, Error> {
-        let dataset = self.decrypt(key)?;
-        Ok(dataset.offline_machines().unwrap_or(&vec![]).clone())
-    }
 
     /// Get components from the machine file without making an API call
     /// Requires the decryption key and the machine file to include components
     pub fn components(&self, key: &str) -> Result<Vec<Component>, Error> {
         let dataset = self.decrypt(key)?;
         Ok(dataset.offline_components().unwrap_or(&vec![]).clone())
+    }
+
+    /// Get groups from the machine file without making an API call
+    /// Requires the decryption key and the machine file to include groups
+    pub fn groups(&self, key: &str) -> Result<Vec<crate::license_file::Group>, Error> {
+        let dataset = self.decrypt(key)?;
+        Ok(dataset.offline_groups().unwrap_or(&vec![]).clone())
     }
 
 }
@@ -324,7 +325,6 @@ mod tests {
         assert_eq!(included.entitlements[0].code, "feature-a");
         assert_eq!(included.entitlements[0].name, Some("Feature A".to_string()));
 
-        assert_eq!(included.machines.len(), 0);
 
         assert_eq!(included.components.len(), 1);
         assert_eq!(included.components[0].id, "comp1");
@@ -371,13 +371,14 @@ impl MachineFileDataset {
         self.included.as_ref().map(|inc| &inc.entitlements)
     }
 
-    /// Get cached machines without making an API call
-    pub fn offline_machines(&self) -> Option<&Vec<Machine>> {
-        self.included.as_ref().map(|inc| &inc.machines)
-    }
 
     /// Get cached components without making an API call
     pub fn offline_components(&self) -> Option<&Vec<Component>> {
         self.included.as_ref().map(|inc| &inc.components)
+    }
+
+    /// Get cached groups without making an API call
+    pub fn offline_groups(&self) -> Option<&Vec<crate::license_file::Group>> {
+        self.included.as_ref().map(|inc| &inc.groups)
     }
 }

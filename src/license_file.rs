@@ -13,23 +13,31 @@ use crate::{
     entitlement::Entitlement,
     errors::Error,
     license::{License, LicenseAttributes},
-    machine::Machine,
     verifier::Verifier,
     KeygenResponseData,
 };
 
 
-/// Container for included relationship data from license checkout
-/// Note: By default, licenses can only include entitlements, machines, and components
-/// Other relationships require special permissions
+/// Simple Group representation for included relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Group {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub metadata: std::collections::HashMap<String, serde_json::Value>,
+}
+
+/// Container for included relationship data from license/machine checkout
+/// For License Checkout: entitlements, group
+/// For Machine Checkout: license.entitlements, components, group
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IncludedResources {
     #[serde(default)]
     pub entitlements: Vec<Entitlement>,
     #[serde(default)]
-    pub machines: Vec<Machine>,
+    pub components: Vec<Component>, // Only for machine checkout
     #[serde(default)]
-    pub components: Vec<Component>,
+    pub groups: Vec<Group>,
 }
 
 impl IncludedResources {
@@ -37,8 +45,8 @@ impl IncludedResources {
     pub fn parse_from_json(included_value: &Value) -> Result<Self, Error> {
         let mut included = Self {
             entitlements: Vec::new(),
-            machines: Vec::new(),
             components: Vec::new(),
+            groups: Vec::new(),
         };
 
         if let Some(included_array) = included_value.as_array() {
@@ -53,14 +61,6 @@ impl IncludedResources {
                                 included
                                     .entitlements
                                     .push(Entitlement::from(entitlement_data));
-                            }
-                        }
-                        "machines" => {
-                            if let Ok(machine_data) = serde_json::from_value::<
-                                KeygenResponseData<crate::machine::MachineAttributes>,
-                            >(item.clone())
-                            {
-                                included.machines.push(Machine::from(machine_data));
                             }
                         }
                         "components" => {
@@ -80,11 +80,32 @@ impl IncludedResources {
                                 }
                             }
                         }
+                        "groups" => {
+                            // Parse group data - simplified structure
+                            if let Some(id) = item.get("id").and_then(|i| i.as_str()) {
+                                if let Some(attrs) = item.get("attributes") {
+                                    let name = attrs.get("name")
+                                        .and_then(|n| n.as_str())
+                                        .unwrap_or("Unknown Group")
+                                        .to_string();
+                                    let metadata = attrs.get("metadata")
+                                        .and_then(|m| m.as_object())
+                                        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+                                        .unwrap_or_default();
+
+                                    included.groups.push(Group {
+                                        id: id.to_string(),
+                                        name,
+                                        metadata,
+                                    });
+                                }
+                            }
+                        }
                         "licenses" => {
                             // Skip licenses as they are handled separately in machine files
                         }
                         _ => {
-                            // Ignore other types
+                            // Ignore other types (users, owner, product, policy, environment need special permissions)
                         }
                     }
                 }
@@ -183,18 +204,19 @@ impl LicenseFile {
         Ok(dataset.offline_entitlements().unwrap_or(&vec![]).clone())
     }
 
-    /// Get machines from the license file without making an API call
-    /// Requires the decryption key and the license file to include machines
-    pub fn machines(&self, key: &str) -> Result<Vec<Machine>, Error> {
-        let dataset = self.decrypt(key)?;
-        Ok(dataset.offline_machines().unwrap_or(&vec![]).clone())
-    }
 
     /// Get components from the license file without making an API call
     /// Requires the decryption key and the license file to include components
     pub fn components(&self, key: &str) -> Result<Vec<Component>, Error> {
         let dataset = self.decrypt(key)?;
         Ok(dataset.offline_components().unwrap_or(&vec![]).clone())
+    }
+
+    /// Get groups from the license file without making an API call
+    /// Requires the decryption key and the license file to include groups
+    pub fn groups(&self, key: &str) -> Result<Vec<Group>, Error> {
+        let dataset = self.decrypt(key)?;
+        Ok(dataset.offline_groups().unwrap_or(&vec![]).clone())
     }
 
     fn _decrypt(key: &str, content: &str) -> Result<LicenseFileDataset, Error> {
@@ -278,14 +300,15 @@ impl LicenseFileDataset {
         self.included.as_ref().map(|inc| &inc.entitlements)
     }
 
-    /// Get cached machines without making an API call
-    pub fn offline_machines(&self) -> Option<&Vec<Machine>> {
-        self.included.as_ref().map(|inc| &inc.machines)
-    }
 
     /// Get cached components without making an API call
     pub fn offline_components(&self) -> Option<&Vec<Component>> {
         self.included.as_ref().map(|inc| &inc.components)
+    }
+
+    /// Get cached groups without making an API call
+    pub fn offline_groups(&self) -> Option<&Vec<Group>> {
+        self.included.as_ref().map(|inc| &inc.groups)
     }
 }
 
@@ -314,28 +337,6 @@ mod tests {
                 }
             },
             {
-                "type": "machines",
-                "id": "machine1",
-                "attributes": {
-                    "fingerprint": "test-fingerprint",
-                    "name": "Test Machine",
-                    "platform": "Linux",
-                    "hostname": "test-host",
-                    "ip": "192.168.1.100",
-                    "cores": 4,
-                    "metadata": {},
-                    "requireHeartbeat": false,
-                    "heartbeatStatus": "NOT_STARTED",
-                    "heartbeatDuration": null,
-                    "created": "2023-01-01T00:00:00Z",
-                    "updated": "2023-01-01T00:00:00Z"
-                },
-                "relationships": {
-                    "account": {"data": {"type": "accounts", "id": "acc1"}},
-                    "license": {"data": {"type": "licenses", "id": "lic1"}}
-                }
-            },
-            {
                 "type": "components",
                 "id": "comp1",
                 "attributes": {
@@ -353,9 +354,6 @@ mod tests {
         assert_eq!(included.entitlements[0].code, "feature-a");
         assert_eq!(included.entitlements[0].name, Some("Feature A".to_string()));
 
-        assert_eq!(included.machines.len(), 1);
-        assert_eq!(included.machines[0].fingerprint, "test-fingerprint");
-        assert_eq!(included.machines[0].name, Some("Test Machine".to_string()));
 
         assert_eq!(included.components.len(), 1);
         assert_eq!(included.components[0].id, "comp1");
@@ -375,12 +373,12 @@ mod tests {
                 updated: chrono::Utc::now(),
                 account_id: Some("acc1".to_string()),
             }],
-            machines: vec![],
             components: vec![Component {
                 id: "comp1".to_string(),
                 fingerprint: "test-fingerprint".to_string(),
                 name: "Test Component".to_string(),
             }],
+            groups: vec![],
         };
 
         let dataset = LicenseFileDataset {
@@ -417,7 +415,6 @@ mod tests {
         assert_eq!(dataset.offline_entitlements().unwrap().len(), 1);
         assert_eq!(dataset.offline_entitlements().unwrap()[0].code, "test-code");
 
-        assert_eq!(dataset.offline_machines().unwrap().len(), 0);
 
         assert_eq!(dataset.offline_components().unwrap().len(), 1);
         assert_eq!(
