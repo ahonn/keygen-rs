@@ -12,6 +12,11 @@ members = [
   "./packages/tauri-plugin-keygen-rs2"
 ]
 
+[workspace.package]
+version = "0.6.2"
+license = "MIT"
+edition = "2021"
+
 [package.metadata.rust-analyzer]
 cargo.features = ["token"]
 

@@ -33,37 +33,24 @@ async fn main() -> Result<(), Error> {
         .collect();
 
     if entitlement_ids.is_empty() {
-        eprintln!("❌ No entitlement IDs provided");
-        eprintln!("💡 Set KEYGEN_ENTITLEMENT_IDS with comma-separated entitlement IDs to detach");
+        eprintln!("No entitlement IDs provided");
+        eprintln!("Set KEYGEN_ENTITLEMENT_IDS with comma-separated entitlement IDs to detach");
         return Ok(());
     }
 
-    println!("🔍 Fetching license: {}", license_id);
-    
     // Get the license
     let license = License::get(&license_id).await?;
     
-    println!("✅ License found: {}", license.key);
-    println!("  Name: {:?}", license.name.as_deref().unwrap_or("N/A"));
-    println!("  Status: {:?}", license.status.as_deref().unwrap_or("N/A"));
+    println!("License: {} ({})", license.id, license.key);
 
     // Display current entitlements before detaching
-    println!("\n📋 Current entitlements:");
     let current_entitlements = license.entitlements(None).await?;
     if current_entitlements.is_empty() {
-        println!("  No entitlements currently attached");
-        println!("💡 Nothing to detach!");
+        println!("No entitlements currently attached");
         return Ok(());
-    } else {
-        for entitlement in &current_entitlements {
-            let will_be_detached = entitlement_ids.contains(&entitlement.id);
-            let marker = if will_be_detached { "🗑️" } else { "📌" };
-            println!("  {} {} ({})", marker, entitlement.code, entitlement.id);
-            if let Some(name) = &entitlement.name {
-                println!("      Name: {}", name);
-            }
-        }
     }
+    
+    println!("Current entitlements: {}", current_entitlements.len());
 
     // Check if the entitlements to detach actually exist
     let existing_ids: Vec<String> = current_entitlements.iter().map(|e| e.id.clone()).collect();
@@ -80,77 +67,30 @@ async fn main() -> Result<(), Error> {
         .collect();
 
     if !missing_ids.is_empty() {
-        println!("\n⚠️  Warning: Some entitlements are not attached to this license:");
+        println!("Warning: Some entitlements are not attached to this license:");
         for id in &missing_ids {
-            println!("  - {}", id);
+            println!("  {}", id);
         }
     }
 
     if ids_to_detach.is_empty() {
-        println!("\n❌ No valid entitlements to detach!");
+        println!("No valid entitlements to detach");
         return Ok(());
     }
-
-    println!("\n🔓 Detaching entitlements from license...");
-    println!("  Entitlement IDs to detach: {:?}", ids_to_detach);
 
     // Detach the entitlements
     license.detach_entitlements(&ids_to_detach).await?;
 
-    println!("✅ Successfully detached {} entitlement(s)!", ids_to_detach.len());
+    println!("Detached {} entitlement(s)", ids_to_detach.len());
 
     // Verify the entitlements were detached
-    println!("\n🔍 Verifying entitlements were detached...");
     let updated_entitlements = license.entitlements(None).await?;
     
-    println!("📋 Updated entitlements list:");
-    if updated_entitlements.is_empty() {
-        println!("  No entitlements attached (all were detached or none existed)");
-    } else {
-        for entitlement in &updated_entitlements {
-            println!("  📌 {} ({})", entitlement.code, entitlement.id);
-            if let Some(name) = &entitlement.name {
-                println!("      Name: {}", name);
-            }
-        }
+    println!("Remaining entitlements: {}", updated_entitlements.len());
+    for entitlement in &updated_entitlements {
+        println!("  {} ({})", entitlement.code, entitlement.id);
     }
 
-    // Show usage example if entitlements remain
-    if !updated_entitlements.is_empty() {
-        println!("\n{:=<60}", "");
-        println!("Usage Example");
-        println!("{:=<60}", "");
-        println!("To validate this license with the remaining entitlements, use:");
-        println!();
-        
-        let entitlement_codes: Vec<String> = updated_entitlements
-            .iter()
-            .map(|e| e.code.clone())
-            .collect();
-
-        println!("```rust");
-        println!("let license = keygen_rs::validate(");
-        println!("    &[fingerprint],");
-        println!("    &{:?}", entitlement_codes);
-        println!(").await?;");
-        println!("```");
-    } else {
-        println!("\n💡 This license now has no entitlements attached.");
-        println!("   Validation will not check for specific entitlements.");
-    }
-
-    // Summary
-    println!("\n{:=<60}", "");
-    println!("Summary");
-    println!("{:=<60}", "");
-    println!("License ID: {}", license.id);
-    println!("Entitlements before detach: {}", current_entitlements.len());
-    println!("Entitlements after detach: {}", updated_entitlements.len());
-    println!("Entitlements removed: {}", ids_to_detach.len());
-    
-    if !missing_ids.is_empty() {
-        println!("Entitlements not found: {}", missing_ids.len());
-    }
 
     Ok(())
 }
