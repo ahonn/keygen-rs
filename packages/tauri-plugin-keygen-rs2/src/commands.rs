@@ -107,7 +107,7 @@ pub async fn checkout_license<R: Runtime>(
     app_handle: AppHandle<R>,
 ) -> Result<LicenseFile> {
     let license_state = app_handle.get_license_state();
-    let license_state = license_state.lock().await;
+    let mut license_state = license_state.lock().await;
 
     let options = LicenseCheckoutOpts { ttl, include };
     let license_file = license_state.checkout(&app_handle, &options).await?;

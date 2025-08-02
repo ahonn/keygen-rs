@@ -1,10 +1,3 @@
-[package]
-name = "keygen-rs"
-version = "0.6.2"
-description = "Unofficial Rust SDK for integrating with the keygen.sh licensing service."
-license = "MIT"
-edition = "2021"
-
 [workspace]
 members = [
   ".",
@@ -12,8 +5,15 @@ members = [
   "./packages/tauri-plugin-keygen-rs2"
 ]
 
+[package]
+name = "keygen-rs"
+version.workspace = true
+description = "Unofficial Rust SDK for integrating with the keygen.sh licensing service."
+license.workspace = true
+edition.workspace = true
+
 [workspace.package]
-version = "0.6.2"
+version = "0.7.0"
 license = "MIT"
 edition = "2021"
 

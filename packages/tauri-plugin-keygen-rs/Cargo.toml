@@ -1,15 +1,15 @@
 [package]
 name = "tauri-plugin-keygen-rs"
-version = "0.4.3"
+version.workspace = true
 authors = ["ahonn"]
 description = "Tauri plugin for Keygen.sh licensing, based on keygen-rs"
-license = "MIT"
-edition = "2021"
+license.workspace = true
+edition.workspace = true
 rust-version = "1.60"
 exclude = ["/examples", "/webview-dist", "/webview-src", "node_modules"]
 
 [dependencies]
-tauri = { version = "1", features = ["os-api"] }
+tauri = { version = "1", features = ["os-all"] }
 serde = "1.0"
 serde_json = "1.0"
 thiserror = "1.0"
@@ -18,5 +18,5 @@ machine-uid = "0.5.1"
 whoami = "1.5.1"
 lazy_static = "1.4.0"
 log = { version = "0.4", features = ["std"] }
-# keygen-rs = "0.4.2"
-keygen-rs = { path = "../.." }
+keygen-rs = "0.7.0"
+# keygen-rs = { path = "../.." }

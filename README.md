@@ -28,7 +28,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keygen-rs = "0.6"
+keygen-rs = "0.7"
 ```
 
 ### Feature Flags
@@ -40,13 +40,13 @@ The SDK uses feature flags to minimize binary size:
 
 ```toml
 # For end-user features only (default)
-keygen-rs = "0.6"
+keygen-rs = "0.7"
 
 # For administrative features
-keygen-rs = { version = "0.6", features = ["token"] }
+keygen-rs = { version = "0.7", features = ["token"] }
 
 # For both end-user and administrative features
-keygen-rs = { version = "0.6", features = ["license-key", "token"] }
+keygen-rs = { version = "0.7", features = ["license-key", "token"] }
 ```
 
 ## Tauri Plugin
