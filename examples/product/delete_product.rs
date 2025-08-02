@@ -27,7 +27,7 @@ async fn main() -> Result<(), Error> {
     // First, get the product to ensure it exists
     match Product::get(&product_id).await {
         Ok(product) => {
-            println!("📦 Found product:");
+            println!("Found product:");
             println!("  ID: {}", product.id);
             println!("  Name: {}", product.name);
             println!("  Code: {:?}", product.code);
@@ -35,15 +35,15 @@ async fn main() -> Result<(), Error> {
             // Delete the product
             match product.delete().await {
                 Ok(()) => {
-                    println!("✅ Product deleted successfully!");
+                    println!("Product deleted: {}", product.id);
                 }
                 Err(e) => {
-                    println!("❌ Failed to delete product: {:?}", e);
+                    println!("Failed to delete product: {:?}", e);
                 }
             }
         }
         Err(e) => {
-            println!("❌ Failed to find product: {:?}", e);
+            println!("Failed to find product: {:?}", e);
         }
     }
 

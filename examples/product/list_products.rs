@@ -21,7 +21,7 @@ async fn main() -> Result<(), Error> {
     // List all products
     match Product::list(None).await {
         Ok(products) => {
-            println!("✅ Found {} products:", products.len());
+            println!("Found {} products:", products.len());
             for product in products {
                 println!("  ID: {}", product.id);
                 println!("  Name: {}", product.name);
@@ -31,13 +31,13 @@ async fn main() -> Result<(), Error> {
                 );
                 println!("  Platforms: {:?}", product.platforms);
                 println!("  Created: {}", product.created);
-                println!("  🔗 Relationships:");
+                println!("  Relationships:");
                 println!("    Account ID: {:?}", product.account_id);
                 println!("  ---");
             }
         }
         Err(e) => {
-            println!("❌ Failed to list products: {:?}", e);
+            println!("Failed to list products: {:?}", e);
         }
     }
 

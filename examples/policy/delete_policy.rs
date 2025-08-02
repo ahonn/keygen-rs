@@ -61,10 +61,10 @@ async fn main() -> Result<(), Error> {
                 // Delete the policy
                 match policy.delete().await {
                     Ok(_) => {
-                        println!("✅ Policy deleted successfully!");
+                        println!("policy action completed");
                     }
                     Err(e) => {
-                        println!("❌ Failed to delete policy: {:?}", e);
+                        println!("Failed to delete policy: {:?}", e);
                     }
                 }
             } else {
@@ -72,7 +72,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("❌ Failed to get policy: {:?}", e);
+            println!("Failed to get policy: {:?}", e);
         }
     }
 

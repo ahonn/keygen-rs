@@ -21,7 +21,7 @@ async fn main() -> Result<(), Error> {
     // List all licenses (basic usage)
     match License::list(None).await {
         Ok(licenses) => {
-            println!("✅ Found {} licenses:", licenses.len());
+            println!("Found {} licenses:", licenses.len());
             for license in licenses {
                 println!("  ID: {}", license.id);
                 println!("  Key: {}", license.key);
@@ -34,7 +34,7 @@ async fn main() -> Result<(), Error> {
                 println!("  Protected: {:?}", license.protected);
                 println!("  Suspended: {:?}", license.suspended);
                 println!("  Expiry: {:?}", license.expiry);
-                println!("  🔗 Relationships:");
+                println!("  Relationships:");
                 println!("    Account ID: {:?}", license.account_id);
                 println!("    Product ID: {:?}", license.product_id);
                 println!("    Group ID: {:?}", license.group_id);
@@ -44,7 +44,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("❌ Failed to list licenses: {:?}", e);
+            println!("Failed to list licenses: {:?}", e);
         }
     }
 

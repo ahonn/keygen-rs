@@ -25,7 +25,7 @@ async fn main() -> Result<(), Error> {
     // Get specific user
     match user::get(&user_id).await {
         Ok(user) => {
-            println!("✅ User found:");
+            println!("Action completed:");
             println!("ID: {}", user.id);
             println!("Email: {}", user.email);
             println!("First Name: {:?}", user.first_name);
@@ -47,7 +47,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("❌ Failed to get user: {:?}", e);
+            println!("Failed to get user: {:?}", e);
         }
     }
 

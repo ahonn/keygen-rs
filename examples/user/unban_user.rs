@@ -25,13 +25,13 @@ async fn main() -> Result<(), Error> {
     // Unban user
     match user::unban(&user_id).await {
         Ok(user) => {
-            println!("✅ User unbanned successfully!");
+            println!("user action completed");
             println!("ID: {}", user.id);
             println!("Email: {}", user.email);
             println!("Status: {:?}", user.status);
         }
         Err(e) => {
-            println!("❌ Failed to unban user: {:?}", e);
+            println!("Failed to unban user: {:?}", e);
         }
     }
 

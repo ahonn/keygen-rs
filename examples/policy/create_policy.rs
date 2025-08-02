@@ -32,7 +32,7 @@ async fn main() -> Result<(), Error> {
 
     match Policy::create(request).await {
         Ok(policy) => {
-            println!("✅ Policy created successfully!");
+            println!("Policy created: {}", policy.id);
             println!("ID: {}", policy.id);
             println!("Name: {}", policy.name);
             println!("Duration: {:?} seconds", policy.duration);
@@ -40,7 +40,7 @@ async fn main() -> Result<(), Error> {
             println!("Expiration Strategy: {:?}", policy.expiration_strategy);
         }
         Err(e) => {
-            println!("❌ Failed to create policy: {:?}", e);
+            println!("Failed to create policy: {:?}", e);
         }
     }
 

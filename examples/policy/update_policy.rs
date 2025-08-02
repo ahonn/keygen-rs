@@ -75,12 +75,12 @@ async fn main() -> Result<(), Error> {
                     println!("  New Metadata: {:?}", updated_policy.metadata);
                 }
                 Err(e) => {
-                    println!("\n❌ Failed to update policy: {:?}", e);
+                    println!("\nFailed to update policy: {:?}", e);
                 }
             }
         }
         Err(e) => {
-            println!("❌ Failed to get policy: {:?}", e);
+            println!("Failed to get policy: {:?}", e);
         }
     }
 

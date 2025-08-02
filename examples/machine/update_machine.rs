@@ -46,7 +46,7 @@ async fn main() -> Result<(), Error> {
 
     match machine.update(request).await {
         Ok(updated_machine) => {
-            println!("✅ Machine updated successfully!");
+            println!("Machine updated: {}", updated_machine.id);
             println!("ID: {}", updated_machine.id);
             println!("Fingerprint: {}", updated_machine.fingerprint);
             println!("Name: {:?}", updated_machine.name);
@@ -58,7 +58,7 @@ async fn main() -> Result<(), Error> {
             println!("Updated: {}", updated_machine.updated);
         }
         Err(e) => {
-            println!("❌ Failed to update machine: {:?}", e);
+            println!("Failed to update machine: {:?}", e);
         }
     }
 

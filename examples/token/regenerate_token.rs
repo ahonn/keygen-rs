@@ -58,12 +58,12 @@ async fn main() -> Result<(), Error> {
                     println!("  Updated: {}", regenerated_token.updated);
                 }
                 Err(e) => {
-                    println!("❌ Failed to regenerate token: {:?}", e);
+                    println!("Failed to regenerate token: {:?}", e);
                 }
             }
         }
         Err(e) => {
-            println!("❌ Failed to find token: {:?}", e);
+            println!("Failed to find token: {:?}", e);
         }
     }
 

@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("   Health Status: {}", health_status);
 
             // Additional diagnostics
-            println!("\n📋 Diagnostic Information:");
+            println!("\nDiagnostic Information:");
 
             match service::get_service_info().await {
                 Ok(info) => {

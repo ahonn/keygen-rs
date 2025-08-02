@@ -24,7 +24,7 @@ async fn main() -> Result<(), Error> {
 
     // Fetch the license
     let license = License::get(&license_id).await?;
-    println!("📋 Current License Details:");
+    println!("Current License Details:");
     println!("  ID: {}", license.id);
     println!("  Name: {:?}", license.name);
     println!("  Expiry: {:?}", license.expiry);
@@ -45,8 +45,8 @@ async fn main() -> Result<(), Error> {
     
     let updated_license = license.update(request).await?;
 
-    println!("\n✅ License updated successfully!");
-    println!("📋 Updated License Details:");
+    println!("License updated: {}", updated_license.id);
+    println!("Updated License Details:");
     println!("  ID: {}", updated_license.id);
     println!("  Name: {:?}", updated_license.name);
     println!("  Expiry: {:?}", updated_license.expiry);

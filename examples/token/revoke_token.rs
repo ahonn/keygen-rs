@@ -40,12 +40,12 @@ async fn main() -> Result<(), Error> {
                     println!("⚠️  This token is now invalid and cannot be used for API requests.");
                 }
                 Err(e) => {
-                    println!("❌ Failed to revoke token: {:?}", e);
+                    println!("Failed to revoke token: {:?}", e);
                 }
             }
         }
         Err(e) => {
-            println!("❌ Failed to find token: {:?}", e);
+            println!("Failed to find token: {:?}", e);
         }
     }
 

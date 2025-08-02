@@ -27,26 +27,26 @@ async fn main() -> Result<(), Error> {
     // Get the token details
     match Token::get(&token_id).await {
         Ok(token) => {
-            println!("✅ Token found!");
+            println!("Token found: {}", token.id);
             println!("  ID: {}", token.id);
             println!("  Kind: {:?}", token.kind);
             println!("  Name: {:?}", token.name);
             println!("  Permissions: {:?}", token.permissions);
             println!("  Expiry: {:?}", token.expiry);
             if token.is_expired() {
-                println!("  ⚠️  Status: EXPIRED");
+                println!("  Status: EXPIRED");
             } else {
-                println!("  ✅ Status: Active");
+                println!("  Status: Active");
             }
             println!("  Metadata: {:?}", token.metadata);
             println!("  Created: {}", token.created);
             println!("  Updated: {}", token.updated);
 
             // Note: Token value is not returned in GET requests for security
-            println!("\n📝 Note: Token value is not returned for security reasons. It's only shown during generation/regeneration.");
+            println!("Note: Token value is not returned for security reasons. It's only shown during generation/regeneration.");
         }
         Err(e) => {
-            println!("❌ Failed to get token: {:?}", e);
+            println!("Failed to get token: {:?}", e);
         }
     }
 

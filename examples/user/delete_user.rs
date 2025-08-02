@@ -55,10 +55,10 @@ async fn main() -> Result<(), Error> {
     // Delete user
     match user::delete(&user_id).await {
         Ok(()) => {
-            println!("✅ User deleted successfully!");
+            println!("user action completed");
         }
         Err(e) => {
-            println!("❌ Failed to delete user: {:?}", e);
+            println!("Failed to delete user: {:?}", e);
         }
     }
 

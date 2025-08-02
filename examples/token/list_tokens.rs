@@ -21,7 +21,7 @@ async fn main() -> Result<(), Error> {
     // List all tokens
     match Token::list(None).await {
         Ok(tokens) => {
-            println!("✅ Found {} tokens:", tokens.len());
+            println!("Action completed:", tokens.len());
             for token in tokens {
                 println!("  ID: {}", token.id);
                 println!("  Kind: {:?}", token.kind);
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Error> {
                 if token.is_expired() {
                     println!("  ⚠️  Status: EXPIRED");
                 } else {
-                    println!("  ✅ Status: Active");
+                    println!("  Action completed: Active");
                 }
                 println!("  Created: {}", token.created);
                 println!("  Updated: {}", token.updated);
@@ -39,7 +39,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("❌ Failed to list tokens: {:?}", e);
+            println!("Failed to list tokens: {:?}", e);
         }
     }
 

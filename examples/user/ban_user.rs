@@ -25,13 +25,13 @@ async fn main() -> Result<(), Error> {
     // Ban user
     match user::ban(&user_id).await {
         Ok(user) => {
-            println!("✅ User banned successfully!");
+            println!("user action completed");
             println!("ID: {}", user.id);
             println!("Email: {}", user.email);
             println!("Status: {:?}", user.status);
         }
         Err(e) => {
-            println!("❌ Failed to ban user: {:?}", e);
+            println!("Failed to ban user: {:?}", e);
         }
     }
 

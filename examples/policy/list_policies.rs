@@ -20,7 +20,7 @@ async fn main() -> Result<(), Error> {
     // List all policies
     match Policy::list(None).await {
         Ok(policies) => {
-            println!("✅ Found {} policies:", policies.len());
+            println!("Action completed:", policies.len());
             for policy in policies {
                 println!("  ID: {}", policy.id);
                 println!("  Name: {}", policy.name);
@@ -28,14 +28,14 @@ async fn main() -> Result<(), Error> {
                 println!("  Max Machines: {:?}", policy.max_machines);
                 println!("  Expiration Strategy: {:?}", policy.expiration_strategy);
                 println!("  Created: {}", policy.created);
-                println!("  🔗 Relationships:");
+                println!("  Relationships:");
                 println!("    Account ID: {:?}", policy.account_id);
                 println!("    Product ID: {:?}", policy.product_id);
                 println!("  ---");
             }
         }
         Err(e) => {
-            println!("❌ Failed to list policies: {:?}", e);
+            println!("Failed to list policies: {:?}", e);
         }
     }
 

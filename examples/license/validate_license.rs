@@ -21,7 +21,7 @@ async fn main() -> Result<(), Error> {
     let fingerprint = machine_uid::get().unwrap_or("".into());
     let license = keygen_rs::validate(&[fingerprint], &[]).await?;
 
-    println!("✅ License validated successfully!");
+    println!("License validated: {}", license.id);
     println!("License ID: {}", license.id);
     println!("License Key: {}", license.key);
     println!("Status: {:?}", license.status);

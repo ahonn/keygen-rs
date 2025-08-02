@@ -45,7 +45,7 @@ async fn main() -> Result<(), Error> {
 
     match Machine::create(request).await {
         Ok(machine) => {
-            println!("✅ Machine created successfully!");
+            println!("Machine created: {}", machine.id);
             println!("ID: {}", machine.id);
             println!("Fingerprint: {}", machine.fingerprint);
             println!("Name: {:?}", machine.name);
@@ -57,7 +57,7 @@ async fn main() -> Result<(), Error> {
             println!("Created: {}", machine.created);
         }
         Err(e) => {
-            println!("❌ Failed to create machine: {:?}", e);
+            println!("Failed to create machine: {:?}", e);
         }
     }
 

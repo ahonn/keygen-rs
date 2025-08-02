@@ -45,7 +45,7 @@ async fn main() -> Result<(), Error> {
 
     match user::update(&user_id, request).await {
         Ok(user) => {
-            println!("✅ User updated successfully!");
+            println!("user action completed");
             println!("ID: {}", user.id);
             println!("Email: {}", user.email);
             println!("Full Name: {:?}", user.full_name);
@@ -55,7 +55,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("❌ Failed to update user: {:?}", e);
+            println!("Failed to update user: {:?}", e);
         }
     }
 

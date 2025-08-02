@@ -22,7 +22,7 @@ async fn main() -> Result<(), Error> {
 
     match Machine::get(&machine_id).await {
         Ok(machine) => {
-            println!("✅ Machine found!");
+            println!("Machine found: {}", machine.id);
             println!("ID: {}", machine.id);
             println!("Fingerprint: {}", machine.fingerprint);
             println!("Name: {:?}", machine.name);
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Error> {
             println!("Updated: {}", machine.updated);
         }
         Err(e) => {
-            println!("❌ Failed to get machine: {:?}", e);
+            println!("Failed to get machine: {:?}", e);
         }
     }
 

@@ -20,12 +20,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..KeygenConfig::default()
     })?;
 
-    println!("🏓 Pinging Keygen service...\n");
+    println!("Pinging Keygen service...");
 
     // Basic ping
     match service::ping().await {
         Ok(ping_response) => {
-            println!("✅ Service is healthy!");
+            println!("Service is healthy");
             println!("   Message: {}", ping_response.message);
             if let Some(version) = &ping_response.version {
                 println!("   Version: {}", version);
@@ -35,17 +35,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(e) => {
-            eprintln!("❌ Failed to ping service: {}", e);
+            eprintln!("Failed to ping service: {}", e);
             return Err(e.into());
         }
     }
 
-    println!("\n📊 Getting detailed service information...\n");
+    println!("Getting detailed service information...");
 
     // Get detailed service info
     match service::get_service_info().await {
         Ok(service_info) => {
-            println!("✅ Service information retrieved!");
+            println!("Service information retrieved");
 
             if let Some(api_version) = &service_info.api_version {
                 println!("   API Version: {}", api_version);
@@ -67,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Check feature support
-            println!("\n🔍 Feature support checks:");
+            println!("Feature support checks:");
 
             println!(
                 "   Product codes (v1.8+): {}",
@@ -80,24 +80,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         Err(e) => {
-            eprintln!("❌ Failed to get service info: {}", e);
+            eprintln!("Failed to get service info: {}", e);
             return Err(e.into());
         }
     }
 
-    println!("\n🚀 Checking specific feature support...\n");
+    println!("Checking specific feature support...");
 
     // Check if product code field is supported
     match service::supports_product_code().await {
         Ok(supports) => {
             if supports {
-                println!("✅ Product codes are supported by this Keygen instance");
+                println!("Product codes are supported by this Keygen instance");
             } else {
-                println!("⚠️  Product codes are not supported (requires API v1.8+)");
+                println!("Product codes are not supported (requires API v1.8+)");
             }
         }
         Err(e) => {
-            eprintln!("❌ Failed to check product code support: {}", e);
+            eprintln!("Failed to check product code support: {}", e);
         }
     }
 

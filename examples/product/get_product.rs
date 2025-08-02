@@ -27,7 +27,7 @@ async fn main() -> Result<(), Error> {
     // Get the product details
     match Product::get(&product_id).await {
         Ok(product) => {
-            println!("✅ Product found!");
+            println!("Product found: {}", product.id);
             println!("  ID: {}", product.id);
             println!("  Name: {}", product.name);
             println!("  Code: {:?}", product.code);
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Error> {
             println!("  Updated: {}", product.updated);
         }
         Err(e) => {
-            println!("❌ Failed to get product: {:?}", e);
+            println!("Failed to get product: {:?}", e);
         }
     }
 

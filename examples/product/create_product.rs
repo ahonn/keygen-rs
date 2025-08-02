@@ -31,15 +31,14 @@ async fn main() -> Result<(), Error> {
 
     match Product::create(request).await {
         Ok(product) => {
-            println!("✅ Product created successfully!");
-            println!("ID: {}", product.id);
+            println!("Product created: {}", product.id);
             println!("Name: {}", product.name);
             println!("Code: {:?}", product.code);
             println!("Distribution Strategy: {:?}", product.distribution_strategy);
             println!("Platforms: {:?}", product.platforms);
         }
         Err(e) => {
-            println!("❌ Failed to create product: {:?}", e);
+            println!("Failed to create product: {:?}", e);
         }
     }
 

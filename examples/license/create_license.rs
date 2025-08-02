@@ -25,7 +25,6 @@ async fn main() -> Result<(), Error> {
         env::var("POLICY_ID").expect("POLICY_ID must be set (get from list_policies example)");
 
     // Example 1: Create a basic license with all optional parameters
-    println!("🔧 Creating license with all parameters...");
 
     // Create metadata for the license
     let mut metadata = HashMap::new();
@@ -67,36 +66,28 @@ async fn main() -> Result<(), Error> {
 
     match License::create(request).await {
         Ok(license) => {
-            println!(
-                "✅ Full-featured license created: {} ({})",
-                license.id, license.key
-            );
+            println!("License created: {} ({})", license.id, license.key);
         }
         Err(e) => {
-            println!("❌ Failed to create full-featured license: {:?}", e);
+            println!("Failed to create license: {:?}", e);
             return Err(e);
         }
     }
 
     // Example 2: Create a minimal license (only policy required)
-    println!("🔧 Creating minimal license (policy only)...");
 
     let minimal_request = LicenseCreateRequest::new(policy_id.clone());
 
     match License::create(minimal_request).await {
         Ok(license) => {
-            println!(
-                "✅ Minimal license created: {} ({})",
-                license.id, license.key
-            );
+            println!("License created: {} ({})", license.id, license.key);
         }
         Err(e) => {
-            println!("❌ Failed to create minimal license: {:?}", e);
+            println!("Failed to create license: {:?}", e);
         }
     }
 
     // Example 3: Create a license with just name and machine limit
-    println!("🔧 Creating license with name and machine limit...");
 
     let standard_request = LicenseCreateRequest::new(policy_id.clone())
         .with_name("Standard License".to_string())
@@ -104,18 +95,14 @@ async fn main() -> Result<(), Error> {
 
     match License::create(standard_request).await {
         Ok(license) => {
-            println!(
-                "✅ Standard license created: {} ({})",
-                license.id, license.key
-            );
+            println!("License created: {} ({})", license.id, license.key);
         }
         Err(e) => {
-            println!("❌ Failed to create standard license: {:?}", e);
+            println!("Failed to create license: {:?}", e);
         }
     }
 
     // Example 4: Create a comprehensive license with all available parameters
-    println!("🔧 Creating comprehensive license with all parameters...");
 
     let mut comprehensive_metadata = HashMap::new();
     comprehensive_metadata.insert(
@@ -160,16 +147,11 @@ async fn main() -> Result<(), Error> {
 
     match License::create(comprehensive_request).await {
         Ok(license) => {
-            println!(
-                "✅ Comprehensive license created: {} ({})",
-                license.id, license.key
-            );
+            println!("License created: {} ({})", license.id, license.key);
         }
         Err(e) => {
-            println!("❌ Failed to create comprehensive license: {:?}", e);
+            println!("Failed to create license: {:?}", e);
         }
     }
-
-    println!("\n💡 All examples completed successfully!");
     Ok(())
 }

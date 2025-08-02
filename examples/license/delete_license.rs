@@ -23,14 +23,14 @@ async fn main() -> Result<(), Error> {
 
     // Fetch the license first to confirm it exists
     let license = License::get(&license_id).await?;
-    println!("📋 License to be deleted:");
+    println!("License to be deleted:");
     println!("  ID: {}", license.id);
     println!("  Key: {}", license.key);
     println!("  Name: {:?}", license.name);
     println!("  Status: {:?}", license.status);
 
     // Prompt for confirmation (in production, you might want a more robust confirmation)
-    println!("\n⚠️  WARNING: This action cannot be undone!");
+    println!("\nWARNING: This action cannot be undone!");
     println!("Are you sure you want to delete this license? (type 'yes' to confirm)");
 
     let mut input = String::new();
@@ -41,9 +41,9 @@ async fn main() -> Result<(), Error> {
     if input.trim().to_lowercase() == "yes" {
         // Delete the license
         license.delete().await?;
-        println!("\n✅ License deleted successfully!");
+        println!("License deleted: {}", license.id);
     } else {
-        println!("\n❌ License deletion cancelled.");
+        println!("License deletion cancelled.");
     }
 
     Ok(())

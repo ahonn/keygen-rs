@@ -27,7 +27,7 @@ async fn main() -> Result<(), Error> {
     // First, get the product
     match Product::get(&product_id).await {
         Ok(product) => {
-            println!("📦 Found product:");
+            println!("Found product:");
             println!("  Current Name: {}", product.name);
             println!(
                 "  Current Distribution Strategy: {:?}",
@@ -53,7 +53,7 @@ async fn main() -> Result<(), Error> {
 
             match product.update(update_request).await {
                 Ok(updated_product) => {
-                    println!("\n✅ Product updated successfully!");
+                    println!("Product updated: {}", updated_product.id);
                     println!("  New Name: {}", updated_product.name);
                     println!(
                         "  New Distribution Strategy: {:?}",
@@ -63,12 +63,12 @@ async fn main() -> Result<(), Error> {
                     println!("  New Platforms: {:?}", updated_product.platforms);
                 }
                 Err(e) => {
-                    println!("❌ Failed to update product: {:?}", e);
+                    println!("Failed to update product: {:?}", e);
                 }
             }
         }
         Err(e) => {
-            println!("❌ Failed to find product: {:?}", e);
+            println!("Failed to find product: {:?}", e);
         }
     }
 

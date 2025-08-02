@@ -25,7 +25,7 @@ async fn main() -> Result<(), Error> {
 
     match machine.reset().await {
         Ok(updated_machine) => {
-            println!("✅ Machine reset successfully!");
+            println!("Machine reset: {}", updated_machine.id);
             println!("ID: {}", updated_machine.id);
             println!("Fingerprint: {}", updated_machine.fingerprint);
             println!("Name: {:?}", updated_machine.name);
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Error> {
             println!("Updated: {}", updated_machine.updated);
         }
         Err(e) => {
-            println!("❌ Failed to reset machine: {:?}", e);
+            println!("Failed to reset machine: {:?}", e);
         }
     }
 

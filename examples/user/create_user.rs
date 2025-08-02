@@ -45,7 +45,7 @@ async fn main() -> Result<(), Error> {
 
     match user::create(request).await {
         Ok(user) => {
-            println!("✅ User created successfully!");
+            println!("User created: {}", user.id);
             println!("ID: {}", user.id);
             println!("Email: {}", user.email);
             println!("Full Name: {:?}", user.full_name);
@@ -55,7 +55,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("❌ Failed to create user: {:?}", e);
+            println!("Failed to create user: {:?}", e);
         }
     }
 

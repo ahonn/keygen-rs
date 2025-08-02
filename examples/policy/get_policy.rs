@@ -68,7 +68,7 @@ async fn main() -> Result<(), Error> {
             println!("  Updated: {}", policy.updated);
         }
         Err(e) => {
-            println!("❌ Failed to get policy: {:?}", e);
+            println!("Failed to get policy: {:?}", e);
         }
     }
 
