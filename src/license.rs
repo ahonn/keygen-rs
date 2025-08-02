@@ -96,6 +96,38 @@ pub struct LicenseCheckoutOpts {
     pub include: Option<Vec<String>>,
 }
 
+impl LicenseCheckoutOpts {
+    /// Create new checkout options with default settings
+    pub fn new() -> Self {
+        Self {
+            ttl: None,
+            include: None,
+        }
+    }
+
+    /// Create checkout options with TTL
+    pub fn with_ttl(ttl: i64) -> Self {
+        Self {
+            ttl: Some(ttl),
+            include: None,
+        }
+    }
+
+    /// Create checkout options with specific relationships to include
+    pub fn with_include(include: Vec<String>) -> Self {
+        Self {
+            ttl: None,
+            include: Some(include),
+        }
+    }
+}
+
+impl Default for LicenseCheckoutOpts {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Default, Serialize)]
 pub struct PaginationOptions {
     pub limit: Option<i32>,           // Number of resources to return (1-100, default 10)
@@ -995,20 +1027,24 @@ impl License {
     pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
         let client = Client::default()?;
         let endpoint = format!("licenses/{}/entitlements", self.id);
-        
+
         let data: Vec<Value> = entitlement_ids
             .iter()
-            .map(|id| json!({
-                "type": "entitlements",
-                "id": id
-            }))
+            .map(|id| {
+                json!({
+                    "type": "entitlements",
+                    "id": id
+                })
+            })
             .collect();
 
         let body = json!({
             "data": data
         });
 
-        client.post::<Value, Value, ()>(&endpoint, Some(&body), None::<&()>).await?;
+        client
+            .post::<Value, Value, ()>(&endpoint, Some(&body), None::<&()>)
+            .await?;
         Ok(())
     }
 
@@ -1017,20 +1053,24 @@ impl License {
     pub async fn detach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
         let client = Client::default()?;
         let endpoint = format!("licenses/{}/entitlements", self.id);
-        
+
         let data: Vec<Value> = entitlement_ids
             .iter()
-            .map(|id| json!({
-                "type": "entitlements",
-                "id": id
-            }))
+            .map(|id| {
+                json!({
+                    "type": "entitlements",
+                    "id": id
+                })
+            })
             .collect();
 
         let body = json!({
             "data": data
         });
 
-        client.delete::<Value, Value>(&endpoint, Some(&body)).await?;
+        client
+            .delete::<Value, Value>(&endpoint, Some(&body))
+            .await?;
         Ok(())
     }
 }
@@ -2426,10 +2466,7 @@ mod tests {
             ..Default::default()
         });
 
-        let entitlement_ids = vec![
-            "entitlement-1".to_string(),
-            "entitlement-2".to_string(),
-        ];
+        let entitlement_ids = vec!["entitlement-1".to_string(), "entitlement-2".to_string()];
 
         let result = license.attach_entitlements(&entitlement_ids).await;
         assert!(result.is_ok());
@@ -2452,10 +2489,7 @@ mod tests {
             ..Default::default()
         });
 
-        let entitlement_ids = vec![
-            "entitlement-1".to_string(),
-            "entitlement-2".to_string(),
-        ];
+        let entitlement_ids = vec!["entitlement-1".to_string(), "entitlement-2".to_string()];
 
         let result = license.detach_entitlements(&entitlement_ids).await;
         assert!(result.is_ok());
@@ -2505,5 +2539,4 @@ mod tests {
         assert!(result.is_ok());
         reset_config();
     }
-
 }

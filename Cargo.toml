@@ -201,6 +201,10 @@ name = "detach_entitlements"
 path = "examples/license/detach_entitlements.rs"
 
 [[example]]
+name = "offline_entitlements"
+path = "examples/license/offline_entitlements.rs"
+
+[[example]]
 name = "list_licenses_pagination"
 path = "examples/license/list_licenses_pagination.rs"
 
