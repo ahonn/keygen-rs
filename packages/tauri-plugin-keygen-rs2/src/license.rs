@@ -109,13 +109,17 @@ impl LicenseState {
     }
 
     pub async fn checkout<R: Runtime>(
-        &self,
+        &mut self,
         app_handle: &AppHandle<R>,
         options: &LicenseCheckoutOpts,
     ) -> Result<LicenseFile> {
         if let Some(license) = &self.license {
             log::info!("Checking out license file: {}", license.key);
             let license_file = license.checkout(options).await?;
+            if let Ok(dataset) = &license_file.decrypt(&license.key) {
+                self.included = dataset.included.clone();
+            }
+
             Self::save_license_file(app_handle, &license_file)?;
             Ok(license_file)
         } else {
@@ -150,7 +154,7 @@ impl LicenseState {
                         key: Some(license_key),
                         license: Some(dataset.license),
                         valid: true,
-                        included: None, // Machine files don't contain included data
+                        included: dataset.included,
                     });
                 }
             }

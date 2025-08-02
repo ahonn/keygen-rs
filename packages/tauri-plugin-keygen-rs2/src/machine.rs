@@ -53,7 +53,7 @@ impl MachineState {
     pub fn get_fingerprint_app<R: Runtime>(app_handle: &AppHandle<R>) -> String {
         let Some(state) = app_handle.try_machine_uid() else {
             panic!(
-                r#"tauri-plugin-machine-uid is not initialized but is required to get machine fingerprints on mobile. 
+                r#"tauri-plugin-machine-uid is not initialized but is required to get machine fingerprints on mobile.
 You should add it to your application and initialize it before tauri-plugin-keygen-rs2."#
             );
         };

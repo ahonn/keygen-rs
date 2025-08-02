@@ -33,7 +33,7 @@ function App() {
       if (data) {
         setMetadata(data);
       }
-    })
+    });
   }, []);
 
   const handleActivate = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -47,6 +47,7 @@ function App() {
         setMetadata(data);
       }
     } catch (err) {
+      console.error('Activation error:', err);
       setError((err as KeygenError).detail);
     }
   };
@@ -57,6 +58,7 @@ function App() {
       await deactivate();
       setLicense(null);
     } catch (err) {
+      console.error('Deactivation error:', err);
       setError((err as KeygenError).detail);
     }
   };
@@ -66,9 +68,10 @@ function App() {
     try {
       await checkoutLicense(
         3600, // 1 hour in seconds
-        ['entitlements']
+        ['entitlements'],
       );
     } catch (err) {
+      console.error('Checkout license error:', err);
       setError((err as KeygenError).detail);
     }
   };
@@ -78,9 +81,10 @@ function App() {
     try {
       await checkoutMachine(
         3600, // 1 hour in seconds
-        ['entitlements']
+        ['license.entitlements'],
       );
     } catch (err) {
+      console.error('Checkout machine error:', err);
       setError((err as KeygenError).detail);
     }
   };
@@ -118,11 +122,7 @@ function App() {
               {Object.entries(metadata).map(([key, value]) => (
                 <div key={key}>
                   <span>{key}: </span>
-                  <span>
-                    {typeof value === 'object'
-                      ? JSON.stringify(value)
-                      : String(value)}
-                  </span>
+                  <span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
                 </div>
               ))}
             </div>

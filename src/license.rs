@@ -837,7 +837,6 @@ impl License {
         let client = Client::default()?;
         let mut query = json!({
             "encrypt": 1,
-            "include": "entitlements"
         });
 
         if let Some(ttl) = options.ttl {
@@ -846,6 +845,8 @@ impl License {
 
         if let Some(ref include) = options.include {
             query["include"] = json!(include.join(","));
+        } else {
+            query["include"] = ["entitlements"].into();
         }
 
         let response = client
@@ -1079,7 +1080,6 @@ impl License {
 mod tests {
     use super::*;
     use crate::config::{reset_config, set_config, KeygenConfig};
-    use chrono::TimeZone;
     use mockito::{mock, server_url};
     use serde_json::json;
 

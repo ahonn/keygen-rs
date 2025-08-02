@@ -243,6 +243,9 @@ path = "examples/machine/get_machine.rs"
 [[example]]
 name = "update_machine"
 path = "examples/machine/update_machine.rs"
+[[example]]
+name = "machine_offline_entitlements"
+path = "examples/machine/offline_entitlements.rs"
 
 [[example]]
 name = "ping_service"
