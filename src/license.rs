@@ -994,7 +994,7 @@ impl License {
     #[cfg(feature = "token")]
     pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
         let client = Client::default()?;
-        let endpoint = format!("licenses/{}/relationships/entitlements", self.id);
+        let endpoint = format!("licenses/{}/entitlements", self.id);
         
         let data: Vec<Value> = entitlement_ids
             .iter()
@@ -1008,7 +1008,7 @@ impl License {
             "data": data
         });
 
-        client.post::<Value, (), ()>(&endpoint, Some(&body), None::<&()>).await?;
+        client.post::<Value, Value, ()>(&endpoint, Some(&body), None::<&()>).await?;
         Ok(())
     }
 
@@ -1016,7 +1016,7 @@ impl License {
     #[cfg(feature = "token")]
     pub async fn detach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
         let client = Client::default()?;
-        let endpoint = format!("licenses/{}/relationships/entitlements", self.id);
+        let endpoint = format!("licenses/{}/entitlements", self.id);
         
         let data: Vec<Value> = entitlement_ids
             .iter()
@@ -1030,7 +1030,7 @@ impl License {
             "data": data
         });
 
-        client.delete::<Value, ()>(&endpoint, Some(&body)).await?;
+        client.delete::<Value, Value>(&endpoint, Some(&body)).await?;
         Ok(())
     }
 }
@@ -2414,7 +2414,7 @@ mod tests {
     #[tokio::test]
     async fn test_attach_entitlements() {
         let license = create_test_license();
-        let _m = mock("POST", "/v1/licenses/test_license_id/relationships/entitlements")
+        let _m = mock("POST", "/v1/licenses/test_license_id/entitlements")
             .with_status(204)
             .with_header("content-type", "application/json")
             .create();
@@ -2440,7 +2440,7 @@ mod tests {
     #[tokio::test]
     async fn test_detach_entitlements() {
         let license = create_test_license();
-        let _m = mock("DELETE", "/v1/licenses/test_license_id/relationships/entitlements")
+        let _m = mock("DELETE", "/v1/licenses/test_license_id/entitlements")
             .with_status(204)
             .with_header("content-type", "application/json")
             .create();
@@ -2466,7 +2466,7 @@ mod tests {
     #[tokio::test]
     async fn test_attach_entitlements_empty_list() {
         let license = create_test_license();
-        let _m = mock("POST", "/v1/licenses/test_license_id/relationships/entitlements")
+        let _m = mock("POST", "/v1/licenses/test_license_id/entitlements")
             .with_status(204)
             .with_header("content-type", "application/json")
             .create();
@@ -2488,7 +2488,7 @@ mod tests {
     #[tokio::test]
     async fn test_detach_entitlements_empty_list() {
         let license = create_test_license();
-        let _m = mock("DELETE", "/v1/licenses/test_license_id/relationships/entitlements")
+        let _m = mock("DELETE", "/v1/licenses/test_license_id/entitlements")
             .with_status(204)
             .with_header("content-type", "application/json")
             .create();

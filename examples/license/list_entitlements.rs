@@ -45,8 +45,8 @@ async fn main() -> Result<(), Error> {
 
         let pagination = PaginationOptions {
             limit: Some(limit),
-            page: None,
-            offset: Some((page - 1) * limit),
+            page_number: Some(page),
+            page_size: Some(limit),
         };
 
         let entitlements = license.entitlements(Some(&pagination)).await?;
