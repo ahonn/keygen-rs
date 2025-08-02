@@ -6,11 +6,11 @@ use serde::{Deserialize, Serialize};
 pub(crate) mod certificate;
 pub(crate) mod client;
 pub(crate) mod decryptor;
-pub(crate) mod entitlement;
 pub(crate) mod verifier;
 
 pub mod component;
 pub mod config;
+pub mod entitlement;
 pub mod errors;
 pub mod license;
 pub mod license_file;
