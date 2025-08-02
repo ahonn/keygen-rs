@@ -15,13 +15,7 @@ pub mod license;
 pub mod machine;
 mod utils;
 
-// Re-export the trait and types for easy access
-pub use license::LicenseOfflineExt;
-pub use keygen_rs::{
-    entitlement::Entitlement,
-    machine::Machine,
-    component::Component,
-};
+pub use keygen_rs::{component::Component, entitlement::Entitlement, machine::Machine};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -160,21 +154,12 @@ impl Builder {
                         if let Error::KeygenError(e) = err {
                             match e {
                                 keygen_rs::errors::Error::LicenseFileExpired(dataset) => {
-                                    let included_data = if let Some(included) = &dataset.included {
-                                        Some(license::IncludedData {
-                                            entitlements: included.entitlements.clone(),
-                                            machines: included.machines.clone(),
-                                            components: included.components.clone(),
-                                        })
-                                    } else {
-                                        None
-                                    };
                                     let license = dataset.license.clone();
                                     let license_state = LicenseState {
                                         key: Some(license.key.clone()),
                                         license: Some(license),
                                         valid: false,
-                                        included_data,
+                                        included: dataset.included,
                                     };
                                     app_handle.manage(Mutex::new(license_state));
                                 }
@@ -184,7 +169,7 @@ impl Builder {
                                         key: Some(license.key.clone()),
                                         license: Some(license),
                                         valid: false,
-                                        included_data: None, // Machine files don't contain included data
+                                        included: None, // Machine files don't contain included data
                                     };
                                     app_handle.manage(Mutex::new(license_state));
                                 }

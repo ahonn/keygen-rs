@@ -38,7 +38,6 @@ pub struct LicenseFileDataset {
     pub issued: DateTime<Utc>,
     pub expiry: DateTime<Utc>,
     pub ttl: i32,
-    /// Included relationships from license checkout
     #[serde(default)]
     pub included: Option<IncludedResources>,
 }

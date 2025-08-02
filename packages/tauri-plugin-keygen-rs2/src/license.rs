@@ -6,74 +6,17 @@ use std::{
 
 use crate::{
     error::Error, machine::MachineState, notify_license_listeners, utils::get_app_keygen_path,
-    AppHandleExt, Result,
+    Result,
 };
 use keygen_rs::{
     component::Component,
     entitlement::Entitlement,
     errors::Error as KeygenError,
     license::{License, LicenseCheckoutOpts},
-    license_file::LicenseFile,
+    license_file::{IncludedResources, LicenseFile},
     machine::Machine,
 };
 use tauri::{AppHandle, Runtime};
-
-/// Trait to extend License with offline capabilities
-pub trait LicenseOfflineExt {
-    /// Get offline entitlements only (no API call)
-    fn offline_entitlements<R: Runtime>(
-        &self,
-        app_handle: &AppHandle<R>,
-    ) -> impl std::future::Future<Output = Result<Option<Vec<Entitlement>>>> + Send;
-    
-    /// Get offline machines only (no API call)
-    fn offline_machines<R: Runtime>(
-        &self,
-        app_handle: &AppHandle<R>,
-    ) -> impl std::future::Future<Output = Result<Option<Vec<Machine>>>> + Send;
-    
-    /// Get offline components only (no API call)
-    fn offline_components<R: Runtime>(
-        &self,
-        app_handle: &AppHandle<R>,
-    ) -> impl std::future::Future<Output = Result<Option<Vec<Component>>>> + Send;
-}
-
-impl LicenseOfflineExt for License {
-    async fn offline_entitlements<R: Runtime>(
-        &self,
-        app_handle: &AppHandle<R>,
-    ) -> Result<Option<Vec<Entitlement>>> {
-        // Get cached offline entitlements from license state instead of reading file again
-        let license_state = app_handle.get_license_state();
-        let license_state = license_state.lock().await;
-        
-        Ok(license_state.included_data.as_ref()
-            .map(|data| data.entitlements.clone()))
-    }
-    
-    async fn offline_machines<R: Runtime>(
-        &self,
-        app_handle: &AppHandle<R>,
-    ) -> Result<Option<Vec<Machine>>> {
-        let license_state = app_handle.get_license_state();
-        let license_state = license_state.lock().await;
-        
-        Ok(license_state.included_data.as_ref()
-            .map(|data| data.machines.clone()))
-    }
-    
-    async fn offline_components<R: Runtime>(
-        &self,
-        app_handle: &AppHandle<R>,
-    ) -> Result<Option<Vec<Component>>> {
-        let license_state = app_handle.get_license_state();
-        let license_state = license_state.lock().await;
-        
-        Ok(license_state.included_data.as_ref()
-            .map(|data| data.components.clone()))
-    }
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct IncludedData {
@@ -84,11 +27,10 @@ pub struct IncludedData {
 
 #[derive(Debug, Clone, Default)]
 pub struct LicenseState {
+    pub valid: bool,
     pub key: Option<String>,
     pub license: Option<License>,
-    pub valid: bool,
-    /// Cached included data from license file
-    pub included_data: Option<IncludedData>,
+    pub included: Option<IncludedResources>,
 }
 
 impl LicenseState {
@@ -189,20 +131,11 @@ impl LicenseState {
             if let Some(license_file) = Self::load_license_file(app_handle, &license_key)? {
                 let dataset = license_file.decrypt(&license_key)?;
                 log::info!("License file found in cache: {:?}", dataset);
-                let included_data = if let Some(included) = &dataset.included {
-                    Some(IncludedData {
-                        entitlements: included.entitlements.clone(),
-                        machines: included.machines.clone(),
-                        components: included.components.clone(),
-                    })
-                } else {
-                    None
-                };
                 return Ok(Self {
                     key: Some(license_key),
                     license: Some(dataset.license),
                     valid: true,
-                    included_data,
+                    included: dataset.included,
                 });
             }
             // attempt to load the machine file
@@ -217,7 +150,7 @@ impl LicenseState {
                         key: Some(license_key),
                         license: Some(dataset.license),
                         valid: true,
-                        included_data: None, // Machine files don't contain included data
+                        included: None, // Machine files don't contain included data
                     });
                 }
             }
@@ -225,14 +158,14 @@ impl LicenseState {
                 key: Some(license_key),
                 license: None,
                 valid: false,
-                included_data: None,
+                included: None,
             });
         }
         Ok(Self {
             key: None,
             license: None,
             valid: false,
-            included_data: None,
+            included: None,
         })
     }
 
