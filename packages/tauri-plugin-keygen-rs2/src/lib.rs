@@ -169,7 +169,7 @@ impl Builder {
                                         key: Some(license.key.clone()),
                                         license: Some(license),
                                         valid: false,
-                                        included: None, // Machine files don't contain included data
+                                        included: dataset.included,
                                     };
                                     app_handle.manage(Mutex::new(license_state));
                                 }
