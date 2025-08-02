@@ -121,7 +121,7 @@ impl Builder {
             product: self.product,
             public_key: Some(self.public_key),
             ..Default::default()
-        });
+        }).unwrap();
 
         PluginBuilder::new("keygen-rs")
             .invoke_handler(tauri::generate_handler![
@@ -157,6 +157,7 @@ impl Builder {
                                         key: Some(license.key.clone()),
                                         license: Some(license),
                                         valid: false,
+                                        included: dataset.included,
                                     };
                                     app_handle.manage(Mutex::new(license_state));
                                 }
@@ -166,6 +167,7 @@ impl Builder {
                                         key: Some(license.key.clone()),
                                         license: Some(license),
                                         valid: false,
+                                        included: dataset.included,
                                     };
                                     app_handle.manage(Mutex::new(license_state));
                                 }

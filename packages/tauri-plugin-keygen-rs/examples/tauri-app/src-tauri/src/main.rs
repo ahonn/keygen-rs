@@ -25,6 +25,7 @@ fn main() {
                 let license_state = app_handle.get_license_state();
                 let license_state = license_state.lock().await;
                 println!("License: {:?}", license_state.license);
+                println!("Included: {:?}", license_state.included);
 
                 let machine_state = app_handle.get_machine_state();
                 let machine_state = machine_state.lock().await;

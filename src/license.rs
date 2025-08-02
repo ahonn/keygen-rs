@@ -846,7 +846,7 @@ impl License {
         if let Some(ref include) = options.include {
             query["include"] = json!(include.join(","));
         } else {
-            query["include"] = ["entitlements"].into();
+            query["include"] = "entitlements".into();
         }
 
         let response = client

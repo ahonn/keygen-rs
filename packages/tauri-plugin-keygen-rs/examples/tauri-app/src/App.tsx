@@ -41,7 +41,7 @@ function App() {
     try {
       const license = await validateKey(key);
       setLicense(license);
-      
+
       const data = await getLicenseMetadata();
       if (data) {
         setMetadata(data);
@@ -89,7 +89,7 @@ function App() {
             style={{ width: '400px' }}
             value={key}
             onChange={(e) => setKey(e.currentTarget.value)}
-            disabled={license !== null}
+            disabled={!license}
             placeholder="Enter a license key..."
           />
           {license?.valid ? (
@@ -105,7 +105,7 @@ function App() {
           )}
         </div>
         {error && <div className="error">{error}</div>}
-        
+
         {metadata && (
           <div>
             <h3>Metadata</h3>
@@ -114,8 +114,8 @@ function App() {
                 <div key={key}>
                   <span>{key}: </span>
                   <span>
-                    {typeof value === 'object' 
-                      ? JSON.stringify(value) 
+                    {typeof value === 'object'
+                      ? JSON.stringify(value)
                       : String(value)}
                   </span>
                 </div>
