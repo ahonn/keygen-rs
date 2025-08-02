@@ -12,6 +12,11 @@ members = [
   "./packages/tauri-plugin-keygen-rs2"
 ]
 
+[workspace.package]
+version = "0.6.2"
+license = "MIT"
+edition = "2021"
+
 [package.metadata.rust-analyzer]
 cargo.features = ["token"]
 
@@ -193,6 +198,16 @@ path = "examples/license/revoke_license.rs"
 [[example]]
 name = "list_license_entitlements"
 path = "examples/license/list_entitlements.rs"
+[[example]]
+name = "attach_entitlements"
+path = "examples/license/attach_entitlements.rs"
+[[example]]
+name = "detach_entitlements"
+path = "examples/license/detach_entitlements.rs"
+
+[[example]]
+name = "offline_entitlements"
+path = "examples/license/offline_entitlements.rs"
 
 [[example]]
 name = "list_licenses_pagination"
@@ -233,6 +248,9 @@ path = "examples/machine/get_machine.rs"
 [[example]]
 name = "update_machine"
 path = "examples/machine/update_machine.rs"
+[[example]]
+name = "machine_offline_entitlements"
+path = "examples/machine/offline_entitlements.rs"
 
 [[example]]
 name = "ping_service"

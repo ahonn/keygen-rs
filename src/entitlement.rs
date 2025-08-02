@@ -168,7 +168,7 @@ impl Entitlement {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "token"))]
 mod tests {
     use super::*;
     use crate::{

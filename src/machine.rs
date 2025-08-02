@@ -73,6 +73,29 @@ pub struct MachineCheckoutOpts {
     pub include: Option<Vec<String>>,
 }
 
+impl MachineCheckoutOpts {
+    pub fn new() -> Self {
+        Self {
+            ttl: None,
+            include: None,
+        }
+    }
+
+    pub fn with_ttl(ttl: i64) -> Self {
+        Self {
+            ttl: Some(ttl),
+            include: None,
+        }
+    }
+
+    pub fn with_include(include: Vec<String>) -> Self {
+        Self {
+            ttl: None,
+            include: Some(include),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MachineListFilters {
     pub license: Option<String>,
@@ -173,8 +196,7 @@ impl Machine {
     pub async fn checkout(&self, options: &MachineCheckoutOpts) -> Result<MachineFile, Error> {
         let client = Client::default()?;
         let mut query = json!({
-            "encrypt": 1,
-            "include": "license.entitlements"
+            "encrypt": 1
         });
 
         if let Some(ttl) = options.ttl {
@@ -183,6 +205,8 @@ impl Machine {
 
         if let Some(ref include) = options.include {
             query["include"] = json!(include.join(","));
+        } else {
+            query["include"] = "license.entitlements".into();
         }
 
         let response = client

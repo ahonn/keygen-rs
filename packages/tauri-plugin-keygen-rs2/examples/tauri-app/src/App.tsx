@@ -33,7 +33,7 @@ function App() {
       if (data) {
         setMetadata(data);
       }
-    })
+    });
   }, []);
 
   const handleActivate = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -41,12 +41,13 @@ function App() {
     try {
       const license = await validateKey(key);
       setLicense(license);
-      
+
       const data = await getLicenseMetadata();
       if (data) {
         setMetadata(data);
       }
     } catch (err) {
+      console.error('Activation error:', err);
       setError((err as KeygenError).detail);
     }
   };
@@ -57,6 +58,7 @@ function App() {
       await deactivate();
       setLicense(null);
     } catch (err) {
+      console.error('Deactivation error:', err);
       setError((err as KeygenError).detail);
     }
   };
@@ -64,8 +66,12 @@ function App() {
   const handleCheckoutLicense = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     try {
-      await checkoutLicense();
+      await checkoutLicense(
+        3600, // 1 hour in seconds
+        ['entitlements'],
+      );
     } catch (err) {
+      console.error('Checkout license error:', err);
       setError((err as KeygenError).detail);
     }
   };
@@ -73,8 +79,12 @@ function App() {
   const handleCheckoutMachine = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     try {
-      await checkoutMachine();
+      await checkoutMachine(
+        3600, // 1 hour in seconds
+        ['license.entitlements'],
+      );
     } catch (err) {
+      console.error('Checkout machine error:', err);
       setError((err as KeygenError).detail);
     }
   };
@@ -88,7 +98,7 @@ function App() {
             style={{ width: '400px' }}
             value={key}
             onChange={(e) => setKey(e.currentTarget.value)}
-            disabled={license !== null}
+            disabled={!license}
             placeholder="Enter a license key..."
           />
           {license?.valid ? (
@@ -104,7 +114,7 @@ function App() {
           )}
         </div>
         {error && <div className="error">{error}</div>}
-        
+
         {metadata && (
           <div>
             <h3>Metadata</h3>
@@ -112,11 +122,7 @@ function App() {
               {Object.entries(metadata).map(([key, value]) => (
                 <div key={key}>
                   <span>{key}: </span>
-                  <span>
-                    {typeof value === 'object' 
-                      ? JSON.stringify(value) 
-                      : String(value)}
-                  </span>
+                  <span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
                 </div>
               ))}
             </div>

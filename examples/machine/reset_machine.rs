@@ -18,7 +18,7 @@ async fn main() -> Result<(), Error> {
     })?;
 
     // Reset a machine
-    let machine_id = env::var("MACHINE_ID").expect("MACHINE_ID must be set");
+    let machine_id = env::var("KEYGEN_MACHINE_ID").expect("KEYGEN_MACHINE_ID must be set");
 
     // First get the machine
     let machine = Machine::get(&machine_id).await?;

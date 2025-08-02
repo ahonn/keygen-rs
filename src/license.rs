@@ -96,6 +96,38 @@ pub struct LicenseCheckoutOpts {
     pub include: Option<Vec<String>>,
 }
 
+impl LicenseCheckoutOpts {
+    /// Create new checkout options with default settings
+    pub fn new() -> Self {
+        Self {
+            ttl: None,
+            include: None,
+        }
+    }
+
+    /// Create checkout options with TTL
+    pub fn with_ttl(ttl: i64) -> Self {
+        Self {
+            ttl: Some(ttl),
+            include: None,
+        }
+    }
+
+    /// Create checkout options with specific relationships to include
+    pub fn with_include(include: Vec<String>) -> Self {
+        Self {
+            ttl: None,
+            include: Some(include),
+        }
+    }
+}
+
+impl Default for LicenseCheckoutOpts {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Default, Serialize)]
 pub struct PaginationOptions {
     pub limit: Option<i32>,           // Number of resources to return (1-100, default 10)
@@ -805,7 +837,6 @@ impl License {
         let client = Client::default()?;
         let mut query = json!({
             "encrypt": 1,
-            "include": "entitlements"
         });
 
         if let Some(ttl) = options.ttl {
@@ -814,6 +845,8 @@ impl License {
 
         if let Some(ref include) = options.include {
             query["include"] = json!(include.join(","));
+        } else {
+            query["include"] = ["entitlements"].into();
         }
 
         let response = client
@@ -989,13 +1022,64 @@ impl License {
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
+
+    /// Attach entitlements to a license
+    #[cfg(feature = "token")]
+    pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
+        let client = Client::default()?;
+        let endpoint = format!("licenses/{}/entitlements", self.id);
+
+        let data: Vec<Value> = entitlement_ids
+            .iter()
+            .map(|id| {
+                json!({
+                    "type": "entitlements",
+                    "id": id
+                })
+            })
+            .collect();
+
+        let body = json!({
+            "data": data
+        });
+
+        client
+            .post::<Value, Value, ()>(&endpoint, Some(&body), None::<&()>)
+            .await?;
+        Ok(())
+    }
+
+    /// Detach entitlements from a license
+    #[cfg(feature = "token")]
+    pub async fn detach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
+        let client = Client::default()?;
+        let endpoint = format!("licenses/{}/entitlements", self.id);
+
+        let data: Vec<Value> = entitlement_ids
+            .iter()
+            .map(|id| {
+                json!({
+                    "type": "entitlements",
+                    "id": id
+                })
+            })
+            .collect();
+
+        let body = json!({
+            "data": data
+        });
+
+        client
+            .delete::<Value, Value>(&endpoint, Some(&body))
+            .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{reset_config, set_config, KeygenConfig};
-    use chrono::TimeZone;
     use mockito::{mock, server_url};
     use serde_json::json;
 
@@ -2366,4 +2450,93 @@ mod tests {
         reset_config();
     }
 
+    #[cfg(feature = "token")]
+    #[tokio::test]
+    async fn test_attach_entitlements() {
+        let license = create_test_license();
+        let _m = mock("POST", "/v1/licenses/test_license_id/entitlements")
+            .with_status(204)
+            .with_header("content-type", "application/json")
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+
+        let entitlement_ids = vec!["entitlement-1".to_string(), "entitlement-2".to_string()];
+
+        let result = license.attach_entitlements(&entitlement_ids).await;
+        assert!(result.is_ok());
+        reset_config();
+    }
+
+    #[cfg(feature = "token")]
+    #[tokio::test]
+    async fn test_detach_entitlements() {
+        let license = create_test_license();
+        let _m = mock("DELETE", "/v1/licenses/test_license_id/entitlements")
+            .with_status(204)
+            .with_header("content-type", "application/json")
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+
+        let entitlement_ids = vec!["entitlement-1".to_string(), "entitlement-2".to_string()];
+
+        let result = license.detach_entitlements(&entitlement_ids).await;
+        assert!(result.is_ok());
+        reset_config();
+    }
+
+    #[cfg(feature = "token")]
+    #[tokio::test]
+    async fn test_attach_entitlements_empty_list() {
+        let license = create_test_license();
+        let _m = mock("POST", "/v1/licenses/test_license_id/entitlements")
+            .with_status(204)
+            .with_header("content-type", "application/json")
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+
+        let entitlement_ids: Vec<String> = vec![];
+        let result = license.attach_entitlements(&entitlement_ids).await;
+        assert!(result.is_ok());
+        reset_config();
+    }
+
+    #[cfg(feature = "token")]
+    #[tokio::test]
+    async fn test_detach_entitlements_empty_list() {
+        let license = create_test_license();
+        let _m = mock("DELETE", "/v1/licenses/test_license_id/entitlements")
+            .with_status(204)
+            .with_header("content-type", "application/json")
+            .create();
+
+        set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+
+        let entitlement_ids: Vec<String> = vec![];
+        let result = license.detach_entitlements(&entitlement_ids).await;
+        assert!(result.is_ok());
+        reset_config();
+    }
 }

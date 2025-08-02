@@ -10,18 +10,27 @@ use crate::{
 };
 use keygen_rs::{
     component::Component,
+    entitlement::Entitlement,
     errors::Error as KeygenError,
     license::{License, LicenseCheckoutOpts},
-    license_file::LicenseFile,
+    license_file::{IncludedResources, LicenseFile},
     machine::Machine,
 };
 use tauri::{AppHandle, Runtime};
 
 #[derive(Debug, Clone, Default)]
+pub struct IncludedData {
+    pub entitlements: Vec<Entitlement>,
+    pub machines: Vec<Machine>,
+    pub components: Vec<Component>,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct LicenseState {
+    pub valid: bool,
     pub key: Option<String>,
     pub license: Option<License>,
-    pub valid: bool,
+    pub included: Option<IncludedResources>,
 }
 
 impl LicenseState {
@@ -100,13 +109,17 @@ impl LicenseState {
     }
 
     pub async fn checkout<R: Runtime>(
-        &self,
+        &mut self,
         app_handle: &AppHandle<R>,
         options: &LicenseCheckoutOpts,
     ) -> Result<LicenseFile> {
         if let Some(license) = &self.license {
             log::info!("Checking out license file: {}", license.key);
             let license_file = license.checkout(options).await?;
+            if let Ok(dataset) = &license_file.decrypt(&license.key) {
+                self.included = dataset.included.clone();
+            }
+
             Self::save_license_file(app_handle, &license_file)?;
             Ok(license_file)
         } else {
@@ -126,6 +139,7 @@ impl LicenseState {
                     key: Some(license_key),
                     license: Some(dataset.license),
                     valid: true,
+                    included: dataset.included,
                 });
             }
             // attempt to load the machine file
@@ -140,6 +154,7 @@ impl LicenseState {
                         key: Some(license_key),
                         license: Some(dataset.license),
                         valid: true,
+                        included: dataset.included,
                     });
                 }
             }
@@ -147,12 +162,14 @@ impl LicenseState {
                 key: Some(license_key),
                 license: None,
                 valid: false,
+                included: None,
             });
         }
         Ok(Self {
             key: None,
             license: None,
             valid: false,
+            included: None,
         })
     }
 

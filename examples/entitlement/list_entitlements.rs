@@ -22,7 +22,7 @@ async fn main() -> Result<(), Error> {
         Ok(entitlements) => {
             println!("Found {} entitlements:", entitlements.len());
             for entitlement in entitlements {
-                println!("  {} ({})", entitlement.code, entitlement.name.unwrap_or_else(|| "No name".to_string()));
+                println!("  Code: {} | ID: {} | Name: {}", entitlement.code, entitlement.id, entitlement.name.unwrap_or_else(|| "No name".to_string()));
             }
         }
         Err(e) => {

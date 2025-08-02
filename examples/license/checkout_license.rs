@@ -17,15 +17,12 @@ async fn main() -> Result<(), Error> {
         license_key: Some(env::var("KEYGEN_LICENSE_KEY").expect("KEYGEN_LICENSE_KEY must be set")),
         public_key: Some(env::var("KEYGEN_PUBLIC_KEY").expect("KEYGEN_PUBLIC_KEY must be set")),
         ..KeygenConfig::default()
-    }).expect("Failed to set config");
+    })?;
     let config = config::get_config().expect("Failed to get config");
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
     if let Ok(license) = keygen_rs::validate(&[fingerprint], &[]).await {
-        let options = LicenseCheckoutOpts {
-            ttl: Some(chrono::Duration::days(7).num_seconds()),
-            include: None,
-        };
+        let options = LicenseCheckoutOpts::with_ttl(chrono::Duration::days(7).num_seconds());
         let license_file = license.checkout(&options).await?;
         if license_file.verify().is_ok() {
             let dataset = license_file.decrypt(&config.license_key.unwrap())?;
