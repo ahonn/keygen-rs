@@ -10,12 +10,40 @@ use crate::{
 };
 use keygen_rs::{
     component::Component,
+    entitlement::Entitlement,
     errors::Error as KeygenError,
     license::{License, LicenseCheckoutOpts},
     license_file::LicenseFile,
     machine::Machine,
 };
 use tauri::{AppHandle, Runtime};
+
+/// Trait to extend License with offline capabilities
+pub trait LicenseOfflineExt {
+    /// Get offline entitlements only (no API call)
+    fn offline_entitlements<R: Runtime>(
+        &self,
+        app_handle: &AppHandle<R>,
+    ) -> impl std::future::Future<Output = Result<Option<Vec<Entitlement>>>> + Send;
+}
+
+impl LicenseOfflineExt for License {
+    async fn offline_entitlements<R: Runtime>(
+        &self,
+        app_handle: &AppHandle<R>,
+    ) -> Result<Option<Vec<Entitlement>>> {
+        // Use the license key directly from self instead of accessing license_state
+        let key = &self.key;
+        
+        if let Some(license_file) = LicenseState::load_license_file(app_handle, key)? {
+            let dataset = license_file.decrypt(key)?;
+            if let Some(entitlements) = dataset.offline_entitlements() {
+                return Ok(Some(entitlements.clone()));
+            }
+        }
+        Ok(None)
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct LicenseState {

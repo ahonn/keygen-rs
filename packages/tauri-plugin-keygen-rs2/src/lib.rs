@@ -15,6 +15,10 @@ pub mod license;
 pub mod machine;
 mod utils;
 
+// Re-export the trait and types for easy access
+pub use license::LicenseOfflineExt;
+pub use keygen_rs::entitlement::Entitlement;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 lazy_static! {
@@ -113,7 +117,7 @@ impl Builder {
     }
 
     pub fn build<R: Runtime>(self) -> TauriPlugin<R> {
-        keygen_rs::config::set_config(KeygenConfig {
+        let _ = keygen_rs::config::set_config(KeygenConfig {
             api_url: self.api_url.unwrap_or("https://api.keygen.sh".to_string()),
             api_version: self.api_version.unwrap_or("1.7".to_string()),
             api_prefix: self.api_prefix.unwrap_or("v1".to_string()),
