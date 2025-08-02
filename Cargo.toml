@@ -191,7 +191,7 @@ name = "revoke_license"
 path = "examples/license/revoke_license.rs"
 
 [[example]]
-name = "list_entitlements"
+name = "list_license_entitlements"
 path = "examples/license/list_entitlements.rs"
 
 [[example]]
