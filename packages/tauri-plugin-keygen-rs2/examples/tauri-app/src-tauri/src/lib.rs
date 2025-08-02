@@ -26,19 +26,11 @@ pub fn run() {
                 let license_state = license_state.lock().await;
                 println!("License: {:?}", license_state.license);
 
-                // Demonstrate offline entitlements usage
                 if let Some(license) = &license_state.license {
                     // Use the LicenseOfflineExt trait to get offline entitlements
                     match license.offline_entitlements(&app_handle).await {
                         Ok(Some(entitlements)) => {
                             println!("Found {} offline entitlements:", entitlements.len());
-                            for (i, entitlement) in entitlements.iter().enumerate() {
-                                println!("  {}. {} ({})",
-                                    i + 1,
-                                    entitlement.code,
-                                    entitlement.name.as_deref().unwrap_or("No name")
-                                );
-                            }
                         }
                         Ok(None) => {
                             println!("No offline entitlements available");
@@ -47,9 +39,7 @@ pub fn run() {
                             println!("Error getting offline entitlements: {}", e);
                         }
                     }
-                } else {
-                    println!("No license available for offline entitlements demo");
-                }
+                };
 
                 let machine_state = app_handle.get_machine_state();
                 let machine_state = machine_state.lock().await;
