@@ -12,20 +12,11 @@ use crate::{
     decryptor::Decryptor,
     entitlement::Entitlement,
     errors::Error,
+    group::Group,
     license::{License, LicenseAttributes},
     verifier::Verifier,
     KeygenResponseData,
 };
-
-
-/// Simple Group representation for included relationships
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Group {
-    pub id: String,
-    pub name: String,
-    #[serde(default)]
-    pub metadata: std::collections::HashMap<String, serde_json::Value>,
-}
 
 /// Container for included relationship data from license/machine checkout
 /// For License Checkout: entitlements, group
@@ -84,13 +75,19 @@ impl IncludedResources {
                             // Parse group data - simplified structure
                             if let Some(id) = item.get("id").and_then(|i| i.as_str()) {
                                 if let Some(attrs) = item.get("attributes") {
-                                    let name = attrs.get("name")
+                                    let name = attrs
+                                        .get("name")
                                         .and_then(|n| n.as_str())
                                         .unwrap_or("Unknown Group")
                                         .to_string();
-                                    let metadata = attrs.get("metadata")
+                                    let metadata = attrs
+                                        .get("metadata")
                                         .and_then(|m| m.as_object())
-                                        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+                                        .map(|obj| {
+                                            obj.iter()
+                                                .map(|(k, v)| (k.clone(), v.clone()))
+                                                .collect()
+                                        })
                                         .unwrap_or_default();
 
                                     included.groups.push(Group {
@@ -204,7 +201,6 @@ impl LicenseFile {
         Ok(dataset.offline_entitlements().unwrap_or(&vec![]).clone())
     }
 
-
     /// Get components from the license file without making an API call
     /// Requires the decryption key and the license file to include components
     pub fn components(&self, key: &str) -> Result<Vec<Component>, Error> {
@@ -271,7 +267,6 @@ impl LicenseFile {
         }
     }
 
-
     fn _certificate(certificate: String) -> Result<Certificate, Error> {
         let payload = certificate.trim();
         let payload = payload
@@ -299,7 +294,6 @@ impl LicenseFileDataset {
     pub fn offline_entitlements(&self) -> Option<&Vec<Entitlement>> {
         self.included.as_ref().map(|inc| &inc.entitlements)
     }
-
 
     /// Get cached components without making an API call
     pub fn offline_components(&self) -> Option<&Vec<Component>> {
@@ -353,7 +347,6 @@ mod tests {
         assert_eq!(included.entitlements.len(), 1);
         assert_eq!(included.entitlements[0].code, "feature-a");
         assert_eq!(included.entitlements[0].name, Some("Feature A".to_string()));
-
 
         assert_eq!(included.components.len(), 1);
         assert_eq!(included.components[0].id, "comp1");
@@ -414,7 +407,6 @@ mod tests {
         // Test offline access methods
         assert_eq!(dataset.offline_entitlements().unwrap().len(), 1);
         assert_eq!(dataset.offline_entitlements().unwrap()[0].code, "test-code");
-
 
         assert_eq!(dataset.offline_components().unwrap().len(), 1);
         assert_eq!(

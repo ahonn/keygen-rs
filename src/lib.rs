@@ -12,6 +12,7 @@ pub mod component;
 pub mod config;
 pub mod entitlement;
 pub mod errors;
+pub mod group;
 pub mod license;
 pub mod license_file;
 pub mod machine;

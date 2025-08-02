@@ -12,6 +12,7 @@ use crate::{
     decryptor::Decryptor,
     entitlement::Entitlement,
     errors::Error,
+    group::Group,
     license::License,
     license_file::IncludedResources,
     machine::{Machine, MachineAttributes},
@@ -253,7 +254,7 @@ impl MachineFile {
 
     /// Get groups from the machine file without making an API call
     /// Requires the decryption key and the machine file to include groups
-    pub fn groups(&self, key: &str) -> Result<Vec<crate::license_file::Group>, Error> {
+    pub fn groups(&self, key: &str) -> Result<Vec<Group>, Error> {
         let dataset = self.decrypt(key)?;
         Ok(dataset.offline_groups().unwrap_or(&vec![]).clone())
     }
@@ -378,7 +379,7 @@ impl MachineFileDataset {
     }
 
     /// Get cached groups without making an API call
-    pub fn offline_groups(&self) -> Option<&Vec<crate::license_file::Group>> {
+    pub fn offline_groups(&self) -> Option<&Vec<Group>> {
         self.included.as_ref().map(|inc| &inc.groups)
     }
 }
