@@ -9,7 +9,9 @@ use crate::certificate::CertificateFileResponse;
 use crate::client::Client;
 use crate::component::Component;
 use crate::config::get_config;
-use crate::entitlement::{Entitlement, EntitlementsResponse};
+use crate::entitlement::Entitlement;
+#[cfg(feature = "token")]
+use crate::entitlement::EntitlementsResponse;
 use crate::errors::Error;
 use crate::license_file::LicenseFile;
 use crate::machine::{Machine, MachineResponse, MachinesResponse};
@@ -764,6 +766,7 @@ impl License {
         Ok(machines)
     }
 
+    #[cfg(feature = "token")]
     pub async fn entitlements(
         &self,
         options: Option<&PaginationOptions>,

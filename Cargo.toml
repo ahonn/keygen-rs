@@ -242,5 +242,25 @@ path = "examples/service/ping_service.rs"
 name = "health_check"
 path = "examples/service/health_check.rs"
 
+[[example]]
+name = "create_entitlement"
+path = "examples/entitlement/create_entitlement.rs"
+
+[[example]]
+name = "list_entitlements_mgmt"
+path = "examples/entitlement/list_entitlements.rs"
+
+[[example]]
+name = "get_entitlement"
+path = "examples/entitlement/get_entitlement.rs"
+
+[[example]]
+name = "update_entitlement"
+path = "examples/entitlement/update_entitlement.rs"
+
+[[example]]
+name = "delete_entitlement"
+path = "examples/entitlement/delete_entitlement.rs"
+
 [lib]
 doctest = false
