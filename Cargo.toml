@@ -247,7 +247,7 @@ name = "create_entitlement"
 path = "examples/entitlement/create_entitlement.rs"
 
 [[example]]
-name = "list_entitlements_mgmt"
+name = "list_entitlements"
 path = "examples/entitlement/list_entitlements.rs"
 
 [[example]]

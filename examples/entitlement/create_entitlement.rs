@@ -1,4 +1,4 @@
-use chrono;
+use chrono::Utc;
 use keygen_rs::{
     config::{self, KeygenConfig},
     entitlement::{CreateEntitlementRequest, Entitlement},
@@ -27,7 +27,7 @@ async fn main() -> Result<(), Error> {
     // Create a new entitlement
     let request = CreateEntitlementRequest {
         name: Some("Premium Features".to_string()),
-        code: format!("premium-features-{}", chrono::Utc::now().timestamp()),
+        code: format!("premium-features-{}", Utc::now().timestamp()),
         metadata: Some(metadata),
     };
 
