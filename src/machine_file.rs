@@ -186,7 +186,7 @@ impl MachineFile {
 
         // Parse other included relationships if present
         let included = if included_array.len() > 1 {
-            Some(Self::_parse_included(&Value::Array(included_array.clone()))?)
+            Some(IncludedResources::parse_from_json(&Value::Array(included_array.clone()))?)
         } else {
             None
         };
@@ -257,65 +257,6 @@ impl MachineFile {
         Ok(dataset.offline_components().unwrap_or(&vec![]).clone())
     }
 
-    fn _parse_included(included_value: &Value) -> Result<IncludedResources, Error> {
-        let mut included = IncludedResources {
-            entitlements: Vec::new(),
-            machines: Vec::new(),
-            components: Vec::new(),
-        };
-
-        if let Some(included_array) = included_value.as_array() {
-            for item in included_array {
-                if let Some(item_type) = item.get("type").and_then(|t| t.as_str()) {
-                    match item_type {
-                        "entitlements" => {
-                            if let Ok(entitlement_data) = serde_json::from_value::<
-                                KeygenResponseData<crate::entitlement::EntitlementAttributes>,
-                            >(item.clone())
-                            {
-                                included
-                                    .entitlements
-                                    .push(Entitlement::from(entitlement_data));
-                            }
-                        }
-                        "machines" => {
-                            if let Ok(machine_data) = serde_json::from_value::<
-                                KeygenResponseData<crate::machine::MachineAttributes>,
-                            >(item.clone())
-                            {
-                                included.machines.push(Machine::from(machine_data));
-                            }
-                        }
-                        "components" => {
-                            // Components might be in a different format, let's try to parse them properly
-                            if let Some(id) = item.get("id").and_then(|i| i.as_str()) {
-                                if let Some(attrs) = item.get("attributes") {
-                                    if let (Some(fingerprint), Some(name)) = (
-                                        attrs.get("fingerprint").and_then(|f| f.as_str()),
-                                        attrs.get("name").and_then(|n| n.as_str()),
-                                    ) {
-                                        included.components.push(Component {
-                                            id: id.to_string(),
-                                            fingerprint: fingerprint.to_string(),
-                                            name: name.to_string(),
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                        "licenses" => {
-                            // Skip licenses as they are handled separately
-                        }
-                        _ => {
-                            // Ignore other types
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(included)
-    }
 }
 
 #[cfg(test)]
@@ -375,7 +316,7 @@ mod tests {
             }
         ]);
 
-        let result = MachineFile::_parse_included(&included_json);
+        let result = IncludedResources::parse_from_json(&included_json);
         assert!(result.is_ok());
 
         let included = result.unwrap();
