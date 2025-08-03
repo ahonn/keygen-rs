@@ -132,14 +132,14 @@ pub struct LicenseFile {
     pub ttl: i32,
 }
 
-impl Into<LicenseFile> for CertificateFileAttributes {
-    fn into(self) -> LicenseFile {
+impl From<CertificateFileAttributes> for LicenseFile {
+    fn from(val: CertificateFileAttributes) -> Self {
         LicenseFile {
             id: "".into(),
-            certificate: self.certificate,
-            issued: self.issued,
-            expiry: self.expiry,
-            ttl: self.ttl,
+            certificate: val.certificate,
+            issued: val.issued,
+            expiry: val.expiry,
+            ttl: val.ttl,
         }
     }
 }
@@ -161,7 +161,7 @@ impl LicenseFile {
         };
         if let Err(err) = validate_certificate_meta(&meta) {
             match err {
-                Error::CertificateFileExpired => Err(Error::LicenseFileExpired(dataset)),
+                Error::CertificateFileExpired => Err(Error::LicenseFileExpired(Box::new(dataset))),
                 _ => Err(err),
             }
         } else {
@@ -259,7 +259,7 @@ impl LicenseFile {
 
         if let Err(err) = validate_certificate_meta(&meta) {
             match err {
-                Error::CertificateFileExpired => Err(Error::LicenseFileExpired(dataset)),
+                Error::CertificateFileExpired => Err(Error::LicenseFileExpired(Box::new(dataset))),
                 _ => Err(err),
             }
         } else {

@@ -101,7 +101,7 @@ impl Token {
     /// Get a token by ID
     pub async fn get(id: &str) -> Result<Token, Error> {
         let client = Client::default()?;
-        let endpoint = format!("tokens/{}", id);
+        let endpoint = format!("tokens/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let token_response: TokenResponse = serde_json::from_value(response.body)?;
         Ok(Token::from(token_response.data))

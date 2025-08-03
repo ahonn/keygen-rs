@@ -213,7 +213,7 @@ pub async fn list(options: Option<ListUsersOptions>) -> Result<UsersListResult, 
 /// Get a specific user by ID
 pub async fn get(user_id: &str) -> Result<User, Error> {
     let client = Client::default()?;
-    let endpoint = format!("users/{}", user_id);
+    let endpoint = format!("users/{user_id}");
     let response = client.get(&endpoint, None::<&()>).await?;
     let user_response: UserResponse = serde_json::from_value(response.body)?;
     Ok(User::from(user_response.data))
@@ -222,7 +222,7 @@ pub async fn get(user_id: &str) -> Result<User, Error> {
 /// Update a user
 pub async fn update(user_id: &str, request: UpdateUserRequest) -> Result<User, Error> {
     let client = Client::default()?;
-    let endpoint = format!("users/{}", user_id);
+    let endpoint = format!("users/{user_id}");
     let mut attributes = serde_json::Map::new();
 
     if let Some(email) = request.email {
@@ -259,7 +259,7 @@ pub async fn update(user_id: &str, request: UpdateUserRequest) -> Result<User, E
 /// Delete a user
 pub async fn delete(user_id: &str) -> Result<(), Error> {
     let client = Client::default()?;
-    let endpoint = format!("users/{}", user_id);
+    let endpoint = format!("users/{user_id}");
     client.delete::<(), ()>(&endpoint, None::<&()>).await?;
     Ok(())
 }
@@ -267,7 +267,7 @@ pub async fn delete(user_id: &str) -> Result<(), Error> {
 /// Ban a user
 pub async fn ban(user_id: &str) -> Result<User, Error> {
     let client = Client::default()?;
-    let endpoint = format!("users/{}/actions/ban", user_id);
+    let endpoint = format!("users/{user_id}/actions/ban");
     let body = serde_json::json!({
         "meta": {}
     });
@@ -279,7 +279,7 @@ pub async fn ban(user_id: &str) -> Result<User, Error> {
 /// Unban a user
 pub async fn unban(user_id: &str) -> Result<User, Error> {
     let client = Client::default()?;
-    let endpoint = format!("users/{}/actions/unban", user_id);
+    let endpoint = format!("users/{user_id}/actions/unban");
     let body = serde_json::json!({
         "meta": {}
     });

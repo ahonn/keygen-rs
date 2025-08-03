@@ -665,7 +665,7 @@ impl License {
         });
 
         let response = client
-            .post(&"licenses/actions/validate-key", Some(&params), None::<&()>)
+            .post("licenses/actions/validate-key", Some(&params), None::<&()>)
             .await?;
         let validation: LicenseResponse<ValidationMeta> = serde_json::from_value(response.body)?;
         let meta = validation.meta.clone().unwrap();
@@ -722,7 +722,7 @@ impl License {
             }
           }
         });
-        if components.len() > 0 {
+        if !components.is_empty() {
             params["data"]["relationships"]["components"] = json!({
                 "data": components
                     .iter()
@@ -746,14 +746,14 @@ impl License {
     pub async fn deactivate(&self, id: &str) -> Result<(), Error> {
         let client = Client::default()?;
         let _response = client
-            .delete::<(), serde_json::Value>(&format!("machines/{}", id), None::<&()>)
+            .delete::<(), serde_json::Value>(&format!("machines/{id}"), None::<&()>)
             .await?;
         Ok(())
     }
 
     pub async fn machine(&self, id: &str) -> Result<Machine, Error> {
         let client = Client::default()?;
-        let response = client.get(&format!("machines/{}", id), None::<&()>).await?;
+        let response = client.get(&format!("machines/{id}"), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         let machine = Machine::from(machine_response.data);
         Ok(machine)
@@ -869,7 +869,7 @@ impl License {
                 Error::LicenseNotActivated {
                     code,
                     detail,
-                    license: self.clone(),
+                    license: Box::new(self.clone()),
                 }
             }
             "EXPIRED" => Error::LicenseExpired { code, detail },
@@ -958,7 +958,7 @@ impl License {
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<License, Error> {
         let client = Client::default()?;
-        let endpoint = format!("licenses/{}", id);
+        let endpoint = format!("licenses/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
         Ok(License::from(license_response.data))
@@ -1080,6 +1080,7 @@ impl License {
 mod tests {
     use super::*;
     use crate::config::{reset_config, set_config, KeygenConfig};
+    use chrono::TimeZone;
     use mockito::{mock, server_url};
     use serde_json::json;
 
@@ -1158,7 +1159,7 @@ mod tests {
             .with_body(get_mock_body())
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -1188,7 +1189,7 @@ mod tests {
             .with_body(get_mock_body())
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -1232,7 +1233,7 @@ mod tests {
             .with_body(get_mock_body())
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -1306,7 +1307,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -1374,7 +1375,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -1397,7 +1398,7 @@ mod tests {
             .with_body(get_mock_body())
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -1460,7 +1461,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -1478,7 +1479,7 @@ mod tests {
         assert_eq!(validated_license.max_cores, Some(20));
         assert_eq!(validated_license.max_uses, Some(100));
         assert_eq!(validated_license.max_processes, Some(5));
-        assert_eq!(validated_license.protected, Some(true));
+        assert!(validated_license.protected == Some(true));
         assert_eq!(validated_license.suspended, Some(false));
         assert!(validated_license.metadata.contains_key("tier"));
         assert_eq!(
@@ -1512,7 +1513,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -1699,7 +1700,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -1774,7 +1775,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -1848,7 +1849,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -1890,7 +1891,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -1960,7 +1961,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -2008,7 +2009,7 @@ mod tests {
         assert_eq!(license.max_processes, Some(5));
         assert_eq!(license.max_cores, Some(8));
         assert_eq!(license.max_uses, Some(100));
-        assert_eq!(license.protected, Some(true));
+        assert!(license.protected == Some(true));
         assert_eq!(license.suspended, Some(false));
         assert_eq!(license.owner_id, Some("user-comprehensive".to_string()));
         assert_eq!(license.group_id, Some("group-comprehensive".to_string()));
@@ -2066,7 +2067,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -2114,7 +2115,7 @@ mod tests {
         assert_eq!(updated_license.max_users, Some(5));
         assert_eq!(updated_license.max_cores, Some(16));
         assert_eq!(updated_license.max_uses, Some(200));
-        assert_eq!(updated_license.protected, Some(true));
+        assert!(updated_license.protected == Some(true));
         assert_eq!(updated_license.suspended, Some(false));
         assert!(updated_license.metadata.contains_key("tier"));
         assert_eq!(
@@ -2171,7 +2172,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -2241,7 +2242,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -2286,7 +2287,7 @@ mod tests {
 
         assert_eq!(request.name, Some("Test License".to_string()));
         assert_eq!(request.max_machines, Some(Some(10)));
-        assert_eq!(request.protected, Some(true));
+        assert!(request.protected == Some(true));
         assert_eq!(request.metadata, Some(metadata));
 
         // Test clearing a limit
@@ -2305,9 +2306,8 @@ mod tests {
             "Test License"
         );
         assert_eq!(attributes.get("maxMachines").unwrap().as_i64().unwrap(), 10);
-        assert_eq!(
-            attributes.get("protected").unwrap().as_bool().unwrap(),
-            true
+        assert!(
+            attributes.get("protected").unwrap().as_bool().unwrap()
         );
         assert!(attributes.get("metadata").is_some());
     }
@@ -2357,7 +2357,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -2394,7 +2394,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -2431,7 +2431,7 @@ mod tests {
             )
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
@@ -2442,7 +2442,6 @@ mod tests {
             limit: Some(50),
             page_number: Some(3),
             page_size: Some(25),
-            ..Default::default()
         };
 
         let result = license.machines(Some(&pagination_options)).await;
@@ -2459,7 +2458,7 @@ mod tests {
             .with_header("content-type", "application/json")
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -2482,7 +2481,7 @@ mod tests {
             .with_header("content-type", "application/json")
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -2505,7 +2504,7 @@ mod tests {
             .with_header("content-type", "application/json")
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),
@@ -2527,7 +2526,7 @@ mod tests {
             .with_header("content-type", "application/json")
             .create();
 
-        set_config(KeygenConfig {
+        let _ = set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             token: Some("admin-token".to_string()),

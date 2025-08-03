@@ -93,7 +93,7 @@ pub enum Error {
     LicenseFileNotEncrypted,
 
     #[error("License file expired")]
-    LicenseFileExpired(LicenseFileDataset),
+    LicenseFileExpired(Box<LicenseFileDataset>),
 
     #[error("Machine file invalid")]
     MachineFileInvalid(String),
@@ -105,7 +105,7 @@ pub enum Error {
     MachineFileNotSupported(String),
 
     #[error("License file expired")]
-    MachineFileExpired(MachineFileDataset),
+    MachineFileExpired(Box<MachineFileDataset>),
 
     #[error("API error: {detail}")]
     KeygenApiError {
@@ -139,7 +139,7 @@ pub enum Error {
     LicenseNotActivated {
         code: String,
         detail: String,
-        license: License,
+        license: Box<License>,
     },
 
     #[error("License key invalid")]

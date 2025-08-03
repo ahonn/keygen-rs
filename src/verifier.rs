@@ -96,8 +96,7 @@ impl Verifier {
 
         let request_target = format!("{} {}", method.to_lowercase(), path);
         let signing_data = format!(
-            "(request-target): {}\nhost: {}\ndate: {}\ndigest: {}",
-            request_target, host, date_header, digest_header
+            "(request-target): {request_target}\nhost: {host}\ndate: {date_header}\ndigest: {digest_header}"
         );
 
         self.verify_ed25519_signature(&signing_data, &signature_components.signature)?;
@@ -113,11 +112,11 @@ impl Verifier {
         headers
             .get(name)
             .ok_or_else(|| Error::KeygenSignatureInvalid {
-                reason: format!("Missing {} header", name),
+                reason: format!("Missing {name} header"),
             })?
             .to_str()
             .map_err(|_| Error::KeygenSignatureInvalid {
-                reason: format!("Invalid {} header", name),
+                reason: format!("Invalid {name} header"),
             })
     }
 
@@ -164,7 +163,7 @@ impl Verifier {
         })
     }
 
-    fn extract_header_value<'a>(&self, part: &'a str, prefix: &str) -> Option<String> {
+    fn extract_header_value(&self, part: &str, prefix: &str) -> Option<String> {
         if part.starts_with(prefix) {
             Some(
                 part.trim_start_matches(prefix)
@@ -179,8 +178,7 @@ impl Verifier {
     fn verify_digest(&self, digest_header: &str, body: &[u8]) -> Result<(), Error> {
         const SHA256_PREFIX: &str = "sha-256=";
 
-        if digest_header.starts_with(SHA256_PREFIX) {
-            let provided_digest = &digest_header[SHA256_PREFIX.len()..];
+        if let Some(provided_digest) = digest_header.strip_prefix(SHA256_PREFIX) {
 
             let mut hasher = Sha256::new();
             hasher.update(body);
@@ -272,7 +270,7 @@ impl Verifier {
 
         let enc_dataset = parts[1];
 
-        let msg = format!("key/{}", enc_dataset).into_bytes();
+        let msg = format!("key/{enc_dataset}").into_bytes();
         let sig = general_purpose::URL_SAFE
             .decode(enc_sig)
             .map_err(|_| Error::LicenseKeyNotGenuine)?;
@@ -321,7 +319,7 @@ mod tests {
     use serde_json::json;
 
     fn generate_valid_keys() -> (String, String) {
-        let mut csprng = OsRng::default();
+        let mut csprng = OsRng;
         let keypair: SigningKey = SigningKey::generate(&mut csprng);
 
         let public_key = hex::encode(keypair.verifying_key().as_bytes());
@@ -334,7 +332,7 @@ mod tests {
 
         let payload_encoded = general_purpose::URL_SAFE.encode(payload.to_string());
 
-        let signing_input = format!("key/{}", payload_encoded);
+        let signing_input = format!("key/{payload_encoded}");
         let signature = keypair.sign(signing_input.as_bytes());
 
         let license_key = format!(
@@ -437,7 +435,7 @@ mod tests {
     #[test]
     fn test_verify_keygen_signature() {
         // Generate keypair for testing
-        let mut csprng = OsRng::default();
+        let mut csprng = OsRng;
         let keypair: SigningKey = SigningKey::generate(&mut csprng);
         let public_key = hex::encode(keypair.verifying_key().as_bytes());
 
@@ -449,7 +447,7 @@ mod tests {
         hasher.update(body);
         let digest_bytes = hasher.finalize();
         let encoded_digest = general_purpose::STANDARD.encode(digest_bytes);
-        let digest_header = format!("sha-256={}", encoded_digest);
+        let digest_header = format!("sha-256={encoded_digest}");
 
         // Create date header
         let date = "Wed, 09 Jun 2021 16:08:15 GMT";
@@ -459,8 +457,7 @@ mod tests {
         let host = "api.keygen.sh";
 
         let signing_data = format!(
-            "(request-target): {}\nhost: {}\ndate: {}\ndigest: {}",
-            request_target, host, date, digest_header
+            "(request-target): {request_target}\nhost: {host}\ndate: {date}\ndigest: {digest_header}"
         );
 
         // Sign the data
@@ -469,8 +466,7 @@ mod tests {
 
         // Create the signature header
         let signature_header = format!(
-            r#"keyid="test-account", algorithm="ed25519", signature="{}", headers="(request-target) host date digest""#,
-            signature_b64
+            r#"keyid="test-account", algorithm="ed25519", signature="{signature_b64}", headers="(request-target) host date digest""#
         );
 
         // Create the headers map
@@ -492,14 +488,13 @@ mod tests {
         );
         assert!(
             result.is_ok(),
-            "Signature verification should succeed: {:?}",
-            result
+            "Signature verification should succeed: {result:?}"
         );
     }
 
     #[test]
     fn test_verify_keygen_signature_with_missing_header() {
-        let mut csprng = OsRng::default();
+        let mut csprng = OsRng;
         let keypair: SigningKey = SigningKey::generate(&mut csprng);
         let public_key = hex::encode(keypair.verifying_key().as_bytes());
 

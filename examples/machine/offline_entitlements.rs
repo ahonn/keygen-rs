@@ -25,7 +25,7 @@ async fn main() -> Result<(), Error> {
     let fingerprint = machine_uid::get().unwrap_or("".into());
     let license = match keygen_rs::validate(&[fingerprint.clone()], &[]).await {
         Ok(license) => license,
-        Err(Error::LicenseNotActivated { license, .. }) => license,
+        Err(Error::LicenseNotActivated { license, .. }) => *license,
         Err(e) => return Err(e),
     };
 

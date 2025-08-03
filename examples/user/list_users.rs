@@ -20,7 +20,7 @@ async fn main() -> Result<(), Error> {
     // List all users
     match user::list(None).await {
         Ok(result) => {
-            println!("Action completed:", result.users.len());
+            println!("Action completed: {} users found", result.users.len());
 
             // Display pagination metadata if available
             if let Some(meta) = &result.meta {

@@ -40,14 +40,14 @@ pub struct MachineFile {
     pub ttl: i32,
 }
 
-impl Into<MachineFile> for CertificateFileAttributes {
-    fn into(self) -> MachineFile {
+impl From<CertificateFileAttributes> for MachineFile {
+    fn from(val: CertificateFileAttributes) -> Self {
         MachineFile {
             id: "".into(),
-            certificate: self.certificate,
-            issued: self.issued,
-            expiry: self.expiry,
-            ttl: self.ttl,
+            certificate: val.certificate,
+            issued: val.issued,
+            expiry: val.expiry,
+            ttl: val.ttl,
         }
     }
 }
@@ -136,7 +136,7 @@ impl MachineFile {
                     included: None,
                 }
             });
-            Err(Error::MachineFileExpired(dataset))
+            Err(Error::MachineFileExpired(Box::new(dataset)))
         } else {
             Ok(())
         }
@@ -210,7 +210,7 @@ impl MachineFile {
 
         if let Err(err) = validate_certificate_meta(&meta) {
             match err {
-                Error::CertificateFileExpired => Err(Error::MachineFileExpired(dataset)),
+                Error::CertificateFileExpired => Err(Error::MachineFileExpired(Box::new(dataset))),
                 _ => Err(err),
             }
         } else {
@@ -258,6 +258,23 @@ impl MachineFile {
     pub fn groups(&self, key: &str) -> Result<Vec<Group>, Error> {
         let dataset = self.decrypt(key)?;
         Ok(dataset.offline_groups().unwrap_or(&vec![]).clone())
+    }
+}
+
+impl MachineFileDataset {
+    /// Get cached entitlements without making an API call
+    pub fn offline_entitlements(&self) -> Option<&Vec<Entitlement>> {
+        self.included.as_ref().map(|inc| &inc.entitlements)
+    }
+
+    /// Get cached components without making an API call
+    pub fn offline_components(&self) -> Option<&Vec<Component>> {
+        self.included.as_ref().map(|inc| &inc.components)
+    }
+
+    /// Get cached groups without making an API call
+    pub fn offline_groups(&self) -> Option<&Vec<Group>> {
+        self.included.as_ref().map(|inc| &inc.groups)
     }
 }
 
@@ -359,22 +376,5 @@ mod tests {
 
         assert!(opts.ttl.is_none());
         assert!(opts.include.is_none());
-    }
-}
-
-impl MachineFileDataset {
-    /// Get cached entitlements without making an API call
-    pub fn offline_entitlements(&self) -> Option<&Vec<Entitlement>> {
-        self.included.as_ref().map(|inc| &inc.entitlements)
-    }
-
-    /// Get cached components without making an API call
-    pub fn offline_components(&self) -> Option<&Vec<Component>> {
-        self.included.as_ref().map(|inc| &inc.components)
-    }
-
-    /// Get cached groups without making an API call
-    pub fn offline_groups(&self) -> Option<&Vec<Group>> {
-        self.included.as_ref().map(|inc| &inc.groups)
     }
 }

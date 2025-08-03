@@ -96,6 +96,12 @@ impl MachineCheckoutOpts {
     }
 }
 
+impl Default for MachineCheckoutOpts {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MachineListFilters {
     pub license: Option<String>,
@@ -258,13 +264,10 @@ impl Machine {
 
             send(self.ping().await);
             while interval_stream.next().await.is_some() {
-                match cancel_rx {
-                    Some(ref rx) => {
-                        if rx.try_recv().is_ok() {
-                            break;
-                        }
+                if let Some(ref rx) = cancel_rx {
+                    if rx.try_recv().is_ok() {
+                        break;
                     }
-                    None => {}
                 }
                 send(self.ping().await);
             }
@@ -358,7 +361,7 @@ impl Machine {
             }
             if let Some(metadata) = filters.metadata {
                 for (key, value) in metadata {
-                    query_params.push((format!("metadata[{}]", key), value.to_string()));
+                    query_params.push((format!("metadata[{key}]"), value.to_string()));
                 }
             }
             // Add pagination parameters
@@ -396,7 +399,7 @@ impl Machine {
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<Machine, Error> {
         let client = Client::default()?;
-        let endpoint = format!("machines/{}", id);
+        let endpoint = format!("machines/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))

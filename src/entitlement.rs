@@ -125,7 +125,7 @@ impl Entitlement {
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<Entitlement, Error> {
         let client = Client::default()?;
-        let endpoint = format!("entitlements/{}", id);
+        let endpoint = format!("entitlements/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let entitlement_response: EntitlementResponse = serde_json::from_value(response.body)?;
         Ok(Entitlement::from(entitlement_response.data))

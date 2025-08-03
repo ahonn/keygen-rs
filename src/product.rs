@@ -179,7 +179,7 @@ impl Product {
     /// Get a product by ID
     pub async fn get(id: &str) -> Result<Product, Error> {
         let client = Client::default()?;
-        let endpoint = format!("products/{}", id);
+        let endpoint = format!("products/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let product_response: ProductResponse = serde_json::from_value(response.body)?;
         Ok(Product::from(product_response.data))

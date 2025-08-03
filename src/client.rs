@@ -71,7 +71,7 @@ impl Client {
         let client = ReqwestClient::builder()
             .timeout(Duration::from_secs(30))
             .build()
-            .map_err(|e| Error::UnexpectedError(format!("Failed to build HTTP client: {}", e)))?;
+            .map_err(|e| Error::UnexpectedError(format!("Failed to build HTTP client: {e}")))?;
 
         Ok(Self {
             inner: client,
@@ -224,12 +224,12 @@ impl Client {
         if let Some(key) = &self.options.license_key {
             headers.insert(
                 AUTHORIZATION,
-                HeaderValue::from_str(&format!("License {}", key))?,
+                HeaderValue::from_str(&format!("License {key}"))?,
             );
         } else if let Some(token) = &self.options.token {
             headers.insert(
                 AUTHORIZATION,
-                HeaderValue::from_str(&format!("Bearer {}", token))?,
+                HeaderValue::from_str(&format!("Bearer {token}"))?,
             );
         }
 
@@ -291,12 +291,12 @@ impl Client {
         if let Some(key) = &self.options.license_key {
             headers.insert(
                 AUTHORIZATION,
-                HeaderValue::from_str(&format!("License {}", key))?,
+                HeaderValue::from_str(&format!("License {key}"))?,
             );
         } else if let Some(token) = &self.options.token {
             headers.insert(
                 AUTHORIZATION,
-                HeaderValue::from_str(&format!("Bearer {}", token))?,
+                HeaderValue::from_str(&format!("Bearer {token}"))?,
             );
         }
 
@@ -315,7 +315,7 @@ impl Client {
         let method = request.method().as_str().to_owned();
         let url = request.url().clone();
         let host = match (url.host_str(), url.port()) {
-            (Some(h), Some(p)) => format!("{}:{}", h, p),
+            (Some(h), Some(p)) => format!("{h}:{p}"),
             (Some(h), None) => h.to_string(),
             _ => "api.keygen.sh".to_string(),
         };
@@ -338,7 +338,7 @@ impl Client {
 
                 let base_path = url.path();
                 let full_path = if let Some(query) = url.query() {
-                    format!("{}?{}", base_path, query)
+                    format!("{base_path}?{query}")
                 } else {
                     base_path.to_string()
                 };
@@ -346,7 +346,7 @@ impl Client {
                 verifier
                     .verify_keygen_signature(&headers, &bytes, &method, &full_path, &host)
                     .map_err(|err| Error::KeygenSignatureInvalid {
-                        reason: format!("Keygen signature validation failed: {}", err),
+                        reason: format!("Keygen signature validation failed: {err}"),
                     })?;
             }
         }
@@ -368,7 +368,7 @@ impl Client {
         let method = request.method().as_str().to_owned();
         let url = request.url().clone();
         let host = match (url.host_str(), url.port()) {
-            (Some(h), Some(p)) => format!("{}:{}", h, p),
+            (Some(h), Some(p)) => format!("{h}:{p}"),
             (Some(h), None) => h.to_string(),
             _ => "api.keygen.sh".to_string(),
         };
@@ -392,7 +392,7 @@ impl Client {
 
                 let base_path = url.path();
                 let full_path = if let Some(query) = url.query() {
-                    format!("{}?{}", base_path, query)
+                    format!("{base_path}?{query}")
                 } else {
                     base_path.to_string()
                 };
@@ -400,7 +400,7 @@ impl Client {
                 verifier
                     .verify_keygen_signature(&headers, text.as_bytes(), &method, &full_path, &host)
                     .map_err(|err| Error::KeygenSignatureInvalid {
-                        reason: format!("Keygen signature validation failed: {}", err),
+                        reason: format!("Keygen signature validation failed: {err}"),
                     })?;
             }
         }
@@ -422,8 +422,7 @@ impl Client {
             StatusCode::TOO_MANY_REQUESTS => self.handle_rate_limit_error(headers),
             StatusCode::FORBIDDEN => self.handle_forbidden_error(&body),
             _ if status.is_server_error() => Error::UnexpectedError(format!(
-                "Unexpected API error: status={}, body={}",
-                status, body
+                "Unexpected API error: status={status}, body={body}"
             )),
             _ => self.handle_other_error(&body),
         }

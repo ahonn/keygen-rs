@@ -103,7 +103,7 @@ pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Resul
     let response = client.get("me", None::<&()>).await?;
     let profile: LicenseResponse<()> = serde_json::from_value(response.body)?;
     let license = License::from(profile.data);
-    Ok(license.validate_key(fingerprints, entitlements).await?)
+    license.validate_key(fingerprints, entitlements).await
 }
 
 /// Verifies a signed key based on a given scheme
@@ -134,7 +134,6 @@ pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Resul
 ///       println!("License verification failed");
 ///     }
 /// }
-
 pub fn verify(scheme: SchemeCode, signed_key: &str) -> Result<Vec<u8>, Error> {
     let license = License::from_signed_key(scheme, signed_key);
     license.verify()

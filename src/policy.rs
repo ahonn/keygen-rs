@@ -233,6 +233,7 @@ pub struct CreatePolicyRequest {
     pub product_id: String,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for CreatePolicyRequest {
     fn default() -> Self {
         Self {
@@ -276,7 +277,7 @@ impl Default for CreatePolicyRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UpdatePolicyRequest {
     pub name: Option<String>,
     pub duration: Option<i64>,
@@ -335,45 +336,6 @@ pub struct UpdatePolicyRequest {
     pub max_users: Option<i32>,
     pub scheme: Option<Scheme>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
-}
-
-impl Default for UpdatePolicyRequest {
-    fn default() -> Self {
-        Self {
-            name: None,
-            duration: None,
-            strict: None,
-            floating: None,
-            require_heartbeat: None,
-            heartbeat_duration: None,
-            heartbeat_cull_strategy: None,
-            heartbeat_resurrection_strategy: None,
-            heartbeat_basis: None,
-            machine_uniqueness_strategy: None,
-            component_uniqueness_strategy: None,
-            machine_matching_strategy: None,
-            component_matching_strategy: None,
-            expiration_strategy: None,
-            expiration_basis: None,
-            renewal_basis: None,
-            authentication_strategy: None,
-            machine_leasing_strategy: None,
-            process_leasing_strategy: None,
-            overage_strategy: None,
-            transfer_strategy: None,
-            max_machines: None,
-            max_processes: None,
-            max_cores: None,
-            max_uses: None,
-            protected: None,
-            require_check_in: None,
-            check_in_interval: None,
-            check_in_interval_count: None,
-            max_users: None,
-            scheme: None,
-            metadata: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -711,7 +673,7 @@ impl Policy {
     /// Get a policy by ID
     pub async fn get(id: &str) -> Result<Policy, Error> {
         let client = Client::default()?;
-        let endpoint = format!("policies/{}", id);
+        let endpoint = format!("policies/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let policy_response: PolicyResponse = serde_json::from_value(response.body)?;
         Ok(Policy::from(policy_response.data))

@@ -60,7 +60,7 @@ impl LicenseState {
             self.set_valid(false).await;
             match error {
                 KeygenError::LicenseNotActivated { ref license, .. } => {
-                    self.license = Some(license.clone());
+                    self.license = Some((**license).clone());
                     return Err(error.into());
                 }
                 _ => {}
