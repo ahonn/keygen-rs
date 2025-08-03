@@ -1,18 +1,12 @@
 [workspace]
 # Enable creating GitHub releases
-release = true
-# Enable creating GitHub Pull Requests
-pr = true
+git_release_enable = true
 # Customize changelog
 changelog_update = true
-changelog_include = ["feat", "fix", "perf", "refactor", "docs", "test", "build", "ci", "chore"]
 
 # Git configuration
 git_tag_enable = true
 git_tag_name = "v{{ version }}"
-
-# Release commit message
-release_commits_message = "bump: v{{ version }}"
 
 # Changelog configuration
 [changelog]
