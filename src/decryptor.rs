@@ -39,7 +39,8 @@ impl Decryptor {
         hasher.update(self.secret.as_bytes());
         let key = hasher.finalize();
 
-        let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| Error::DecryptionError("Invalid key length".into()))?;
+        let cipher = Aes256Gcm::new_from_slice(&key)
+            .map_err(|_| Error::DecryptionError("Invalid key length".into()))?;
         let nonce = Nonce::from_slice(&iv);
 
         let mut encrypted_data = ciphertext;

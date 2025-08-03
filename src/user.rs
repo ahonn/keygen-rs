@@ -287,6 +287,3 @@ pub async fn unban(user_id: &str) -> Result<User, Error> {
     let user_response: UserResponse = serde_json::from_value(response.body)?;
     Ok(User::from(user_response.data))
 }
-
-
-

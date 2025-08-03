@@ -1,5 +1,5 @@
 use base64::{engine::general_purpose, Engine};
-use ed25519_dalek::{VerifyingKey, Signature, Verifier as Ed25519Verifier};
+use ed25519_dalek::{Signature, Verifier as Ed25519Verifier, VerifyingKey};
 use reqwest::header::HeaderMap;
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
@@ -187,7 +187,11 @@ impl Verifier {
             let digest_bytes = hasher.finalize();
             let calculated_digest = general_purpose::STANDARD.encode(digest_bytes);
 
-            if !bool::from(provided_digest.as_bytes().ct_eq(calculated_digest.as_bytes())) {
+            if !bool::from(
+                provided_digest
+                    .as_bytes()
+                    .ct_eq(calculated_digest.as_bytes()),
+            ) {
                 return Err(Error::KeygenSignatureInvalid {
                     reason: "Body digest does not match digest header".to_string(),
                 });
@@ -277,7 +281,8 @@ impl Verifier {
             .decode(enc_dataset)
             .map_err(|_| Error::LicenseKeyNotGenuine)?;
 
-        let public_key = VerifyingKey::from_bytes(&public_key).map_err(|_| Error::PublicKeyInvalid)?;
+        let public_key =
+            VerifyingKey::from_bytes(&public_key).map_err(|_| Error::PublicKeyInvalid)?;
         let signature = Signature::try_from(&sig[..]).map_err(|_| Error::LicenseKeyNotGenuine)?;
 
         if public_key.verify(&msg, &signature).is_ok() {
@@ -310,7 +315,7 @@ mod tests {
     use super::*;
     use crate::license::SchemeCode;
     use base64::engine::general_purpose;
-    use ed25519_dalek::{SigningKey, Signer};
+    use ed25519_dalek::{Signer, SigningKey};
     use rand::rngs::OsRng;
     use reqwest::header::{HeaderMap, HeaderValue};
     use serde_json::json;

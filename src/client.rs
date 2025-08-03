@@ -554,7 +554,8 @@ mod tests {
             api_version: "1.0".to_string(),
             api_prefix: "v1".to_string(),
             verify_keygen_signature: true, // Enable Keygen-Signature verification for tests
-        }).expect("Failed to create test client")
+        })
+        .expect("Failed to create test client")
     }
 
     #[tokio::test]

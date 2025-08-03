@@ -101,7 +101,9 @@ impl Entitlement {
             }
         });
 
-        let response = client.post("entitlements", Some(&body), None::<&()>).await?;
+        let response = client
+            .post("entitlements", Some(&body), None::<&()>)
+            .await?;
         let entitlement_response: EntitlementResponse = serde_json::from_value(response.body)?;
         Ok(Entitlement::from(entitlement_response.data))
     }
@@ -232,7 +234,10 @@ mod tests {
     #[test]
     fn test_create_entitlement_request_serialization() {
         let mut metadata = HashMap::new();
-        metadata.insert("feature_level".to_string(), serde_json::Value::String("premium".to_string()));
+        metadata.insert(
+            "feature_level".to_string(),
+            serde_json::Value::String("premium".to_string()),
+        );
 
         let request = CreateEntitlementRequest {
             name: Some("Advanced Features".to_string()),

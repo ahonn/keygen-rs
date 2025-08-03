@@ -127,7 +127,7 @@ impl Product {
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
         if !request.code.is_empty() {
-          attributes.insert("code".to_string(), serde_json::Value::String(request.code));
+            attributes.insert("code".to_string(), serde_json::Value::String(request.code));
         }
 
         if let Some(distribution_strategy) = request.distribution_strategy {

@@ -20,7 +20,7 @@ async fn main() -> Result<(), Error> {
     // Parse command line arguments
     let args: Vec<String> = env::args().collect();
     let auto_confirm = args.contains(&"--yes".to_string());
-    
+
     // Get user ID from command line argument
     let user_id = args
         .iter()
@@ -30,7 +30,10 @@ async fn main() -> Result<(), Error> {
 
     // Confirm deletion
     let should_delete = if auto_confirm {
-        println!("🔥 Deleting user '{}' automatically (--yes flag provided)...", user_id);
+        println!(
+            "🔥 Deleting user '{}' automatically (--yes flag provided)...",
+            user_id
+        );
         true
     } else {
         println!(

@@ -459,7 +459,6 @@ mod tests {
     };
     use chrono::Utc;
 
-
     #[test]
     fn test_machine_relationships() {
         // Test that all relationship IDs are properly extracted

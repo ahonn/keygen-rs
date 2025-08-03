@@ -17,7 +17,8 @@ async fn main() -> Result<(), Error> {
         product: env::var("KEYGEN_PRODUCT").expect("KEYGEN_PRODUCT must be set"),
         license_key: Some(env::var("KEYGEN_LICENSE_KEY").expect("KEYGEN_LICENSE_KEY must be set")),
         ..KeygenConfig::default()
-    }).expect("Failed to set config");
+    })
+    .expect("Failed to set config");
 
     // First validate to get the license
     println!("🔍 Fetching license information...");

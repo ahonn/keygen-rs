@@ -9,7 +9,7 @@ use std::{collections::HashMap, env};
 async fn main() -> Result<(), Error> {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -31,8 +31,14 @@ async fn main() -> Result<(), Error> {
     let entitlement = Entitlement::get(&entitlement_id).await?;
 
     let mut updated_metadata = HashMap::new();
-    updated_metadata.insert("feature_level".to_string(), serde_json::Value::String("enterprise".to_string()));
-    updated_metadata.insert("max_users".to_string(), serde_json::Value::Number(serde_json::Number::from(500)));
+    updated_metadata.insert(
+        "feature_level".to_string(),
+        serde_json::Value::String("enterprise".to_string()),
+    );
+    updated_metadata.insert(
+        "max_users".to_string(),
+        serde_json::Value::Number(serde_json::Number::from(500)),
+    );
 
     let update_request = UpdateEntitlementRequest {
         name: Some("Enterprise Features (Updated)".to_string()),

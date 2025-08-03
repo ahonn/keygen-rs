@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose, Engine as _};
 use dotenv::dotenv;
-use ed25519_dalek::{SigningKey, Signer};
+use ed25519_dalek::{Signer, SigningKey};
 use keygen_rs::{
     config::{self, KeygenConfig},
     license::SchemeCode,
@@ -45,7 +45,8 @@ async fn main() {
         license_key: Some(env::var("KEYGEN_LICENSE_KEY").expect("KEYGEN_LICENSE_KEY must be set")),
         public_key: Some(public_key.clone()),
         ..KeygenConfig::default()
-    }).expect("Failed to set config");
+    })
+    .expect("Failed to set config");
 
     println!("Signed key: {:?}", signed_key);
     if let Ok(data) = keygen_rs::verify(SchemeCode::Ed25519Sign, &signed_key) {

@@ -21,7 +21,7 @@ async fn main() -> Result<(), Error> {
     match user::list(None).await {
         Ok(result) => {
             println!("Action completed:", result.users.len());
-            
+
             // Display pagination metadata if available
             if let Some(meta) = &result.meta {
                 if let Some(total) = meta.get("total") {
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Error> {
                     println!("Current page: {}", page);
                 }
             }
-            
+
             println!("\nUser list:");
             for user in result.users {
                 println!("  ID: {}", user.id);

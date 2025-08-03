@@ -9,7 +9,7 @@ use std::env;
 async fn main() -> Result<(), Error> {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
-    
+
     // Set up configuration with Admin Token
     config::set_config(KeygenConfig {
         api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
@@ -22,7 +22,12 @@ async fn main() -> Result<(), Error> {
         Ok(entitlements) => {
             println!("Found {} entitlements:", entitlements.len());
             for entitlement in entitlements {
-                println!("  Code: {} | ID: {} | Name: {}", entitlement.code, entitlement.id, entitlement.name.unwrap_or_else(|| "No name".to_string()));
+                println!(
+                    "  Code: {} | ID: {} | Name: {}",
+                    entitlement.code,
+                    entitlement.id,
+                    entitlement.name.unwrap_or_else(|| "No name".to_string())
+                );
             }
         }
         Err(e) => {

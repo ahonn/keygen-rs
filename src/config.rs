@@ -101,7 +101,8 @@ lazy_static! {
 }
 
 pub fn get_config() -> Result<KeygenConfig, Error> {
-    KEYGEN_CONFIG.read()
+    KEYGEN_CONFIG
+        .read()
         .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?
         .clone()
         .into()
@@ -114,14 +115,16 @@ impl From<KeygenConfig> for Result<KeygenConfig, Error> {
 }
 
 pub fn set_config(config: KeygenConfig) -> Result<(), Error> {
-    let mut current_config = KEYGEN_CONFIG.write()
+    let mut current_config = KEYGEN_CONFIG
+        .write()
         .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     *current_config = config;
     Ok(())
 }
 
 pub fn set_api_url(api_url: &str) -> Result<(), Error> {
-    let mut current_config = KEYGEN_CONFIG.write()
+    let mut current_config = KEYGEN_CONFIG
+        .write()
         .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.api_url = api_url.to_string();
     Ok(())

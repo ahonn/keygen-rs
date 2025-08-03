@@ -20,14 +20,16 @@ async fn main() -> Result<(), Error> {
     // Parse command line arguments
     let args: Vec<String> = env::args().collect();
     let auto_confirm = args.contains(&"--yes".to_string());
-    
+
     // Get policy ID from command line argument or environment variable
     let policy_id = args
         .iter()
         .find(|arg| !arg.starts_with("--") && !arg.contains("delete_policy"))
         .cloned()
         .or_else(|| env::var("KEYGEN_POLICY_ID").ok())
-        .expect("Please provide a policy ID as argument or set KEYGEN_POLICY_ID environment variable");
+        .expect(
+            "Please provide a policy ID as argument or set KEYGEN_POLICY_ID environment variable",
+        );
 
     // First, get the policy to confirm it exists
     match Policy::get(&policy_id).await {

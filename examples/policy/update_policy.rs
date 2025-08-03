@@ -22,7 +22,9 @@ async fn main() -> Result<(), Error> {
     let policy_id = env::args()
         .nth(1)
         .or_else(|| env::var("KEYGEN_POLICY_ID").ok())
-        .expect("Please provide a policy ID as argument or set KEYGEN_POLICY_ID environment variable");
+        .expect(
+            "Please provide a policy ID as argument or set KEYGEN_POLICY_ID environment variable",
+        );
 
     // First, get the current policy details
     match Policy::get(&policy_id).await {

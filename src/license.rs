@@ -130,18 +130,18 @@ impl Default for LicenseCheckoutOpts {
 
 #[derive(Debug, Default, Serialize)]
 pub struct PaginationOptions {
-    pub limit: Option<i32>,           // Number of resources to return (1-100, default 10)
-    pub page_number: Option<i32>,     // Page number to retrieve
-    pub page_size: Option<i32>,       // Number of resources per page (1-100)
+    pub limit: Option<i32>, // Number of resources to return (1-100, default 10)
+    pub page_number: Option<i32>, // Page number to retrieve
+    pub page_size: Option<i32>, // Number of resources per page (1-100)
 }
 
 /// Simple license list options with common filters
 #[derive(Debug, Default)]
 pub struct LicenseListOptions {
     // Pagination - following Keygen API standards
-    pub limit: Option<i32>,           // Number of resources to return (1-100, default 10)
-    pub page_number: Option<i32>,     // Page number to retrieve
-    pub page_size: Option<i32>,       // Number of resources per page (1-100)
+    pub limit: Option<i32>, // Number of resources to return (1-100, default 10)
+    pub page_number: Option<i32>, // Page number to retrieve
+    pub page_size: Option<i32>, // Number of resources per page (1-100)
 
     // Common filters
     pub status: Option<String>,  // "ACTIVE", "EXPIRED", "SUSPENDED", etc.

@@ -16,11 +16,12 @@ async fn main() -> Result<(), Error> {
         account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
         token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
         ..KeygenConfig::default()
-    }).expect("Failed to set config");
+    })
+    .expect("Failed to set config");
 
     // Get the license first, then reinstate it
-    let license_id =
-        env::var("KEYGEN_LICENSE_ID").expect("KEYGEN_LICENSE_ID must be set (get from list_licenses example)");
+    let license_id = env::var("KEYGEN_LICENSE_ID")
+        .expect("KEYGEN_LICENSE_ID must be set (get from list_licenses example)");
 
     // First get the license
     match License::get(&license_id).await {

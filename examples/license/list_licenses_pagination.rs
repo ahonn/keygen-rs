@@ -26,7 +26,7 @@ async fn main() -> Result<(), Error> {
             return Ok(());
         }
     };
-    
+
     let token = match env::var("KEYGEN_TOKEN") {
         Ok(token) => token,
         Err(_) => {
@@ -135,9 +135,15 @@ async fn main() -> Result<(), Error> {
     };
     match License::list(Some(&options_filtered)).await {
         Ok(licenses) => {
-            println!("✅ Found {} active licenses on page 1 (2 per page):", licenses.len());
+            println!(
+                "✅ Found {} active licenses on page 1 (2 per page):",
+                licenses.len()
+            );
             for license in licenses {
-                println!("  - {} ({}) - Status: {:?}", license.id, license.key, license.status);
+                println!(
+                    "  - {} ({}) - Status: {:?}",
+                    license.id, license.key, license.status
+                );
             }
         }
         Err(e) => {

@@ -18,11 +18,12 @@ async fn main() -> Result<(), Error> {
         account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
         token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
         ..KeygenConfig::default()
-    }).expect("Failed to set config");
+    })
+    .expect("Failed to set config");
 
     // Get required policy ID
-    let policy_id =
-        env::var("KEYGEN_POLICY_ID").expect("KEYGEN_POLICY_ID must be set (get from list_policies example)");
+    let policy_id = env::var("KEYGEN_POLICY_ID")
+        .expect("KEYGEN_POLICY_ID must be set (get from list_policies example)");
 
     // Example 1: Create a basic license with all optional parameters
 

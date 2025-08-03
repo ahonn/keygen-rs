@@ -17,7 +17,8 @@ async fn main() -> Result<(), Error> {
         account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
         token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
         ..KeygenConfig::default()
-    }).expect("Failed to set config");
+    })
+    .expect("Failed to set config");
 
     // Get license ID from environment or command line
     let license_id = env::var("KEYGEN_LICENSE_ID").expect("KEYGEN_LICENSE_ID must be set");
@@ -42,7 +43,7 @@ async fn main() -> Result<(), Error> {
         .with_name("Premium License - Updated".to_string())
         .with_expiry(new_expiry)
         .with_metadata(metadata);
-    
+
     let updated_license = license.update(request).await?;
 
     println!("License updated: {}", updated_license.id);

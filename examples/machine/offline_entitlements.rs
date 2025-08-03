@@ -18,7 +18,7 @@ async fn main() -> Result<(), Error> {
         public_key: Some(env::var("KEYGEN_PUBLIC_KEY").expect("KEYGEN_PUBLIC_KEY must be set")),
         ..KeygenConfig::default()
     })?;
-    
+
     let config = config::get_config().expect("Failed to get config");
     let license_key = config.license_key.clone().expect("License key required");
 
@@ -42,28 +42,35 @@ async fn main() -> Result<(), Error> {
         "components".to_string(),
     ]);
     let machine_file = machine.checkout(&options).await?;
-    
+
     // Decrypt key for machine files is license_key + fingerprint
     let decryption_key = format!("{}{}", license_key, fingerprint);
-    
+
     let offline_entitlements = machine_file.entitlements(&decryption_key)?;
     println!("Offline entitlements: {}", offline_entitlements.len());
 
     // Pure offline workflow
     let dataset = machine_file.decrypt(&decryption_key)?;
-    
+
     if let Some(entitlements) = dataset.offline_entitlements() {
         println!("Available entitlements:");
         for ent in entitlements {
-            println!("  - {} ({})", ent.code, 
-                ent.name.as_deref().unwrap_or("No name"));
+            println!(
+                "  - {} ({})",
+                ent.code,
+                ent.name.as_deref().unwrap_or("No name")
+            );
         }
-        
+
         // Feature checking
         let required_features = vec!["premium", "advanced", "api-access"];
         for feature in required_features {
             let has_feature = entitlements.iter().any(|ent| ent.code == feature);
-            println!("Feature '{}': {}", feature, if has_feature { "enabled" } else { "disabled" });
+            println!(
+                "Feature '{}': {}",
+                feature,
+                if has_feature { "enabled" } else { "disabled" }
+            );
         }
     }
 
@@ -74,6 +81,6 @@ async fn main() -> Result<(), Error> {
             println!("  - {} ({})", comp.name, comp.fingerprint);
         }
     }
-    
+
     Ok(())
 }

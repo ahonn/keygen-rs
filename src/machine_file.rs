@@ -187,7 +187,9 @@ impl MachineFile {
 
         // Parse other included relationships if present
         let included = if included_array.len() > 1 {
-            Some(IncludedResources::parse_from_json(&Value::Array(included_array.clone()))?)
+            Some(IncludedResources::parse_from_json(&Value::Array(
+                included_array.clone(),
+            ))?)
         } else {
             None
         };
@@ -244,7 +246,6 @@ impl MachineFile {
         Ok(dataset.offline_entitlements().unwrap_or(&vec![]).clone())
     }
 
-
     /// Get components from the machine file without making an API call
     /// Requires the decryption key and the machine file to include components
     pub fn components(&self, key: &str) -> Result<Vec<Component>, Error> {
@@ -258,7 +259,6 @@ impl MachineFile {
         let dataset = self.decrypt(key)?;
         Ok(dataset.offline_groups().unwrap_or(&vec![]).clone())
     }
-
 }
 
 #[cfg(test)]
@@ -326,7 +326,6 @@ mod tests {
         assert_eq!(included.entitlements[0].code, "feature-a");
         assert_eq!(included.entitlements[0].name, Some("Feature A".to_string()));
 
-
         assert_eq!(included.components.len(), 1);
         assert_eq!(included.components[0].id, "comp1");
         assert_eq!(included.components[0].fingerprint, "component-fingerprint");
@@ -343,10 +342,7 @@ mod tests {
 
     #[test]
     fn test_machine_checkout_opts_with_include() {
-        let include_vec = vec![
-            "license.entitlements".to_string(),
-            "components".to_string(),
-        ];
+        let include_vec = vec!["license.entitlements".to_string(), "components".to_string()];
         let opts = MachineCheckoutOpts::with_include(include_vec);
 
         assert!(opts.include.is_some());
@@ -371,7 +367,6 @@ impl MachineFileDataset {
     pub fn offline_entitlements(&self) -> Option<&Vec<Entitlement>> {
         self.included.as_ref().map(|inc| &inc.entitlements)
     }
-
 
     /// Get cached components without making an API call
     pub fn offline_components(&self) -> Option<&Vec<Component>> {

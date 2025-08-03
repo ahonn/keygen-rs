@@ -22,7 +22,9 @@ async fn main() -> Result<(), Error> {
     let product_id = env::args()
         .nth(1)
         .or_else(|| env::var("KEYGEN_PRODUCT_ID").ok())
-        .expect("Please provide a product ID as argument or set KEYGEN_PRODUCT_ID environment variable");
+        .expect(
+            "Please provide a product ID as argument or set KEYGEN_PRODUCT_ID environment variable",
+        );
 
     // Get the product details
     match Product::get(&product_id).await {

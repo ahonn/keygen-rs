@@ -16,16 +16,17 @@ async fn main() -> Result<(), Error> {
         account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
         token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
         ..KeygenConfig::default()
-    }).expect("Failed to set config");
+    })
+    .expect("Failed to set config");
 
     // Get the license ID from environment variable
     let license_id = env::var("KEYGEN_LICENSE_ID")
         .expect("KEYGEN_LICENSE_ID must be set (the license to attach entitlements to)");
-    
+
     // Get entitlement IDs from environment variable (comma-separated)
     let entitlement_ids_str = env::var("KEYGEN_ENTITLEMENT_IDS")
         .expect("KEYGEN_ENTITLEMENT_IDS must be set (comma-separated list of entitlement IDs)");
-    
+
     let entitlement_ids: Vec<String> = entitlement_ids_str
         .split(',')
         .map(|id| id.trim().to_string())
@@ -40,7 +41,7 @@ async fn main() -> Result<(), Error> {
 
     // Get the license
     let license = License::get(&license_id).await?;
-    
+
     println!("License: {} ({})", license.id, license.key);
 
     // Display current entitlements before attaching
@@ -54,12 +55,11 @@ async fn main() -> Result<(), Error> {
 
     // Verify the entitlements were attached
     let updated_entitlements = license.entitlements(None).await?;
-    
+
     println!("Total entitlements: {}", updated_entitlements.len());
     for entitlement in &updated_entitlements {
         println!("  {} ({})", entitlement.code, entitlement.id);
     }
-
 
     Ok(())
 }
