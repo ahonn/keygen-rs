@@ -198,6 +198,7 @@ path = "examples/license/revoke_license.rs"
 [[example]]
 name = "list_license_entitlements"
 path = "examples/license/list_entitlements.rs"
+
 [[example]]
 name = "attach_entitlements"
 path = "examples/license/attach_entitlements.rs"
