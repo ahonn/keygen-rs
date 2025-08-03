@@ -40,12 +40,12 @@ async fn main() -> Result<(), Error> {
                     println!("Product deleted: {}", product.id);
                 }
                 Err(e) => {
-                    println!("Failed to delete product: {:?}", e);
+                    println!("Failed to delete product: {e:?}");
                 }
             }
         }
         Err(e) => {
-            println!("Failed to find product: {:?}", e);
+            println!("Failed to find product: {e:?}");
         }
     }
 

@@ -51,7 +51,7 @@ async fn main() -> Result<(), Error> {
             println!("Entitlement updated: {}", updated_entitlement.code);
         }
         Err(e) => {
-            println!("Failed to update entitlement: {:?}", e);
+            println!("Failed to update entitlement: {e:?}");
         }
     }
 

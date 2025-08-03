@@ -38,7 +38,7 @@ async fn main() -> Result<(), Error> {
             println!("Updated: {}", machine.updated);
         }
         Err(e) => {
-            println!("Failed to get machine: {:?}", e);
+            println!("Failed to get machine: {e:?}");
         }
     }
 

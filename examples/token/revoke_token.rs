@@ -29,7 +29,7 @@ async fn main() -> Result<(), Error> {
     // First, get the token to ensure it exists
     match Token::get(&token_id).await {
         Ok(token) => {
-            println!("🔑 Found token:");
+            println!("Found token:");
             println!("  ID: {}", token.id);
             println!("  Kind: {:?}", token.kind);
             println!("  Name: {:?}", token.name);
@@ -38,16 +38,16 @@ async fn main() -> Result<(), Error> {
             // Revoke the token
             match token.revoke().await {
                 Ok(()) => {
-                    println!("\n✅ Token revoked successfully!");
-                    println!("⚠️  This token is now invalid and cannot be used for API requests.");
+                    println!("\nToken revoked successfully");
+                    println!("This token is now invalid and cannot be used for API requests.");
                 }
                 Err(e) => {
-                    println!("Failed to revoke token: {:?}", e);
+                    println!("Failed to revoke token: {e:?}");
                 }
             }
         }
         Err(e) => {
-            println!("Failed to find token: {:?}", e);
+            println!("Failed to find token: {e:?}");
         }
     }
 

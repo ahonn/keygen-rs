@@ -37,7 +37,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("Failed to list products: {:?}", e);
+            println!("Failed to list products: {e:?}");
         }
     }
 

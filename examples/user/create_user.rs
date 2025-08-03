@@ -35,7 +35,7 @@ async fn main() -> Result<(), Error> {
         .unwrap()
         .as_secs();
     let request = CreateUserRequest {
-        email: format!("user-{}@example.com", timestamp),
+        email: format!("user-{timestamp}@example.com"),
         first_name: Some("John".to_string()),
         last_name: Some("Doe".to_string()),
         role: Some(UserRole::User),
@@ -51,11 +51,11 @@ async fn main() -> Result<(), Error> {
             println!("Full Name: {:?}", user.full_name);
             println!("Role: {:?}", user.role);
             if let Some(metadata) = user.metadata {
-                println!("Metadata: {:?}", metadata);
+                println!("Metadata: {metadata:?}");
             }
         }
         Err(e) => {
-            println!("Failed to create user: {:?}", e);
+            println!("Failed to create user: {e:?}");
         }
     }
 

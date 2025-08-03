@@ -45,7 +45,7 @@ async fn main() -> Result<(), Error> {
             println!("  Updated: {}", product.updated);
         }
         Err(e) => {
-            println!("Failed to get product: {:?}", e);
+            println!("Failed to get product: {e:?}");
         }
     }
 

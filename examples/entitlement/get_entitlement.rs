@@ -37,7 +37,7 @@ async fn main() -> Result<(), Error> {
             );
         }
         Err(e) => {
-            println!("Failed to get entitlement: {:?}", e);
+            println!("Failed to get entitlement: {e:?}");
         }
     }
 

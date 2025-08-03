@@ -31,9 +31,10 @@ async fn main() -> Result<(), Error> {
             // the encryption secret for a machine file is the license key concatenated with the machine fingerprint
             // https://keygen.sh/docs/api/cryptography/#cryptographic-lic-decrypt
             let config = config::get_config()?;
-            let key = format!("{}{}", config.license_key.unwrap(), machine.fingerprint);
+            let license_key = config.license_key.unwrap();
+            let key = format!("{}{}", license_key, machine.fingerprint);
             let dataset = machine_file.decrypt(&key)?;
-            println!("Machine checkout successful: {:?}", dataset);
+            println!("Machine checkout successful: {dataset:?}");
         }
     } else {
         println!("License validation failed");

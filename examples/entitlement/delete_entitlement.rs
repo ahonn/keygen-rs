@@ -42,7 +42,7 @@ async fn main() -> Result<(), Error> {
     if input.trim().to_lowercase() == "yes" {
         match entitlement.delete().await {
             Ok(()) => println!("Entitlement deleted: {}", entitlement.code),
-            Err(e) => println!("Failed to delete entitlement: {:?}", e),
+            Err(e) => println!("Failed to delete entitlement: {e:?}"),
         }
     } else {
         println!("Deletion cancelled");

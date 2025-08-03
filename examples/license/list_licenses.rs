@@ -45,7 +45,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("Failed to list licenses: {:?}", e);
+            println!("Failed to list licenses: {e:?}");
         }
     }
 

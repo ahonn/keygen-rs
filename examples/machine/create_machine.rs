@@ -57,7 +57,7 @@ async fn main() -> Result<(), Error> {
             println!("Created: {}", machine.created);
         }
         Err(e) => {
-            println!("Failed to create machine: {:?}", e);
+            println!("Failed to create machine: {e:?}");
         }
     }
 

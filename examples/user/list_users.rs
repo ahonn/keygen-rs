@@ -25,10 +25,10 @@ async fn main() -> Result<(), Error> {
             // Display pagination metadata if available
             if let Some(meta) = &result.meta {
                 if let Some(total) = meta.get("total") {
-                    println!("Total users: {}", total);
+                    println!("Total users: {total}");
                 }
                 if let Some(page) = meta.get("page") {
-                    println!("Current page: {}", page);
+                    println!("Current page: {page}");
                 }
             }
 
@@ -41,14 +41,14 @@ async fn main() -> Result<(), Error> {
                 println!("  Created: {}", user.created);
                 if let Some(metadata) = user.metadata {
                     if !metadata.is_empty() {
-                        println!("  Metadata: {:?}", metadata);
+                        println!("  Metadata: {metadata:?}");
                     }
                 }
                 println!("  ---");
             }
         }
         Err(e) => {
-            println!("Failed to list users: {:?}", e);
+            println!("Failed to list users: {e:?}");
         }
     }
 

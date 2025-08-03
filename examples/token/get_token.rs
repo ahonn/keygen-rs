@@ -48,7 +48,7 @@ async fn main() -> Result<(), Error> {
             println!("Note: Token value is not returned for security reasons. It's only shown during generation/regeneration.");
         }
         Err(e) => {
-            println!("Failed to get token: {:?}", e);
+            println!("Failed to get token: {e:?}");
         }
     }
 

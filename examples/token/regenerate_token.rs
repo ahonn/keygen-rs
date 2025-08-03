@@ -29,7 +29,7 @@ async fn main() -> Result<(), Error> {
     // First, get the token
     match Token::get(&token_id).await {
         Ok(token) => {
-            println!("🔄 Found token:");
+            println!("Found token:");
             println!("  Current Name: {:?}", token.name);
             println!("  Current Kind: {:?}", token.kind);
             println!("  Current Permissions: {:?}", token.permissions);
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Error> {
             // Regenerate the token with updated permissions
             let current_name = token.name.clone().unwrap_or("Token".to_string());
             let regenerate_request = RegenerateTokenRequest {
-                name: Some(format!("{} (Regenerated)", current_name)),
+                name: Some(format!("{current_name} (Regenerated)")),
                 expiry: None, // Keep no expiration
                 permissions: Some(vec![
                     "product.read".to_string(),
@@ -50,22 +50,22 @@ async fn main() -> Result<(), Error> {
 
             match token.regenerate(regenerate_request).await {
                 Ok(regenerated_token) => {
-                    println!("\n✅ Token regenerated successfully!");
-                    println!("  New Name: {:?}", regenerated_token.name);
-                    println!("  New Permissions: {:?}", regenerated_token.permissions);
+                    println!("\nToken regenerated successfully");
+                    println!("New Name: {:?}", regenerated_token.name);
+                    println!("New Permissions: {:?}", regenerated_token.permissions);
                     if let Some(token_value) = regenerated_token.get_token() {
-                        println!("  🔑 New Token: {}", token_value);
-                        println!("\n⚠️  Keep this new token secure! The old token is now invalid.");
+                        println!("New Token: {token_value}");
+                        println!("\nKeep this new token secure! The old token is now invalid.");
                     }
                     println!("  Updated: {}", regenerated_token.updated);
                 }
                 Err(e) => {
-                    println!("Failed to regenerate token: {:?}", e);
+                    println!("Failed to regenerate token: {e:?}");
                 }
             }
         }
         Err(e) => {
-            println!("Failed to find token: {:?}", e);
+            println!("Failed to find token: {e:?}");
         }
     }
 

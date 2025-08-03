@@ -23,7 +23,7 @@ async fn main() -> Result<(), Error> {
             println!("Found {} machines", machines.len());
         }
         Err(e) => {
-            println!("Failed to list machines: {:?}", e);
+            println!("Failed to list machines: {e:?}");
         }
     }
 
@@ -39,7 +39,7 @@ async fn main() -> Result<(), Error> {
             println!("Found {} machines (limited to 25)", machines.len());
         }
         Err(e) => {
-            println!("Failed to list machines: {:?}", e);
+            println!("Failed to list machines: {e:?}");
         }
     }
 
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("Failed to list machines: {:?}", e);
+            println!("Failed to list machines: {e:?}");
         }
     }
 
@@ -98,7 +98,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("Failed to list machines: {:?}", e);
+            println!("Failed to list machines: {e:?}");
         }
     }
 

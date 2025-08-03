@@ -28,14 +28,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Service is healthy");
             println!("   Message: {}", ping_response.message);
             if let Some(version) = &ping_response.version {
-                println!("   Version: {}", version);
+                println!("   Version: {version}");
             }
             if let Some(timestamp) = &ping_response.timestamp {
-                println!("   Timestamp: {}", timestamp);
+                println!("   Timestamp: {timestamp}");
             }
         }
         Err(e) => {
-            eprintln!("Failed to ping service: {}", e);
+            eprintln!("Failed to ping service: {e}");
             return Err(e.into());
         }
     }
@@ -48,21 +48,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Service information retrieved");
 
             if let Some(api_version) = &service_info.api_version {
-                println!("   API Version: {}", api_version);
+                println!("   API Version: {api_version}");
             }
 
             if let Some(timestamp) = &service_info.timestamp {
-                println!("   Server Time: {}", timestamp);
+                println!("   Server Time: {timestamp}");
             }
 
             if let Some(message) = &service_info.message {
-                println!("   Message: {}", message);
+                println!("   Message: {message}");
             }
 
             println!("   Headers received:");
             for (key, value) in &service_info.headers {
                 if key.starts_with("keygen") || key.starts_with("x-") || key == "date" {
-                    println!("     {}: {}", key, value);
+                    println!("     {key}: {value}");
                 }
             }
 
@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         Err(e) => {
-            eprintln!("Failed to get service info: {}", e);
+            eprintln!("Failed to get service info: {e}");
             return Err(e.into());
         }
     }
@@ -97,7 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(e) => {
-            eprintln!("Failed to check product code support: {}", e);
+            eprintln!("Failed to check product code support: {e}");
         }
     }
 

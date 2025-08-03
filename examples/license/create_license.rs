@@ -70,7 +70,7 @@ async fn main() -> Result<(), Error> {
             println!("License created: {} ({})", license.id, license.key);
         }
         Err(e) => {
-            println!("Failed to create license: {:?}", e);
+            println!("Failed to create license: {e:?}");
             return Err(e);
         }
     }
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Error> {
             println!("License created: {} ({})", license.id, license.key);
         }
         Err(e) => {
-            println!("Failed to create license: {:?}", e);
+            println!("Failed to create license: {e:?}");
         }
     }
 
@@ -99,7 +99,7 @@ async fn main() -> Result<(), Error> {
             println!("License created: {} ({})", license.id, license.key);
         }
         Err(e) => {
-            println!("Failed to create license: {:?}", e);
+            println!("Failed to create license: {e:?}");
         }
     }
 
@@ -151,7 +151,7 @@ async fn main() -> Result<(), Error> {
             println!("License created: {} ({})", license.id, license.key);
         }
         Err(e) => {
-            println!("Failed to create license: {:?}", e);
+            println!("Failed to create license: {e:?}");
         }
     }
     Ok(())

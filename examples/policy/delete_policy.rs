@@ -34,17 +34,17 @@ async fn main() -> Result<(), Error> {
     // First, get the policy to confirm it exists
     match Policy::get(&policy_id).await {
         Ok(policy) => {
-            println!("📦 Found policy:");
+            println!("Found policy:");
             println!("  ID: {}", policy.id);
             println!("  Name: {}", policy.name);
             println!("  Max Machines: {:?}", policy.max_machines);
 
             // Confirm deletion
             let should_delete = if auto_confirm {
-                println!("🔥 Deleting policy automatically (--yes flag provided)...");
+                println!("Deleting policy automatically (--yes flag provided)...");
                 true
             } else {
-                println!("\n⚠️  Are you sure you want to delete this policy?");
+                println!("\nAre you sure you want to delete this policy?");
                 println!("This action cannot be undone and may affect associated licenses.");
                 println!("Type 'yes' to confirm deletion (or use --yes flag): ");
 
@@ -66,15 +66,15 @@ async fn main() -> Result<(), Error> {
                         println!("policy action completed");
                     }
                     Err(e) => {
-                        println!("Failed to delete policy: {:?}", e);
+                        println!("Failed to delete policy: {e:?}");
                     }
                 }
             } else {
-                println!("❌ Deletion cancelled.");
+                println!("Deletion cancelled.");
             }
         }
         Err(e) => {
-            println!("Failed to get policy: {:?}", e);
+            println!("Failed to get policy: {e:?}");
         }
     }
 

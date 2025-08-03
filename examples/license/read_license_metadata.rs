@@ -24,7 +24,7 @@ async fn main() -> Result<(), Error> {
 
     println!("\nAll metadata fields:");
     for (key, value) in &license.metadata {
-        println!("  {} = {}", key, value);
+        println!("  {key} = {value}");
     }
 
     Ok(())

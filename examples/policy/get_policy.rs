@@ -28,7 +28,7 @@ async fn main() -> Result<(), Error> {
     // Get the policy
     match Policy::get(&policy_id).await {
         Ok(policy) => {
-            println!("✅ Policy found!");
+            println!("Policy found");
             println!("  ID: {}", policy.id);
             println!("  Name: {}", policy.name);
             println!("  Duration: {:?} seconds", policy.duration);
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Error> {
             println!("  Updated: {}", policy.updated);
         }
         Err(e) => {
-            println!("Failed to get policy: {:?}", e);
+            println!("Failed to get policy: {e:?}");
         }
     }
 

@@ -71,7 +71,7 @@ async fn main() -> Result<(), Error> {
     if !missing_ids.is_empty() {
         println!("Warning: Some entitlements are not attached to this license:");
         for id in &missing_ids {
-            println!("  {}", id);
+            println!("  {id}");
         }
     }
 

@@ -31,9 +31,10 @@ async fn main() -> Result<(), Error> {
     );
 
     // Create a new entitlement
+    let timestamp = Utc::now().timestamp();
     let request = CreateEntitlementRequest {
         name: Some("Premium Features".to_string()),
-        code: format!("premium-features-{}", Utc::now().timestamp()),
+        code: format!("premium-features-{timestamp}"),
         metadata: Some(metadata),
     };
 
@@ -42,7 +43,7 @@ async fn main() -> Result<(), Error> {
             println!("Entitlement created: {}", entitlement.code);
         }
         Err(e) => {
-            println!("Failed to create entitlement: {:?}", e);
+            println!("Failed to create entitlement: {e:?}");
         }
     }
 

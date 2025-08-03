@@ -29,7 +29,7 @@ async fn main() -> Result<(), Error> {
     // First, get the current policy details
     match Policy::get(&policy_id).await {
         Ok(policy) => {
-            println!("📦 Found policy:");
+            println!("Found policy:");
             println!("  Current Name: {}", policy.name);
             println!("  Current Max Machines: {:?}", policy.max_machines);
             println!("  Current Duration: {:?} seconds", policy.duration);
@@ -61,7 +61,7 @@ async fn main() -> Result<(), Error> {
             // Update the policy
             match policy.update(update_request).await {
                 Ok(updated_policy) => {
-                    println!("\n✅ Policy updated successfully!");
+                    println!("\nPolicy updated successfully");
                     println!("  New Name: {}", updated_policy.name);
                     println!("  New Max Machines: {:?}", updated_policy.max_machines);
                     println!("  New Duration: {:?} seconds", updated_policy.duration);
@@ -77,12 +77,12 @@ async fn main() -> Result<(), Error> {
                     println!("  New Metadata: {:?}", updated_policy.metadata);
                 }
                 Err(e) => {
-                    println!("\nFailed to update policy: {:?}", e);
+                    println!("\nFailed to update policy: {e:?}");
                 }
             }
         }
         Err(e) => {
-            println!("Failed to get policy: {:?}", e);
+            println!("Failed to get policy: {e:?}");
         }
     }
 

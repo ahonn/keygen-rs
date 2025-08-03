@@ -28,7 +28,7 @@ async fn main() -> Result<(), Error> {
 
     // Fetch the license first
     let license = License::get(&license_id).await?;
-    println!("📋 Current License Details:");
+    println!("Current License Details:");
     println!("  ID: {}", license.id);
     println!("  Key: {}", license.key);
     println!("  Name: {:?}", license.name);
@@ -36,13 +36,10 @@ async fn main() -> Result<(), Error> {
 
     // Confirm revocation
     let should_revoke = if auto_confirm {
-        println!(
-            "\n🔥 Revoking license '{}' automatically (--yes flag provided)...",
-            license_id
-        );
+        println!("\nRevoking license '{license_id}' automatically (--yes flag provided)...");
         true
     } else {
-        println!("\n⚠️  WARNING: Revoking a license will permanently invalidate it!");
+        println!("\nWARNING: Revoking a license will permanently invalidate it!");
         println!(
             "This action is typically used for licenses that have been compromised or misused."
         );
@@ -60,13 +57,13 @@ async fn main() -> Result<(), Error> {
         // Revoke the license
         license.revoke().await?;
 
-        println!("\n✅ License revoked successfully!");
-        println!("📋 Revoked License:");
+        println!("\nLicense revoked successfully");
+        println!("Revoked License:");
         println!("  ID: {}", license.id);
         println!("  Key: {}", license.key);
-        println!("\n🚫 This license has been permanently revoked and can no longer be used for validation or activation.");
+        println!("\nThis license has been permanently revoked and can no longer be used for validation or activation.");
     } else {
-        println!("\n❌ License revocation cancelled.");
+        println!("\nLicense revocation cancelled.");
     }
 
     Ok(())

@@ -179,7 +179,6 @@ impl Verifier {
         const SHA256_PREFIX: &str = "sha-256=";
 
         if let Some(provided_digest) = digest_header.strip_prefix(SHA256_PREFIX) {
-
             let mut hasher = Sha256::new();
             hasher.update(body);
             let digest_bytes = hasher.finalize();

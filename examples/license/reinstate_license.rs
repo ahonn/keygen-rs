@@ -26,12 +26,12 @@ async fn main() -> Result<(), Error> {
     // First get the license
     match License::get(&license_id).await {
         Ok(license) => {
-            println!("📄 Found license: {}", license.key);
+            println!("Found license: {}", license.key);
 
             // Then reinstate it
             match license.reinstate().await {
                 Ok(reinstated_license) => {
-                    println!("✅ License reinstated successfully!");
+                    println!("License reinstated successfully");
                     println!("ID: {}", reinstated_license.id);
                     println!("Key: {}", reinstated_license.key);
                     println!("Status: {:?}", reinstated_license.status);
@@ -44,12 +44,12 @@ async fn main() -> Result<(), Error> {
                     println!("Suspended: {:?}", reinstated_license.suspended);
                 }
                 Err(e) => {
-                    println!("❌ Failed to reinstate license: {:?}", e);
+                    println!("Failed to reinstate license: {e:?}");
                 }
             }
         }
         Err(e) => {
-            println!("❌ Failed to get license: {:?}", e);
+            println!("Failed to get license: {e:?}");
         }
     }
 

@@ -28,10 +28,10 @@ async fn main() -> Result<(), Error> {
             println!("user action completed");
             println!("ID: {}", user.id);
             println!("Email: {}", user.email);
-            println!("Status: {:?}", user.status);
+            println!("Status: {status:?}", status = user.status);
         }
         Err(e) => {
-            println!("Failed to ban user: {:?}", e);
+            println!("Failed to ban user: {e:?}");
         }
     }
 

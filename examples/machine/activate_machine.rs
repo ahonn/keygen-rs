@@ -23,10 +23,10 @@ async fn main() -> Result<(), Error> {
         match err {
             Error::LicenseNotActivated { license, .. } => {
                 let machine = license.activate(&fingerprint, &[]).await?;
-                println!("License activated successfully: {:?}", machine);
+                println!("License activated successfully: {machine:?}");
             }
             _ => {
-                println!("License validation failed: {:?}", err);
+                println!("License validation failed: {err:?}");
             }
         }
     } else {

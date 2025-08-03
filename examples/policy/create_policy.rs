@@ -39,7 +39,7 @@ async fn main() -> Result<(), Error> {
             println!("Expiration Strategy: {:?}", policy.expiration_strategy);
         }
         Err(e) => {
-            println!("Failed to create policy: {:?}", e);
+            println!("Failed to create policy: {e:?}");
         }
     }
 

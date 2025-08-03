@@ -34,7 +34,8 @@ async fn main() -> Result<(), Error> {
 
     // Compare online vs offline entitlements access
     let online_entitlements = license.entitlements(None).await?;
-    println!("Online entitlements: {}", online_entitlements.len());
+    let online_count = online_entitlements.len();
+    println!("Online entitlements: {online_count}");
 
     // Checkout machine file with included relationships
     let options = MachineCheckoutOpts::with_include(vec![
@@ -44,10 +45,11 @@ async fn main() -> Result<(), Error> {
     let machine_file = machine.checkout(&options).await?;
 
     // Decrypt key for machine files is license_key + fingerprint
-    let decryption_key = format!("{}{}", license_key, fingerprint);
+    let decryption_key = format!("{license_key}{fingerprint}");
 
     let offline_entitlements = machine_file.entitlements(&decryption_key)?;
-    println!("Offline entitlements: {}", offline_entitlements.len());
+    let offline_count = offline_entitlements.len();
+    println!("Offline entitlements: {offline_count}");
 
     // Pure offline workflow
     let dataset = machine_file.decrypt(&decryption_key)?;

@@ -35,7 +35,10 @@ async fn main() -> Result<(), Error> {
                 "  Current Distribution Strategy: {:?}",
                 product.distribution_strategy
             );
-            println!("  Current Platforms: {:?}", product.platforms);
+            println!(
+                "  Current Platforms: {platforms:?}",
+                platforms = product.platforms
+            );
 
             // Update the product
             let update_request = UpdateProductRequest {
@@ -58,19 +61,22 @@ async fn main() -> Result<(), Error> {
                     println!("Product updated: {}", updated_product.id);
                     println!("  New Name: {}", updated_product.name);
                     println!(
-                        "  New Distribution Strategy: {:?}",
-                        updated_product.distribution_strategy
+                        "  New Distribution Strategy: {strategy:?}",
+                        strategy = updated_product.distribution_strategy
                     );
-                    println!("  New URL: {:?}", updated_product.url);
-                    println!("  New Platforms: {:?}", updated_product.platforms);
+                    println!("  New URL: {url:?}", url = updated_product.url);
+                    println!(
+                        "  New Platforms: {platforms:?}",
+                        platforms = updated_product.platforms
+                    );
                 }
                 Err(e) => {
-                    println!("Failed to update product: {:?}", e);
+                    println!("Failed to update product: {e:?}");
                 }
             }
         }
         Err(e) => {
-            println!("Failed to find product: {:?}", e);
+            println!("Failed to find product: {e:?}");
         }
     }
 

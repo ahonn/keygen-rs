@@ -20,7 +20,7 @@ fn generate_signed_license_key(key: String) -> (String, String) {
     });
 
     let payload_encoded = general_purpose::URL_SAFE.encode(payload.to_string());
-    let signing_input = format!("key/{}", payload_encoded);
+    let signing_input = format!("key/{payload_encoded}");
     let signature = keypair.sign(signing_input.as_bytes());
 
     let signed_key = format!(
@@ -48,9 +48,12 @@ async fn main() {
     })
     .expect("Failed to set config");
 
-    println!("Signed key: {:?}", signed_key);
+    println!("Signed key: {signed_key:?}");
     if let Ok(data) = keygen_rs::verify(SchemeCode::Ed25519Sign, &signed_key) {
-        println!("License verified: {:?}", String::from_utf8_lossy(&data));
+        println!(
+            "License verified: {data:?}",
+            data = String::from_utf8_lossy(&data)
+        );
     } else {
         println!("License verification failed");
     }

@@ -31,7 +31,7 @@ async fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            println!("Failed to list entitlements: {:?}", e);
+            println!("Failed to list entitlements: {e:?}");
         }
     }
 

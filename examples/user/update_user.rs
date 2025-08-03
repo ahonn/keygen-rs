@@ -48,14 +48,14 @@ async fn main() -> Result<(), Error> {
             println!("user action completed");
             println!("ID: {}", user.id);
             println!("Email: {}", user.email);
-            println!("Full Name: {:?}", user.full_name);
-            println!("Role: {:?}", user.role);
+            println!("Full Name: {full_name:?}", full_name = user.full_name);
+            println!("Role: {role:?}", role = user.role);
             if let Some(metadata) = user.metadata {
-                println!("Metadata: {:?}", metadata);
+                println!("Metadata: {metadata:?}");
             }
         }
         Err(e) => {
-            println!("Failed to update user: {:?}", e);
+            println!("Failed to update user: {e:?}");
         }
     }
 

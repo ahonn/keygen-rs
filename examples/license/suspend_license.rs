@@ -34,22 +34,40 @@ async fn main() -> Result<(), Error> {
                     println!("License suspended: {}", suspended_license.id);
                     println!("ID: {}", suspended_license.id);
                     println!("Key: {}", suspended_license.key);
-                    println!("Status: {:?}", suspended_license.status);
-                    println!("Uses: {:?}", suspended_license.uses);
-                    println!("Max Machines: {:?}", suspended_license.max_machines);
-                    println!("Max Cores: {:?}", suspended_license.max_cores);
-                    println!("Max Uses: {:?}", suspended_license.max_uses);
-                    println!("Max Processes: {:?}", suspended_license.max_processes);
-                    println!("Protected: {:?}", suspended_license.protected);
-                    println!("Suspended: {:?}", suspended_license.suspended);
+                    println!("Status: {status:?}", status = suspended_license.status);
+                    println!("Uses: {uses:?}", uses = suspended_license.uses);
+                    println!(
+                        "Max Machines: {max_machines:?}",
+                        max_machines = suspended_license.max_machines
+                    );
+                    println!(
+                        "Max Cores: {max_cores:?}",
+                        max_cores = suspended_license.max_cores
+                    );
+                    println!(
+                        "Max Uses: {max_uses:?}",
+                        max_uses = suspended_license.max_uses
+                    );
+                    println!(
+                        "Max Processes: {max_processes:?}",
+                        max_processes = suspended_license.max_processes
+                    );
+                    println!(
+                        "Protected: {protected:?}",
+                        protected = suspended_license.protected
+                    );
+                    println!(
+                        "Suspended: {suspended:?}",
+                        suspended = suspended_license.suspended
+                    );
                 }
                 Err(e) => {
-                    println!("Failed to suspend license: {:?}", e);
+                    println!("Failed to suspend license: {e:?}");
                 }
             }
         }
         Err(e) => {
-            println!("Failed to get license: {:?}", e);
+            println!("Failed to get license: {e:?}");
         }
     }
 

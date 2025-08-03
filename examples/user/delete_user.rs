@@ -30,16 +30,10 @@ async fn main() -> Result<(), Error> {
 
     // Confirm deletion
     let should_delete = if auto_confirm {
-        println!(
-            "🔥 Deleting user '{}' automatically (--yes flag provided)...",
-            user_id
-        );
+        println!("Deleting user '{user_id}' automatically (--yes flag provided)...");
         true
     } else {
-        println!(
-            "⚠️  Are you sure you want to delete user '{}'? This action cannot be undone.",
-            user_id
-        );
+        println!("Are you sure you want to delete user '{user_id}'? This action cannot be undone.");
         println!("Type 'yes' to confirm (or use --yes flag):");
 
         let mut input = String::new();
@@ -51,7 +45,7 @@ async fn main() -> Result<(), Error> {
     };
 
     if !should_delete {
-        println!("❌ Deletion cancelled.");
+        println!("Deletion cancelled.");
         return Ok(());
     }
 
@@ -61,7 +55,7 @@ async fn main() -> Result<(), Error> {
             println!("user action completed");
         }
         Err(e) => {
-            println!("Failed to delete user: {:?}", e);
+            println!("Failed to delete user: {e:?}");
         }
     }
 

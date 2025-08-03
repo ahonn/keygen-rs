@@ -2306,9 +2306,7 @@ mod tests {
             "Test License"
         );
         assert_eq!(attributes.get("maxMachines").unwrap().as_i64().unwrap(), 10);
-        assert!(
-            attributes.get("protected").unwrap().as_bool().unwrap()
-        );
+        assert!(attributes.get("protected").unwrap().as_bool().unwrap());
         assert!(attributes.get("metadata").is_some());
     }
 

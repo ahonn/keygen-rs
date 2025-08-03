@@ -31,7 +31,7 @@ async fn main() -> Result<(), Error> {
             println!("Status: {:?}", user.status);
         }
         Err(e) => {
-            println!("Failed to unban user: {:?}", e);
+            println!("Failed to unban user: {e:?}");
         }
     }
 

@@ -26,7 +26,7 @@ async fn main() -> Result<(), Error> {
         let license_file = license.checkout(&options).await?;
         if license_file.verify().is_ok() {
             let dataset = license_file.decrypt(&config.license_key.unwrap())?;
-            println!("License checkout successful: {:?}", dataset);
+            println!("License checkout successful: {dataset:?}");
         }
     } else {
         println!("License validation failed");

@@ -37,17 +37,17 @@ async fn main() -> Result<(), Error> {
             println!("Updated: {}", user.updated);
 
             if let Some(permissions) = user.permissions {
-                println!("Permissions: {:?}", permissions);
+                println!("Permissions: {permissions:?}");
             }
 
             if let Some(metadata) = user.metadata {
                 if !metadata.is_empty() {
-                    println!("Metadata: {:?}", metadata);
+                    println!("Metadata: {metadata:?}");
                 }
             }
         }
         Err(e) => {
-            println!("Failed to get user: {:?}", e);
+            println!("Failed to get user: {e:?}");
         }
     }
 

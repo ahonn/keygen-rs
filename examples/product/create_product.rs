@@ -1,4 +1,3 @@
-use chrono;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
@@ -38,7 +37,7 @@ async fn main() -> Result<(), Error> {
             println!("Platforms: {:?}", product.platforms);
         }
         Err(e) => {
-            println!("Failed to create product: {:?}", e);
+            println!("Failed to create product: {e:?}");
         }
     }
 

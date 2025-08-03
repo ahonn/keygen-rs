@@ -49,7 +49,7 @@ async fn main() -> Result<(), Error> {
 
             loop {
                 match rx.recv_timeout(Duration::from_millis(100)) {
-                    Ok(message) => println!("Received message: {:?}", message),
+                    Ok(message) => println!("Received message: {message:?}"),
                     Err(mpsc::RecvTimeoutError::Timeout) => {
                         if std::time::Instant::now() >= cancel_timer {
                             println!("Timer expired, sending cancel signal...");
