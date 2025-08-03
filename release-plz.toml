@@ -1,0 +1,46 @@
+[[package]]
+name = "keygen-rs"
+
+[[package]]
+name = "tauri-plugin-keygen-rs2"
+path = "packages/tauri-plugin-keygen-rs2"
+
+[workspace]
+# Enable creating GitHub releases
+release = true
+# Enable creating GitHub Pull Requests
+pr = true
+# Customize changelog
+changelog_update = true
+changelog_include = ["feat", "fix", "perf", "refactor", "docs", "test", "build", "ci", "chore"]
+
+# Git configuration
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+
+# Release commit message
+release_commits_message = "bump: v{{ version }}"
+
+# Changelog configuration
+[changelog]
+header = """
+# Changelog
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+"""
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/ahonn/keygen-rs/commit/{{ commit.id }}))
+    {%- endfor %}
+{% endfor %}\n
+"""
+trim = true
