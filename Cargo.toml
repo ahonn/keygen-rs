@@ -52,7 +52,7 @@ base64 = "0.21.0"
 hex = "0.4.3"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 rand = "0.8"
-hostname = "0.4.0"
+hostname = "0.4.1"
 num_cpus = "1.16.0"
 dotenv = "0.15.0"
 subtle = "2.5"
