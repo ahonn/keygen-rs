@@ -20,8 +20,7 @@ whoami = "1.5.1"
 lazy_static = "1.4.0"
 log = { version = "0.4", features = ["std"] }
 sys-locale = "0.3"
-keygen-rs = "0.7.0"
-# keygen-rs = { path = "../.." }
+keygen-rs = { workspace = true }
 
 [target."cfg(not(any(target_os = \"macos\", windows, target_os = \"linux\")))".dependencies]
 tauri-plugin-machine-uid = "0.1.0"

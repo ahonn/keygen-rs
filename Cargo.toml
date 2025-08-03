@@ -17,6 +17,9 @@ version = "0.7.1"
 license = "MIT"
 edition = "2021"
 
+[workspace.dependencies]
+keygen-rs = { path = ".", version = "0.7.1" }
+
 [package.metadata.rust-analyzer]
 cargo.features = ["token"]
 
