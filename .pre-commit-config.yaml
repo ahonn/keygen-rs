@@ -8,16 +8,9 @@ repos:
         types: [rust]
         pass_filenames: false
 
-      - id: cargo-clippy-lib
-        name: Run clippy lints (library)
-        entry: cargo clippy --lib --all-features -- -D warnings
-        language: system
-        types: [rust]
-        pass_filenames: false
-
-      - id: cargo-clippy-examples
-        name: Run clippy lints (examples)
-        entry: cargo clippy --examples --all-features -- -D warnings
+      - id: cargo-clippy
+        name: Run clippy lints (all targets)
+        entry: cargo clippy --all-targets --all-features -- -D warnings
         language: system
         types: [rust]
         pass_filenames: false

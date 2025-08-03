@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        rust: [stable, beta]
+        rust: [stable]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
