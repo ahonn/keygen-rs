@@ -9,6 +9,13 @@ rust-version = "1.77.2"
 exclude = ["/examples", "/webview-dist", "/webview-src", "/node_modules"]
 links = "tauri-plugin-keygen-rs2"
 
+[features]
+default = ["rustls"]
+# Use rustls as TLS backend (default)
+rustls = ["keygen-rs/rustls"]
+# Use native-tls backend
+native-tls = ["keygen-rs/native-tls"]
+
 [dependencies]
 tauri = { version = "2.0.1" }
 tauri-plugin-os = "2"
@@ -20,7 +27,7 @@ whoami = "1.5.1"
 lazy_static = "1.4.0"
 log = { version = "0.4", features = ["std"] }
 sys-locale = "0.3"
-keygen-rs = { workspace = true }
+keygen-rs = { workspace = true, default-features = false, features = ["license-key"] }
 
 [target."cfg(not(any(target_os = \"macos\", windows, target_os = \"linux\")))".dependencies]
 tauri-plugin-machine-uid = "0.1.0"
