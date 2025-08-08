@@ -19,7 +19,7 @@ async fn main() -> Result<(), Error> {
     })?;
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Err(err) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
+    if let Err(err) = keygen_rs::validate(std::slice::from_ref(&fingerprint), &[]).await {
         match err {
             Error::LicenseNotActivated { license, .. } => {
                 let machine = license.activate(&fingerprint, &[]).await?;

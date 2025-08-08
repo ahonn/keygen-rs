@@ -23,7 +23,7 @@ async fn main() -> Result<(), Error> {
     let license_key = config.license_key.clone().expect("License key required");
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    let license = match keygen_rs::validate(&[fingerprint.clone()], &[]).await {
+    let license = match keygen_rs::validate(std::slice::from_ref(&fingerprint), &[]).await {
         Ok(license) => license,
         Err(Error::LicenseNotActivated { license, .. }) => *license,
         Err(e) => return Err(e),

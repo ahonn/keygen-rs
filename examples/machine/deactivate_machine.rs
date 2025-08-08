@@ -19,7 +19,7 @@ async fn main() -> Result<(), Error> {
     })?;
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Ok(license) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
+    if let Ok(license) = keygen_rs::validate(std::slice::from_ref(&fingerprint), &[]).await {
         license.deactivate(&fingerprint).await?;
         println!("License deactivated successfully");
     };

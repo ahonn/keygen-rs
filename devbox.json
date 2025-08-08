@@ -13,7 +13,8 @@
       "mkdir -p $rustupHomeDir",
       "export RUSTUP_HOME=$rustupHomeDir",
       "export LIBRARY_PATH=$LIBRARY_PATH:\"${PROJECT_DIR}/.devbox/nix/profile/default/lib\"",
-      "rustup default stable"
+      "rustup default stable",
+      "rustup update stable"
     ],
     "scripts": {
       "test": "cargo test -- --show-output",

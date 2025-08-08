@@ -26,7 +26,7 @@ async fn main() -> Result<(), Error> {
     })?;
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Ok(license) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
+    if let Ok(license) = keygen_rs::validate(std::slice::from_ref(&fingerprint), &[]).await {
         let machine = license.machine(&fingerprint).await?;
         // Set the interval to 30 seconds less than the heartbeat duration to ensure we don't miss a heartbeat
         let interval = Duration::from_secs(machine.heartbeat_duration.unwrap_or(600) as u64 - 30);
