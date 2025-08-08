@@ -1995,7 +1995,7 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -4102,7 +4102,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-keygen-rs2"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "keygen-rs",
  "lazy_static",

@@ -13,12 +13,12 @@ license.workspace = true
 edition.workspace = true
 
 [workspace.package]
-version = "0.7.1"
+version = "0.7.2"
 license = "MIT"
 edition = "2021"
 
 [workspace.dependencies]
-keygen-rs = { path = ".", version = "0.7.1", default-features = false }
+keygen-rs = { path = ".", version = "0.7.2", default-features = false }
 
 [package.metadata.rust-analyzer]
 cargo.features = ["token"]
