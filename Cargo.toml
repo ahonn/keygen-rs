@@ -367,5 +367,33 @@ path = "examples/group/update_group.rs"
 name = "delete_group"
 path = "examples/group/delete_group.rs"
 
+[[example]]
+name = "create_environment"
+path = "examples/environment/create_environment.rs"
+
+[[example]]
+name = "list_environments"
+path = "examples/environment/list_environments.rs"
+
+[[example]]
+name = "get_environment"
+path = "examples/environment/get_environment.rs"
+
+[[example]]
+name = "update_environment"
+path = "examples/environment/update_environment.rs"
+
+[[example]]
+name = "delete_environment"
+path = "examples/environment/delete_environment.rs"
+
+[[example]]
+name = "generate_environment_token"
+path = "examples/environment/generate_environment_token.rs"
+
+[[example]]
+name = "environment_lifecycle"
+path = "examples/environment/environment_lifecycle.rs"
+
 [lib]
 doctest = false

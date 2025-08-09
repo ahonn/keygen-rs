@@ -21,6 +21,8 @@ pub mod service;
 
 // Management features only available with "token" feature flag
 #[cfg(feature = "token")]
+pub mod environment;
+#[cfg(feature = "token")]
 pub mod policy;
 #[cfg(feature = "token")]
 pub mod product;
