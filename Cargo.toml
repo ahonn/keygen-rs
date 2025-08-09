@@ -347,5 +347,25 @@ path = "examples/component/delete_component.rs"
 name = "list_components_filters"
 path = "examples/component/list_components_filters.rs"
 
+[[example]]
+name = "create_group"
+path = "examples/group/create_group.rs"
+
+[[example]]
+name = "get_group"
+path = "examples/group/get_group.rs"
+
+[[example]]
+name = "list_groups"
+path = "examples/group/list_groups.rs"
+
+[[example]]
+name = "update_group"
+path = "examples/group/update_group.rs"
+
+[[example]]
+name = "delete_group"
+path = "examples/group/delete_group.rs"
+
 [lib]
 doctest = false

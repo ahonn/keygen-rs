@@ -80,25 +80,44 @@ impl IncludedResources {
                             // Parse group data - simplified structure
                             if let Some(id) = item.get("id").and_then(|i| i.as_str()) {
                                 if let Some(attrs) = item.get("attributes") {
-                                    let name = attrs
-                                        .get("name")
-                                        .and_then(|n| n.as_str())
-                                        .unwrap_or("Unknown Group")
-                                        .to_string();
-                                    let metadata = attrs
-                                        .get("metadata")
-                                        .and_then(|m| m.as_object())
-                                        .map(|obj| {
-                                            obj.iter()
-                                                .map(|(k, v)| (k.clone(), v.clone()))
-                                                .collect()
-                                        })
-                                        .unwrap_or_default();
-
                                     included.groups.push(Group {
                                         id: id.to_string(),
-                                        name,
-                                        metadata,
+                                        name: attrs
+                                            .get("name")
+                                            .and_then(|n| n.as_str())
+                                            .unwrap_or("Unknown Group")
+                                            .to_string(),
+                                        max_users: attrs
+                                            .get("maxUsers")
+                                            .and_then(|v| v.as_i64())
+                                            .map(|v| v as i32),
+                                        max_licenses: attrs
+                                            .get("maxLicenses")
+                                            .and_then(|v| v.as_i64())
+                                            .map(|v| v as i32),
+                                        max_machines: attrs
+                                            .get("maxMachines")
+                                            .and_then(|v| v.as_i64())
+                                            .map(|v| v as i32),
+                                        metadata: attrs
+                                            .get("metadata")
+                                            .and_then(|m| m.as_object())
+                                            .map(|obj| {
+                                                obj.iter()
+                                                    .map(|(k, v)| (k.clone(), v.clone()))
+                                                    .collect()
+                                            }),
+                                        created: attrs
+                                            .get("created")
+                                            .and_then(|v| v.as_str())
+                                            .and_then(|s| s.parse().ok())
+                                            .unwrap_or_else(Utc::now),
+                                        updated: attrs
+                                            .get("updated")
+                                            .and_then(|v| v.as_str())
+                                            .and_then(|s| s.parse().ok())
+                                            .unwrap_or_else(Utc::now),
+                                        ..Default::default()
                                     });
                                 }
                             }
