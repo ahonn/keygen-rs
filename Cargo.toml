@@ -35,11 +35,11 @@ license-key = []
 token = []
 
 [dependencies]
-reqwest = { version = "0.11", features = [
+reqwest = { version = "0.12", features = [
     "json",
     "rustls-tls",
 ], default-features = false }
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.46", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
@@ -51,12 +51,12 @@ futures = "0.3"
 serde_urlencoded = "0.7"
 mockito = "0.31"
 lazy_static = "1.4.0"
-base64 = "0.21.0"
+base64 = "0.22.1"
 hex = "0.4.3"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
-rand = "0.8"
+rand = "0.9"
 hostname = "0.4.0"
-num_cpus = "1.16.0"
+num_cpus = "1.17.0"
 dotenv = "0.15.0"
 subtle = "2.5"
 aes-gcm = "0.10"
@@ -66,7 +66,7 @@ futures-timer = "3.0.3"
 [dev-dependencies]
 machine-uid = "0.5.3"
 dotenv = "0.15"
-uuid = { version = "1.0", features = ["v4"] }
+uuid = { version = "1.17", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 [[example]]
