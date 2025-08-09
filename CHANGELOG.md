@@ -3,6 +3,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.7.3] - 2025-08-09
+
+### Added
+
+- Implement license usage tracking operations ([efaa308](https://github.com/ahonn/keygen-rs/commit/efaa308d21d65a3d1e49719c50b11a16229698fa))
+- Implement complete Environment API with examples ([1369726](https://github.com/ahonn/keygen-rs/commit/1369726fa873dc06bb0ae72fd2758086a12cbeb3))
+- Implement complete Group API with and examples ([240edf3](https://github.com/ahonn/keygen-rs/commit/240edf381e70b855d4406676034ff9c3c131abc5))
+- Implement complete Component API with examples ([c76cb2a](https://github.com/ahonn/keygen-rs/commit/c76cb2ad2243186ce54f557b5a04ec7e9f41076d))
+- Add webhook API implementation ([1817ede](https://github.com/ahonn/keygen-rs/commit/1817edebf9da9bc530500c2e965689bed23b691a))
+
+### Fixed
+
+- Replace fingerprint.clone() with std::slice::from_ref in examples ([f59964e](https://github.com/ahonn/keygen-rs/commit/f59964e029a3f2e79db4f3ac4acbe7eb78678097))
+
+### Other
+
+- Update GitHub release workflow ([c651155](https://github.com/ahonn/keygen-rs/commit/c6511555b7e56370f077dfb4f98c2e59d002a521))
+
 ## [0.7.2] - 2025-08-08
 
 ### Fixed
