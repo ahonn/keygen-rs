@@ -221,6 +221,18 @@ name = "list_licenses_pagination"
 path = "examples/license/list_licenses_pagination.rs"
 
 [[example]]
+name = "increment_usage"
+path = "examples/license/increment_usage.rs"
+
+[[example]]
+name = "decrement_usage"
+path = "examples/license/decrement_usage.rs"
+
+[[example]]
+name = "reset_usage"
+path = "examples/license/reset_usage.rs"
+
+[[example]]
 name = "activate_machine"
 path = "examples/machine/activate_machine.rs"
 

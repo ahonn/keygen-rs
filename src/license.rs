@@ -1023,6 +1023,44 @@ impl License {
         Ok(())
     }
 
+    /// Increment the license's usage count by 1
+    ///
+    /// This operation is available to end users with license key authentication.
+    /// It's the primary way for applications to track feature usage.
+    pub async fn increment_usage(&self) -> Result<License, Error> {
+        let client = Client::default()?;
+        let endpoint = format!("licenses/{}/actions/increment-usage", self.id);
+        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
+        Ok(License::from(license_response.data))
+    }
+
+    /// Decrement the license's usage count by 1 (Admin only)
+    ///
+    /// This is an administrative operation typically used to correct
+    /// incorrect usage tracking or handle refunds.
+    #[cfg(feature = "token")]
+    pub async fn decrement_usage(&self) -> Result<License, Error> {
+        let client = Client::default()?;
+        let endpoint = format!("licenses/{}/actions/decrement-usage", self.id);
+        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
+        Ok(License::from(license_response.data))
+    }
+
+    /// Reset the license's usage count to zero (Admin only)
+    ///
+    /// This is an administrative operation typically used at the start
+    /// of a new billing period or for license resets.
+    #[cfg(feature = "token")]
+    pub async fn reset_usage(&self) -> Result<License, Error> {
+        let client = Client::default()?;
+        let endpoint = format!("licenses/{}/actions/reset-usage", self.id);
+        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
+        Ok(License::from(license_response.data))
+    }
+
     /// Attach entitlements to a license
     #[cfg(feature = "token")]
     pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
@@ -2534,6 +2572,183 @@ mod tests {
         let entitlement_ids: Vec<String> = vec![];
         let result = license.detach_entitlements(&entitlement_ids).await;
         assert!(result.is_ok());
+        reset_config();
+    }
+
+    #[tokio::test]
+    async fn test_increment_usage() {
+        let license = create_test_license();
+        let _m = mock(
+            "POST",
+            "/v1/licenses/test_license_id/actions/increment-usage",
+        )
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            json!({
+                "data": {
+                    "id": "test_license_id",
+                    "type": "licenses",
+                    "attributes": {
+                        "key": "TEST-LICENSE-KEY",
+                        "name": "Test License",
+                        "expiry": null,
+                        "status": "active",
+                        "uses": 6, // Incremented from 5 to 6
+                        "maxMachines": null,
+                        "maxCores": null,
+                        "maxUses": 100,
+                        "maxProcesses": null,
+                        "maxUsers": null,
+                        "protected": null,
+                        "suspended": false,
+                        "permissions": null,
+                        "metadata": {}
+                    },
+                    "relationships": {
+                        "policy": {
+                            "data": {
+                                "type": "policies",
+                                "id": "policy-123"
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .create();
+
+        let _ = set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            license_key: Some("TEST-LICENSE-KEY".to_string()),
+            ..Default::default()
+        });
+
+        let result = license.increment_usage().await;
+        assert!(result.is_ok());
+        let updated_license = result.unwrap();
+        assert_eq!(updated_license.uses, Some(6));
+        assert_eq!(updated_license.id, "test_license_id");
+        reset_config();
+    }
+
+    #[cfg(feature = "token")]
+    #[tokio::test]
+    async fn test_decrement_usage() {
+        let license = create_test_license();
+        let _m = mock(
+            "POST",
+            "/v1/licenses/test_license_id/actions/decrement-usage",
+        )
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            json!({
+                "data": {
+                    "id": "test_license_id",
+                    "type": "licenses",
+                    "attributes": {
+                        "key": "TEST-LICENSE-KEY",
+                        "name": "Test License",
+                        "expiry": null,
+                        "status": "active",
+                        "uses": 4, // Decremented from 5 to 4
+                        "maxMachines": null,
+                        "maxCores": null,
+                        "maxUses": 100,
+                        "maxProcesses": null,
+                        "maxUsers": null,
+                        "protected": null,
+                        "suspended": false,
+                        "permissions": null,
+                        "metadata": {}
+                    },
+                    "relationships": {
+                        "policy": {
+                            "data": {
+                                "type": "policies",
+                                "id": "policy-123"
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .create();
+
+        let _ = set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+
+        let result = license.decrement_usage().await;
+        assert!(result.is_ok());
+        let updated_license = result.unwrap();
+        assert_eq!(updated_license.uses, Some(4));
+        assert_eq!(updated_license.id, "test_license_id");
+        reset_config();
+    }
+
+    #[cfg(feature = "token")]
+    #[tokio::test]
+    async fn test_reset_usage() {
+        let license = create_test_license();
+        let _m = mock("POST", "/v1/licenses/test_license_id/actions/reset-usage")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "data": {
+                        "id": "test_license_id",
+                        "type": "licenses",
+                        "attributes": {
+                            "key": "TEST-LICENSE-KEY",
+                            "name": "Test License",
+                            "expiry": null,
+                            "status": "active",
+                            "uses": 0, // Reset to 0
+                            "maxMachines": null,
+                            "maxCores": null,
+                            "maxUses": 100,
+                            "maxProcesses": null,
+                            "maxUsers": null,
+                            "protected": null,
+                            "suspended": false,
+                            "permissions": null,
+                            "metadata": {}
+                        },
+                        "relationships": {
+                            "policy": {
+                                "data": {
+                                    "type": "policies",
+                                    "id": "policy-123"
+                                }
+                            }
+                        }
+                    }
+                })
+                .to_string(),
+            )
+            .create();
+
+        let _ = set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+
+        let result = license.reset_usage().await;
+        assert!(result.is_ok());
+        let updated_license = result.unwrap();
+        assert_eq!(updated_license.uses, Some(0));
+        assert_eq!(updated_license.id, "test_license_id");
         reset_config();
     }
 }
