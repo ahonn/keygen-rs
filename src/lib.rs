@@ -28,6 +28,8 @@ pub mod product;
 pub mod token;
 #[cfg(feature = "token")]
 pub mod user;
+#[cfg(feature = "token")]
+pub mod webhook;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationshipData {

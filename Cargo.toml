@@ -284,5 +284,41 @@ path = "examples/entitlement/update_entitlement.rs"
 name = "delete_entitlement"
 path = "examples/entitlement/delete_entitlement.rs"
 
+[[example]]
+name = "create_webhook_endpoint"
+path = "examples/webhook_endpoint/create_webhook_endpoint.rs"
+
+[[example]]
+name = "list_webhook_endpoints"
+path = "examples/webhook_endpoint/list_webhook_endpoints.rs"
+
+[[example]]
+name = "get_webhook_endpoint"
+path = "examples/webhook_endpoint/get_webhook_endpoint.rs"
+
+[[example]]
+name = "update_webhook_endpoint"
+path = "examples/webhook_endpoint/update_webhook_endpoint.rs"
+
+[[example]]
+name = "delete_webhook_endpoint"
+path = "examples/webhook_endpoint/delete_webhook_endpoint.rs"
+
+[[example]]
+name = "list_webhook_events"
+path = "examples/webhook_event/list_webhook_events.rs"
+
+[[example]]
+name = "get_webhook_event"
+path = "examples/webhook_event/get_webhook_event.rs"
+
+[[example]]
+name = "retry_webhook_event"
+path = "examples/webhook_event/retry_webhook_event.rs"
+
+[[example]]
+name = "delete_webhook_event"
+path = "examples/webhook_event/delete_webhook_event.rs"
+
 [lib]
 doctest = false
