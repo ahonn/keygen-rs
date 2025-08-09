@@ -65,6 +65,9 @@ futures-timer = "3.0.3"
 
 [dev-dependencies]
 machine-uid = "0.5.3"
+dotenv = "0.15"
+uuid = { version = "1.0", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
 
 [[example]]
 name = "create_product"
@@ -319,6 +322,30 @@ path = "examples/webhook_event/retry_webhook_event.rs"
 [[example]]
 name = "delete_webhook_event"
 path = "examples/webhook_event/delete_webhook_event.rs"
+
+[[example]]
+name = "create_component"
+path = "examples/component/create_component.rs"
+
+[[example]]
+name = "get_component"
+path = "examples/component/get_component.rs"
+
+[[example]]
+name = "list_components"
+path = "examples/component/list_components.rs"
+
+[[example]]
+name = "update_component"
+path = "examples/component/update_component.rs"
+
+[[example]]
+name = "delete_component"
+path = "examples/component/delete_component.rs"
+
+[[example]]
+name = "list_components_filters"
+path = "examples/component/list_components_filters.rs"
 
 [lib]
 doctest = false

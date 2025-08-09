@@ -58,14 +58,19 @@ impl IncludedResources {
                             // Components might be in a different format, let's try to parse them properly
                             if let Some(id) = item.get("id").and_then(|i| i.as_str()) {
                                 if let Some(attrs) = item.get("attributes") {
-                                    if let (Some(fingerprint), Some(name)) = (
+                                    if let (Some(fingerprint), Some(name), metadata) = (
                                         attrs.get("fingerprint").and_then(|f| f.as_str()),
                                         attrs.get("name").and_then(|n| n.as_str()),
+                                        attrs
+                                            .get("metadata")
+                                            .and_then(|m| serde_json::from_value(m.clone()).ok()),
                                     ) {
                                         included.components.push(Component {
                                             id: id.to_string(),
                                             fingerprint: fingerprint.to_string(),
                                             name: name.to_string(),
+                                            metadata,
+                                            ..Default::default()
                                         });
                                     }
                                 }
@@ -370,6 +375,7 @@ mod tests {
                 id: "comp1".to_string(),
                 fingerprint: "test-fingerprint".to_string(),
                 name: "Test Component".to_string(),
+                ..Default::default()
             }],
             groups: vec![],
         };
