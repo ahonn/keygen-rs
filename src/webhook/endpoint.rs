@@ -11,12 +11,12 @@ use super::event_types::WebhookEvent;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SignatureAlgorithm {
-    #[serde(rename = "ED25519", alias = "ed25519")]
+    #[serde(rename = "ed25519", alias = "ED25519")]
     Ed25519,
-    #[serde(rename = "RSA_2048_PSS_SHA256", alias = "rsa_2048_pss_sha256")]
-    Rsa2048PssSha256,
-    #[serde(rename = "RSA_2048_PKCS1_SHA256", alias = "rsa_2048_pkcs1_sha256")]
-    Rsa2048Pkcs1Sha256,
+    #[serde(rename = "rsa-pss-sha256", alias = "RSA_2048_PSS_SHA256")]
+    RsaPssSha256,
+    #[serde(rename = "rsa-sha256", alias = "RSA_2048_PKCS1_SHA256")]
+    RsaSha256,
 }
 
 impl Default for SignatureAlgorithm {
@@ -382,7 +382,7 @@ mod tests {
                         "attributes": {
                             "url": "https://example.com/webhook",
                             "subscriptions": ["license.created", "license.updated"],
-                            "signatureAlgorithm": "ED25519",
+                            "signatureAlgorithm": "ed25519",
                             "created": "2024-01-01T00:00:00Z",
                             "updated": "2024-01-01T00:00:00Z"
                         },
@@ -433,7 +433,7 @@ mod tests {
                             "attributes": {
                                 "url": "https://example.com/webhook1",
                                 "subscriptions": ["*"],
-                                "signatureAlgorithm": "ED25519",
+                                "signatureAlgorithm": "ed25519",
                                 "created": "2024-01-01T00:00:00Z",
                                 "updated": "2024-01-01T00:00:00Z"
                             },
@@ -445,7 +445,7 @@ mod tests {
                             "attributes": {
                                 "url": "https://example.com/webhook2",
                                 "subscriptions": ["license.created"],
-                                "signatureAlgorithm": "RSA_2048_PSS_SHA256",
+                                "signatureAlgorithm": "rsa-pss-sha256",
                                 "created": "2024-01-01T00:00:00Z",
                                 "updated": "2024-01-01T00:00:00Z"
                             },
@@ -500,7 +500,7 @@ mod tests {
                         "attributes": {
                             "url": "https://example.com/new-webhook",
                             "subscriptions": ["license.created", "license.deleted"],
-                            "signatureAlgorithm": "ED25519",
+                            "signatureAlgorithm": "ed25519",
                             "created": "2024-01-01T00:00:00Z",
                             "updated": "2024-01-02T00:00:00Z"
                         },
@@ -585,10 +585,10 @@ mod tests {
     fn test_signature_algorithm_serialization() {
         let algo = SignatureAlgorithm::Ed25519;
         let json = serde_json::to_value(&algo).unwrap();
-        assert_eq!(json, "ED25519");
+        assert_eq!(json, "ed25519");
 
-        let algo = SignatureAlgorithm::Rsa2048PssSha256;
+        let algo = SignatureAlgorithm::RsaPssSha256;
         let json = serde_json::to_value(&algo).unwrap();
-        assert_eq!(json, "RSA_2048_PSS_SHA256");
+        assert_eq!(json, "rsa-pss-sha256");
     }
 }
