@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.7.4] - 2025-08-12
+
+### Fixed
+
+- Correct webhook signature algorithm values to match Keygen API ([b9a0506](https://github.com/ahonn/keygen-rs/commit/b9a050664560fb8b3c659fa4e683bc80320d6660))
+
 ## [0.7.3] - 2025-08-09
 
 ### Added
