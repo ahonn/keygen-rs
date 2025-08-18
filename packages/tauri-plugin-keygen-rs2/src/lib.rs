@@ -15,6 +15,7 @@ pub mod license;
 pub mod machine;
 mod utils;
 
+pub use keygen_rs;
 pub use keygen_rs::{component::Component, entitlement::Entitlement, machine::Machine};
 
 pub type Result<T> = std::result::Result<T, Error>;
