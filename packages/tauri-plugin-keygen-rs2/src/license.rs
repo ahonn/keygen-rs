@@ -51,11 +51,7 @@ impl LicenseState {
         let config_state = app_handle.get_keygen_config();
         let mut config = config_state.inner().clone();
         config.license_key = Some(key.to_string());
-
-        let license = License::from_key(key)
-            .with_config(config)
-            .validate_key(fingerprints, entitlements)
-            .await;
+        let license = keygen_rs::validate_with_config(&config, fingerprints, entitlements).await;
         if let Ok(license) = license {
             self.license = Some(license.clone());
             Self::save_license_key_cache(app_handle, &license)?;

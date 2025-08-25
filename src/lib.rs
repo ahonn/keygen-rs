@@ -105,11 +105,23 @@ pub(crate) struct KeygenResponseData<T> {
 /// ```
 pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Result<License, Error> {
     let config = get_config()?;
+    validate_with_config(&config, fingerprints, entitlements).await
+}
+
+pub async fn validate_with_config(
+    config: &config::KeygenConfig,
+    fingerprints: &[String],
+    entitlements: &[String],
+) -> Result<License, Error> {
     let client = Client::new(ClientOptions::from(config.clone()))?;
     let response = client.get("me", None::<&()>).await?;
     let profile: license::LicenseResponse<()> = serde_json::from_value(response.body)?;
     let license = License::from(profile.data);
-    license.validate_key(fingerprints, entitlements).await
+    license
+        .clone()
+        .with_config(config.clone())
+        .validate_key(fingerprints, entitlements)
+        .await
 }
 
 /// Verifies a signed key based on a given scheme
@@ -141,6 +153,15 @@ pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Resul
 ///     }
 /// }
 pub fn verify(scheme: SchemeCode, signed_key: &str) -> Result<Vec<u8>, Error> {
+    let config = get_config()?;
+    verify_with_config(&config, scheme, signed_key)
+}
+
+pub fn verify_with_config(
+    config: &config::KeygenConfig,
+    scheme: SchemeCode,
+    signed_key: &str,
+) -> Result<Vec<u8>, Error> {
     let license = License::from_signed_key(scheme, signed_key);
-    license.verify()
+    license.clone().with_config(config.clone()).verify()
 }
