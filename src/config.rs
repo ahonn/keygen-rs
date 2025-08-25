@@ -130,74 +130,113 @@ pub fn set_api_url(api_url: &str) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn set_api_version(api_version: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_api_version(api_version: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.api_version = api_version.to_string();
+    Ok(())
 }
 
-pub fn set_api_prefix(api_prefix: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_api_prefix(api_prefix: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.api_prefix = api_prefix.to_string();
+    Ok(())
 }
 
-pub fn set_account(account: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_account(account: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.account = account.to_string();
+    Ok(())
 }
 
 #[cfg(feature = "license-key")]
-pub fn set_product(product: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_product(product: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.product = product.to_string();
+    Ok(())
 }
 
 #[cfg(feature = "license-key")]
-pub fn set_package(package: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_package(package: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.package = package.to_string();
+    Ok(())
 }
 
-pub fn set_environment(environment: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_environment(environment: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.environment = Some(environment.to_string());
+    Ok(())
 }
 
 #[cfg(feature = "license-key")]
-pub fn set_license_key(license_key: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_license_key(license_key: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.license_key = Some(license_key.to_string());
+    Ok(())
 }
 
 #[cfg(feature = "token")]
-pub fn set_token(token: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_token(token: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.token = Some(token.to_string());
+    Ok(())
 }
 
 #[cfg(feature = "license-key")]
-pub fn set_public_key(public_key: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_public_key(public_key: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.public_key = Some(public_key.to_string());
+    Ok(())
 }
 
 #[cfg(feature = "license-key")]
-pub fn set_platform(platform: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_platform(platform: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.platform = Some(platform.to_string());
+    Ok(())
 }
 
-pub fn set_user_agent(user_agent: &str) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_user_agent(user_agent: &str) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.user_agent = Some(user_agent.to_string());
+    Ok(())
 }
 
 #[cfg(feature = "license-key")]
-pub fn set_max_clock_drift(max_clock_drift: i64) {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn set_max_clock_drift(max_clock_drift: i64) -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     current_config.max_clock_drift = Some(max_clock_drift);
+    Ok(())
 }
 
-pub fn reset_config() {
-    let mut current_config = KEYGEN_CONFIG.write().unwrap();
+pub fn reset_config() -> Result<(), Error> {
+    let mut current_config = KEYGEN_CONFIG
+        .write()
+        .map_err(|_| Error::UnexpectedError("Config lock poisoned".to_string()))?;
     *current_config = KeygenConfig::default();
+    Ok(())
 }

@@ -41,6 +41,7 @@ pub(crate) async fn notify_license_listeners(state: &LicenseState) {
 }
 
 pub trait AppHandleExt {
+    fn get_keygen_config(&self) -> State<'_, KeygenConfig>;
     fn get_license_state(&self) -> State<'_, Mutex<LicenseState>>;
     fn load_license_file(&self, key: &str) -> Result<Option<LicenseFile>>;
     fn remove_license_file(&self) -> Result<()>;
@@ -50,6 +51,10 @@ pub trait AppHandleExt {
 }
 
 impl<R: Runtime> AppHandleExt for tauri::AppHandle<R> {
+    fn get_keygen_config(&self) -> State<'_, KeygenConfig> {
+        self.state::<KeygenConfig>()
+    }
+
     fn get_license_state(&self) -> State<'_, Mutex<LicenseState>> {
         self.state::<Mutex<LicenseState>>()
     }
@@ -116,7 +121,7 @@ impl Builder {
     }
 
     pub fn build<R: Runtime>(self) -> TauriPlugin<R> {
-        let _ = keygen_rs::config::set_config(KeygenConfig {
+        let config = KeygenConfig {
             api_url: self.api_url.unwrap_or("https://api.keygen.sh".to_string()),
             api_version: self.api_version.unwrap_or("1.7".to_string()),
             api_prefix: self.api_prefix.unwrap_or("v1".to_string()),
@@ -124,7 +129,7 @@ impl Builder {
             product: self.product,
             public_key: Some(self.public_key),
             ..Default::default()
-        });
+        };
 
         PluginBuilder::new("keygen-rs2")
             .invoke_handler(tauri::generate_handler![
@@ -143,7 +148,22 @@ impl Builder {
                 let app_name = app_handle.package_info().name.clone();
                 let app_version = app_handle.package_info().version.to_string();
 
-                let machine_state = MachineState::new(app_handle, app_name, app_version);
+                let machine_state =
+                    MachineState::new(app_handle, app_name.clone(), app_version.clone());
+
+                // Create the KeygenConfig with platform and user_agent from machine state
+                let mut keygen_config = config.clone();
+                keygen_config.platform = Some(machine_state.platform.clone());
+                keygen_config.user_agent = Some(machine_state.user_agent.clone());
+
+                // Check if there's a cached license key and set it to the config
+                if let Ok(Some(cached_license_key)) =
+                    LicenseState::load_license_key_cache(app_handle)
+                {
+                    keygen_config.license_key = Some(cached_license_key);
+                }
+
+                app_handle.manage(keygen_config);
                 app_handle.manage(Mutex::new(machine_state));
 
                 let license_state = LicenseState::load(app_handle);

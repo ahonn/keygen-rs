@@ -8,7 +8,6 @@ use crate::{
         validate_certificate_meta, Certificate, CertificateFileAttributes, CertificateFileMeta,
     },
     component::Component,
-    config::get_config,
     decryptor::Decryptor,
     entitlement::Entitlement,
     errors::Error,
@@ -74,10 +73,10 @@ impl MachineFile {
     pub fn verify(&self) -> Result<(), Error> {
         self.validate_ttl()?;
 
-        let config = get_config()?;
+        let config = crate::config::get_config()?;
 
-        if let Some(public_key) = config.public_key {
-            let verifier = Verifier::new(public_key);
+        if let Some(public_key) = &config.public_key {
+            let verifier = Verifier::new(public_key.clone());
             verifier.verify_machine_file(self)
         } else {
             Err(Error::PublicKeyMissing)

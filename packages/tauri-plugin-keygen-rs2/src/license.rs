@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     error::Error, machine::MachineState, notify_license_listeners, utils::get_app_keygen_path,
-    Result,
+    AppHandleExt, Result,
 };
 use keygen_rs::{
     component::Component,
@@ -48,8 +48,14 @@ impl LicenseState {
         fingerprints: &[String],
         entitlements: &[String],
     ) -> Result<License> {
-        keygen_rs::config::set_license_key(key);
-        let license = keygen_rs::validate(fingerprints, entitlements).await;
+        let config_state = app_handle.get_keygen_config();
+        let mut config = config_state.inner().clone();
+        config.license_key = Some(key.to_string());
+
+        let license = License::from_key(key)
+            .with_config(config)
+            .validate_key(fingerprints, entitlements)
+            .await;
         if let Ok(license) = license {
             self.license = Some(license.clone());
             Self::save_license_key_cache(app_handle, &license)?;
@@ -77,7 +83,13 @@ impl LicenseState {
     ) -> Result<Machine> {
         if let Some(license) = &self.license {
             log::info!("Activating license for {}", fingerprint);
-            let machine = license.activate(fingerprint, components).await?;
+            let config_state = app_handle.get_keygen_config();
+            let config = config_state.inner().clone();
+            let machine = license
+                .clone()
+                .with_config(config)
+                .activate(fingerprint, components)
+                .await?;
             Self::save_license_key_cache(app_handle, &license)?;
             self.set_valid(true).await;
             Ok(machine)
@@ -93,7 +105,14 @@ impl LicenseState {
     ) -> Result<()> {
         if let Some(license) = &self.license {
             log::info!("Deactivating license for {}", fingerprint);
-            match license.deactivate(fingerprint).await {
+            let config_state = app_handle.get_keygen_config();
+            let config = config_state.inner().clone();
+            match license
+                .clone()
+                .with_config(config)
+                .deactivate(fingerprint)
+                .await
+            {
                 // if the machines are not found, remove the license file
                 Ok(_) | Err(KeygenError::NotFound { .. }) => {
                     Self::remove_license_file(app_handle)?;
@@ -115,7 +134,13 @@ impl LicenseState {
     ) -> Result<LicenseFile> {
         if let Some(license) = &self.license {
             log::info!("Checking out license file: {}", license.key);
-            let license_file = license.checkout(options).await?;
+            let config_state = app_handle.get_keygen_config();
+            let config = config_state.inner().clone();
+            let license_file = license
+                .clone()
+                .with_config(config)
+                .checkout(options)
+                .await?;
             if let Ok(dataset) = &license_file.decrypt(&license.key) {
                 self.included = dataset.included.clone();
             }
@@ -130,7 +155,6 @@ impl LicenseState {
     pub(crate) fn load<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Self> {
         if let Some(license_key) = Self::load_license_key_cache(app_handle)? {
             log::info!("License key found in cache: {}", license_key);
-            keygen_rs::config::set_license_key(&license_key);
             // attempt to load the license file
             if let Some(license_file) = Self::load_license_file(app_handle, &license_key)? {
                 let dataset = license_file.decrypt(&license_key)?;
@@ -216,7 +240,7 @@ impl LicenseState {
         Ok(path)
     }
 
-    fn load_license_key_cache<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Option<String>> {
+    pub fn load_license_key_cache<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Option<String>> {
         let path = Self::get_license_key_cache_path(app_handle)?;
         if !path.exists() {
             return Ok(None);

@@ -1,6 +1,7 @@
-use client::Client;
+use client::{Client, ClientOptions};
+use config::get_config;
 use errors::Error;
-use license::{License, LicenseResponse, SchemeCode};
+use license::{License, SchemeCode};
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod certificate;
@@ -103,9 +104,10 @@ pub(crate) struct KeygenResponseData<T> {
 /// }
 /// ```
 pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Result<License, Error> {
-    let client = Client::default()?;
+    let config = get_config()?;
+    let client = Client::new(ClientOptions::from(config.clone()))?;
     let response = client.get("me", None::<&()>).await?;
-    let profile: LicenseResponse<()> = serde_json::from_value(response.body)?;
+    let profile: license::LicenseResponse<()> = serde_json::from_value(response.body)?;
     let license = License::from(profile.data);
     license.validate_key(fingerprints, entitlements).await
 }

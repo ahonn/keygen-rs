@@ -366,6 +366,7 @@ mod tests {
             product_id: None,
             group_id: None,
             owner_id: None,
+            config: None,
         }
     }
 

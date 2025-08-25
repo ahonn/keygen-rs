@@ -413,7 +413,7 @@ mod tests {
         assert_eq!(endpoint.id, "webhook-123");
         assert_eq!(endpoint.url, "https://example.com/webhook");
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -471,7 +471,7 @@ mod tests {
         assert_eq!(endpoints[0].id, "webhook-1");
         assert_eq!(endpoints[1].id, "webhook-2");
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -531,7 +531,7 @@ mod tests {
         assert_eq!(updated.url, "https://example.com/new-webhook");
         assert_eq!(updated.subscriptions.len(), 2);
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -563,7 +563,7 @@ mod tests {
         let result = endpoint.delete().await;
         assert!(result.is_ok());
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[test]

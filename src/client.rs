@@ -9,6 +9,7 @@ use serde_json::json;
 use std::time::Duration;
 use url::Url;
 
+#[derive(Clone)]
 pub struct Client {
     inner: ReqwestClient,
     options: ClientOptions,
@@ -25,6 +26,7 @@ pub struct ClientOptions {
     pub api_version: String,
     pub api_prefix: String,
     pub verify_keygen_signature: bool,
+    pub public_key: Option<String>,
 }
 
 #[derive(Debug)]
@@ -42,29 +44,39 @@ struct ErrorMeta {
     pub detail: String,
 }
 
-impl Client {
-    pub fn default() -> Result<Self, Error> {
-        let config = get_config()?;
-        Self::new(ClientOptions {
-            account: config.account.to_string(),
-            environment: config.environment.clone(),
+impl From<crate::config::KeygenConfig> for ClientOptions {
+    fn from(config: crate::config::KeygenConfig) -> Self {
+        Self {
+            account: config.account,
+            environment: config.environment,
             #[cfg(feature = "license-key")]
-            license_key: config.license_key.clone(),
+            license_key: config.license_key,
             #[cfg(not(feature = "license-key"))]
             license_key: None,
             #[cfg(feature = "token")]
-            token: config.token.clone(),
+            token: config.token,
             #[cfg(not(feature = "token"))]
             token: None,
-            user_agent: config.user_agent.clone(),
-            api_url: config.api_url.to_string(),
-            api_version: config.api_version.to_string(),
-            api_prefix: config.api_prefix.to_string(),
+            user_agent: config.user_agent,
+            api_url: config.api_url,
+            api_version: config.api_version,
+            api_prefix: config.api_prefix,
             #[cfg(feature = "license-key")]
             verify_keygen_signature: config.verify_keygen_signature.unwrap_or(true),
             #[cfg(not(feature = "license-key"))]
             verify_keygen_signature: true,
-        })
+            #[cfg(feature = "license-key")]
+            public_key: config.public_key,
+            #[cfg(not(feature = "license-key"))]
+            public_key: None,
+        }
+    }
+}
+
+impl Client {
+    pub fn default() -> Result<Self, Error> {
+        let config = get_config()?;
+        Self::new(ClientOptions::from(config))
     }
 
     pub fn new(options: ClientOptions) -> Result<Self, Error> {
@@ -319,7 +331,6 @@ impl Client {
             (Some(h), None) => h.to_string(),
             _ => "api.keygen.sh".to_string(),
         };
-
         let response = self.inner.execute(request).await?;
 
         let status = response.status();
@@ -332,9 +343,8 @@ impl Client {
         let bytes = response.bytes().await?;
 
         if self.options.verify_keygen_signature {
-            let config = get_config()?;
-            if let Some(public_key) = config.public_key {
-                let verifier = Verifier::new(public_key);
+            if let Some(public_key) = &self.options.public_key {
+                let verifier = Verifier::new(public_key.clone());
 
                 let base_path = url.path();
                 let full_path = if let Some(query) = url.query() {
@@ -386,9 +396,8 @@ impl Client {
         let text = response.text().await?;
 
         if self.options.verify_keygen_signature {
-            let config = get_config()?;
-            if let Some(public_key) = config.public_key {
-                let verifier = Verifier::new(public_key);
+            if let Some(public_key) = &self.options.public_key {
+                let verifier = Verifier::new(public_key.clone());
 
                 let base_path = url.path();
                 let full_path = if let Some(query) = url.query() {
@@ -529,7 +538,7 @@ impl Client {
         } else {
             Error::KeygenApiError {
                 code: "API_ERROR".to_string(),
-                detail: "Unknown error".to_string(),
+                detail: body.to_string(),
                 body: body.clone(),
             }
         }
@@ -552,6 +561,7 @@ mod tests {
             api_url: server_url(),
             api_version: "1.0".to_string(),
             api_prefix: "v1".to_string(),
+            public_key: None,
             verify_keygen_signature: true, // Enable Keygen-Signature verification for tests
         })
         .expect("Failed to create test client")

@@ -46,6 +46,7 @@ async fn main() -> Result<(), Error> {
         product_id: None,
         group_id: None,
         owner_id: None,
+        config: None,
     };
 
     match license.increment_usage().await {

@@ -8,7 +8,6 @@ use crate::{
         validate_certificate_meta, Certificate, CertificateFileAttributes, CertificateFileMeta,
     },
     component::Component,
-    config::get_config,
     decryptor::Decryptor,
     entitlement::Entitlement,
     errors::Error,
@@ -200,10 +199,10 @@ impl LicenseFile {
     }
 
     pub fn verify(&self) -> Result<(), Error> {
-        let config = get_config()?;
+        let config = crate::config::get_config()?;
 
-        if let Some(public_key) = config.public_key {
-            let verifier = Verifier::new(public_key);
+        if let Some(public_key) = &config.public_key {
+            let verifier = Verifier::new(public_key.clone());
             verifier.verify_license_file(self)
         } else {
             Err(Error::PublicKeyMissing)
@@ -422,6 +421,7 @@ mod tests {
                 product_id: Some("prod1".to_string()),
                 group_id: None,
                 owner_id: None,
+                config: None,
             },
             issued: chrono::Utc::now(),
             expiry: chrono::Utc::now(),

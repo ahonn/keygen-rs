@@ -95,6 +95,7 @@ impl Default for Component {
 }
 
 impl Component {
+    #[allow(dead_code)]
     pub(crate) fn from(data: KeygenResponseData<ComponentAttributes>) -> Component {
         Component {
             id: data.id,
@@ -478,6 +479,7 @@ mod tests {
         assert!(component.metadata.is_none());
     }
 
+    #[cfg(feature = "token")]
     #[test]
     fn test_create_component_request_builder() {
         let mut metadata = HashMap::new();
@@ -496,6 +498,7 @@ mod tests {
         assert_eq!(request.metadata, Some(metadata));
     }
 
+    #[cfg(feature = "token")]
     #[test]
     fn test_update_component_request_builder() {
         let mut metadata = HashMap::new();
@@ -509,6 +512,7 @@ mod tests {
         assert_eq!(request.metadata, Some(metadata));
     }
 
+    #[cfg(feature = "token")]
     #[test]
     fn test_list_components_options_builder() {
         let options = ListComponentsOptions::new()

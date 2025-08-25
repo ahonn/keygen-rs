@@ -101,6 +101,7 @@ impl Default for Group {
 }
 
 impl Group {
+    #[allow(dead_code)]
     pub(crate) fn from(data: KeygenResponseData<GroupAttributes>) -> Group {
         Group {
             id: data.id,

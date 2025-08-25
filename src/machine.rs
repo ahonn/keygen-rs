@@ -1,5 +1,7 @@
 use crate::certificate::CertificateFileResponse;
-use crate::client::{Client, Response};
+use crate::client::{Client, ClientOptions, Response};
+use crate::config::get_config;
+use crate::config::KeygenConfig;
 use crate::errors::Error;
 use crate::machine_file::MachineFile;
 use crate::KeygenResponseData;
@@ -66,6 +68,8 @@ pub struct Machine {
     pub license_id: Option<String>,
     pub owner_id: Option<String>,
     pub group_id: Option<String>,
+    #[serde(skip)]
+    pub config: Option<Arc<KeygenConfig>>,
 }
 
 pub struct MachineCheckoutOpts {
@@ -188,11 +192,28 @@ impl Machine {
                 .group
                 .as_ref()
                 .and_then(|g| g.data.as_ref().map(|d| d.id.clone())),
+            config: None,
         }
     }
 
+    /// Associates a configuration with this Machine
+    pub fn with_config(mut self, config: KeygenConfig) -> Self {
+        self.config = Some(Arc::new(config));
+        self
+    }
+
+    /// Gets a client for this machine, using the associated config or global config
+    fn get_client(&self) -> Result<Client, Error> {
+        let config = if let Some(ref cfg) = self.config {
+            cfg.as_ref().clone()
+        } else {
+            get_config()?
+        };
+        Client::new(ClientOptions::from(config))
+    }
+
     pub async fn deactivate(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let _response = client
             .delete::<(), serde_json::Value>(&format!("machines/{}", self.id), None::<&()>)
             .await?;
@@ -200,7 +221,6 @@ impl Machine {
     }
 
     pub async fn checkout(&self, options: &MachineCheckoutOpts) -> Result<MachineFile, Error> {
-        let client = Client::default()?;
         let mut query = json!({
             "encrypt": 1
         });
@@ -215,6 +235,7 @@ impl Machine {
             query["include"] = "license.entitlements".into();
         }
 
+        let client = self.get_client()?;
         let response = client
             .post(
                 &format!("machines/{}/actions/check-out", self.id),
@@ -229,7 +250,7 @@ impl Machine {
     }
 
     pub async fn ping(&self) -> Result<Machine, Error> {
-        let client: Client = Client::default()?;
+        let client = self.get_client()?;
         let response: Response<MachineResponse> = client
             .post(
                 &format!("machines/{}/actions/ping", self.id),
@@ -237,7 +258,13 @@ impl Machine {
                 None::<&()>,
             )
             .await?;
-        let machine = Machine::from(response.body.data);
+        let machine = Machine::from(response.body.data).with_config(
+            self.config
+                .as_ref()
+                .ok_or(Error::MissingConfiguration)?
+                .as_ref()
+                .clone(),
+        );
         Ok(machine)
     }
 
@@ -278,8 +305,8 @@ impl Machine {
     /// Create a new machine
     #[cfg(feature = "token")]
     pub async fn create(request: MachineCreateRequest) -> Result<Machine, Error> {
-        let client = Client::default()?;
-
+        let config = get_config()?;
+        let client = Client::new(ClientOptions::from(config))?;
         let mut attributes = serde_json::Map::new();
         attributes.insert("fingerprint".to_string(), json!(request.fingerprint));
 
@@ -325,8 +352,8 @@ impl Machine {
     /// List machines with optional filters
     #[cfg(feature = "token")]
     pub async fn list(filters: Option<MachineListFilters>) -> Result<Vec<Machine>, Error> {
-        let client = Client::default()?;
-
+        let config = get_config()?;
+        let client = Client::new(ClientOptions::from(config))?;
         let mut query_params = Vec::new();
         if let Some(filters) = filters {
             if let Some(license) = filters.license {
@@ -398,7 +425,8 @@ impl Machine {
     /// Get a machine by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<Machine, Error> {
-        let client = Client::default()?;
+        let config = get_config()?;
+        let client = Client::new(ClientOptions::from(config))?;
         let endpoint = format!("machines/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
@@ -408,7 +436,7 @@ impl Machine {
     /// Update a machine
     #[cfg(feature = "token")]
     pub async fn update(&self, request: MachineUpdateRequest) -> Result<Machine, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("machines/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -446,7 +474,7 @@ impl Machine {
     /// Reset machine heartbeat
     #[cfg(feature = "token")]
     pub async fn reset(&self) -> Result<Machine, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("machines/{}/actions/reset", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;

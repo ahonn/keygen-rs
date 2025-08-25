@@ -232,7 +232,7 @@ mod tests {
         assert_eq!(events[0].event, "license.created");
         assert!(events[0].is_delivered());
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -279,7 +279,7 @@ mod tests {
         assert!(event.is_failed());
         assert_eq!(event.last_response_code, Some(500));
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -337,7 +337,7 @@ mod tests {
         assert!(retried.is_pending());
         assert_eq!(retried.last_response_code, None);
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[test]

@@ -86,9 +86,6 @@ You should add it to your application and initialize it before tauri-plugin-keyg
             app_name, app_version, os_name, os_version, engine_name, engine_version, locale
         );
 
-        keygen_rs::config::set_platform(&platform);
-        keygen_rs::config::set_user_agent(&user_agent);
-
         Self {
             name,
             fingerprint,
@@ -102,12 +99,18 @@ You should add it to your application and initialize it before tauri-plugin-keyg
         app_handle: &AppHandle<R>,
         options: &MachineCheckoutOpts,
     ) -> Result<MachineFile> {
+        let config_state = app_handle.get_keygen_config();
+        let config = config_state.inner().clone();
         let license_state = app_handle.get_license_state();
         let license_state = license_state.lock().await;
         if let Some(license) = &license_state.license {
             log::info!("Checking out machine file: {}", self.fingerprint);
-            let machine = license.machine(&self.fingerprint).await?;
-            let machine_file = machine.checkout(options).await?;
+            let machine = license
+                .clone()
+                .with_config(config.clone())
+                .machine(&self.fingerprint)
+                .await?;
+            let machine_file = machine.with_config(config).checkout(options).await?;
             Self::save_machine_file(app_handle, &machine_file)?;
             Ok(machine_file)
         } else {

@@ -210,6 +210,9 @@ pub enum Error {
 
     #[error("Keygen signature missing")]
     KeygenSignatureMissing,
+
+    #[error("Configuration missing")]
+    MissingConfiguration,
 }
 
 pub trait ErrorMeta {

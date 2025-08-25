@@ -6,15 +6,16 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use crate::certificate::CertificateFileResponse;
-use crate::client::Client;
+use crate::client::{Client, ClientOptions};
 use crate::component::Component;
-use crate::config::get_config;
+use crate::config::{get_config, KeygenConfig};
 use crate::entitlement::{Entitlement, EntitlementsResponse};
 use crate::errors::Error;
 use crate::license_file::LicenseFile;
 use crate::machine::{Machine, MachineResponse, MachinesResponse};
 use crate::verifier::Verifier;
 use crate::KeygenResponseData;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SchemeCode {
@@ -89,6 +90,8 @@ pub struct License {
     pub product_id: Option<String>,
     pub group_id: Option<String>,
     pub owner_id: Option<String>,
+    #[serde(skip)]
+    pub config: Option<Arc<KeygenConfig>>,
 }
 
 pub struct LicenseCheckoutOpts {
@@ -567,6 +570,7 @@ impl License {
                 .owner
                 .as_ref()
                 .and_then(|o| o.data.as_ref().map(|d| d.id.clone())),
+            config: None,
         }
     }
 
@@ -593,11 +597,59 @@ impl License {
             product_id: None,
             group_id: None,
             owner_id: None,
+            config: None,
         }
     }
 
-    fn build_scope(fingerprints: &[String], entitlements: &[String]) -> Result<Value, Error> {
-        let config = get_config()?;
+    /// Creates a new License with just the key
+    pub fn from_key(key: &str) -> Self {
+        License {
+            id: String::new(),
+            scheme: None,
+            key: key.to_string(),
+            name: None,
+            expiry: None,
+            status: None,
+            uses: None,
+            max_machines: None,
+            max_cores: None,
+            max_uses: None,
+            max_processes: None,
+            max_users: None,
+            protected: None,
+            suspended: None,
+            permissions: None,
+            policy: None,
+            metadata: HashMap::new(),
+            account_id: None,
+            product_id: None,
+            group_id: None,
+            owner_id: None,
+            config: None,
+        }
+    }
+
+    /// Associates a configuration with this License
+    pub fn with_config(mut self, config: KeygenConfig) -> Self {
+        self.config = Some(Arc::new(config));
+        self
+    }
+
+    /// Gets a client for this license, using the associated config or global config
+    fn get_client(&self) -> Result<Client, Error> {
+        let config = if let Some(ref cfg) = self.config {
+            cfg.as_ref().clone()
+        } else {
+            get_config()?
+        };
+        Client::new(ClientOptions::from(config))
+    }
+
+    fn build_scope(
+        config: &KeygenConfig,
+        fingerprints: &[String],
+        entitlements: &[String],
+    ) -> Result<Value, Error> {
         let mut scope = json!({
             "product": config.product.to_string(),
         });
@@ -625,8 +677,13 @@ impl License {
         fingerprints: &[String],
         entitlements: &[String],
     ) -> Result<License, Error> {
-        let client = Client::default()?;
-        let scope = Self::build_scope(fingerprints, entitlements)?;
+        let client = self.get_client()?;
+        let config = if let Some(ref cfg) = self.config {
+            cfg.as_ref()
+        } else {
+            &get_config()?
+        };
+        let scope = Self::build_scope(config, fingerprints, entitlements)?;
         let params = json!({
             "meta": {
                 "nonce": chrono::Utc::now().timestamp(),
@@ -655,8 +712,13 @@ impl License {
         fingerprints: &[String],
         entitlements: &[String],
     ) -> Result<License, Error> {
-        let client = Client::default()?;
-        let scope = Self::build_scope(fingerprints, entitlements)?;
+        let client = self.get_client()?;
+        let config = if let Some(ref cfg) = self.config {
+            cfg.as_ref()
+        } else {
+            &get_config()?
+        };
+        let scope = Self::build_scope(config, fingerprints, entitlements)?;
         let params = json!({
             "meta": {
                 "key": self.key.clone(),
@@ -680,9 +742,13 @@ impl License {
         if self.scheme.is_none() {
             return Err(Error::LicenseNotSigned);
         }
-        let config = get_config()?;
-        if let Some(public_key) = config.public_key {
-            let verifier = Verifier::new(public_key);
+        let config = if let Some(ref cfg) = self.config {
+            cfg.as_ref().clone()
+        } else {
+            get_config()?
+        };
+        if let Some(public_key) = &config.public_key {
+            let verifier = Verifier::new(public_key.clone());
             verifier.verify_license(self)
         } else {
             Err(Error::PublicKeyMissing)
@@ -694,13 +760,18 @@ impl License {
         fingerprint: &str,
         components: &[Component],
     ) -> Result<Machine, Error> {
-        let config = get_config()?;
-        let client = Client::default()?;
         let hostname = hostname::get()
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_else(|_| String::from("unknown"));
+
+        let config = if let Some(ref cfg) = self.config {
+            cfg.as_ref()
+        } else {
+            &get_config()?
+        };
         let platform = config
             .platform
+            .clone()
             .or_else(|| Some(format!("{}/{}", env::consts::OS, env::consts::ARCH)));
 
         let mut params = json!({
@@ -737,6 +808,7 @@ impl License {
             });
         }
 
+        let client = self.get_client()?;
         let response = client.post("machines", Some(&params), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         let machine = Machine::from(machine_response.data);
@@ -744,7 +816,7 @@ impl License {
     }
 
     pub async fn deactivate(&self, id: &str) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let _response = client
             .delete::<(), serde_json::Value>(&format!("machines/{id}"), None::<&()>)
             .await?;
@@ -752,10 +824,16 @@ impl License {
     }
 
     pub async fn machine(&self, id: &str) -> Result<Machine, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let response = client.get(&format!("machines/{id}"), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
-        let machine = Machine::from(machine_response.data);
+        let machine = Machine::from(machine_response.data).with_config(
+            self.config
+                .as_ref()
+                .ok_or(Error::MissingConfiguration)?
+                .as_ref()
+                .clone(),
+        );
         Ok(machine)
     }
 
@@ -763,7 +841,6 @@ impl License {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<Vec<Machine>, Error> {
-        let client = Client::default()?;
         let mut query = json!({});
 
         if let Some(opts) = options {
@@ -784,14 +861,21 @@ impl License {
             query["limit"] = json!(100);
         }
 
+        let client = self.get_client()?;
         let response = client
             .get(&format!("licenses/{}/machines", self.id), Some(&query))
             .await?;
         let machines_response: MachinesResponse = serde_json::from_value(response.body)?;
+        let config = self
+            .config
+            .as_ref()
+            .ok_or(Error::MissingConfiguration)?
+            .as_ref()
+            .clone();
         let machines = machines_response
             .data
             .iter()
-            .map(|d| Machine::from(d.clone()))
+            .map(|d| Machine::from(d.clone()).with_config(config.clone()))
             .collect();
         Ok(machines)
     }
@@ -800,7 +884,6 @@ impl License {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<Vec<Entitlement>, Error> {
-        let client = Client::default()?;
         let mut query = json!({});
 
         if let Some(opts) = options {
@@ -821,6 +904,7 @@ impl License {
             query["limit"] = json!(100);
         }
 
+        let client = self.get_client()?;
         let response = client
             .get(&format!("licenses/{}/entitlements", self.id), Some(&query))
             .await?;
@@ -834,7 +918,6 @@ impl License {
     }
 
     pub async fn checkout(&self, options: &LicenseCheckoutOpts) -> Result<LicenseFile, Error> {
-        let client = Client::default()?;
         let mut query = json!({
             "encrypt": 1,
         });
@@ -849,6 +932,7 @@ impl License {
             query["include"] = "entitlements".into();
         }
 
+        let client = self.get_client()?;
         let response = client
             .post(
                 &format!("licenses/{}/actions/check-out", self.id),
@@ -896,7 +980,8 @@ impl License {
     /// Create a new license using the comprehensive request structure
     #[cfg(feature = "token")]
     pub async fn create(request: LicenseCreateRequest) -> Result<License, Error> {
-        let client = Client::default()?;
+        let config = get_config()?;
+        let client = Client::new(ClientOptions::from(config))?;
         let body = request.to_json_body();
         let response = client.post("licenses", Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -906,7 +991,8 @@ impl License {
     /// List all licenses with optional filtering
     #[cfg(feature = "token")]
     pub async fn list(options: Option<&LicenseListOptions>) -> Result<Vec<License>, Error> {
-        let client = Client::default()?;
+        let config = get_config()?;
+        let client = Client::new(ClientOptions::from(config))?;
         let mut query = json!({});
 
         if let Some(opts) = options {
@@ -957,7 +1043,8 @@ impl License {
     /// Get a license by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<License, Error> {
-        let client = Client::default()?;
+        let config = get_config()?;
+        let client = Client::new(ClientOptions::from(config))?;
         let endpoint = format!("licenses/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -967,7 +1054,7 @@ impl License {
     /// Update a license
     #[cfg(feature = "token")]
     pub async fn update(&self, request: LicenseUpdateRequest) -> Result<License, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}", self.id);
         let body = request.to_json_body();
         let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
@@ -978,7 +1065,7 @@ impl License {
     /// Delete a license
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
@@ -987,7 +1074,7 @@ impl License {
     /// Suspend a license
     #[cfg(feature = "token")]
     pub async fn suspend(&self) -> Result<License, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/suspend", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -997,7 +1084,7 @@ impl License {
     /// Reinstate a suspended license
     #[cfg(feature = "token")]
     pub async fn reinstate(&self) -> Result<License, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/reinstate", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -1007,7 +1094,7 @@ impl License {
     /// Renew a license
     #[cfg(feature = "token")]
     pub async fn renew(&self) -> Result<License, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/renew", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -1017,7 +1104,7 @@ impl License {
     /// Revoke a license
     #[cfg(feature = "token")]
     pub async fn revoke(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/revoke", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
@@ -1028,7 +1115,7 @@ impl License {
     /// This operation is available to end users with license key authentication.
     /// It's the primary way for applications to track feature usage.
     pub async fn increment_usage(&self) -> Result<License, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/increment-usage", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -1041,7 +1128,7 @@ impl License {
     /// incorrect usage tracking or handle refunds.
     #[cfg(feature = "token")]
     pub async fn decrement_usage(&self) -> Result<License, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/decrement-usage", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -1054,7 +1141,7 @@ impl License {
     /// of a new billing period or for license resets.
     #[cfg(feature = "token")]
     pub async fn reset_usage(&self) -> Result<License, Error> {
-        let client = Client::default()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/reset-usage", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
@@ -1145,6 +1232,7 @@ mod tests {
             product_id: None,
             group_id: None,
             owner_id: None,
+            config: None,
         }
     }
 
@@ -1197,12 +1285,13 @@ mod tests {
             .with_body(get_mock_body())
             .create();
 
-        let _ = set_config(KeygenConfig {
+        set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         let result = license
             .validate(
@@ -1215,7 +1304,7 @@ mod tests {
             )
             .await;
         assert!(result.is_ok());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[tokio::test]
@@ -1246,7 +1335,7 @@ mod tests {
             )
             .await;
         assert!(result.is_ok());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[test]
@@ -1271,12 +1360,13 @@ mod tests {
             .with_body(get_mock_body())
             .create();
 
-        let _ = set_config(KeygenConfig {
+        set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         let result = license
             .validate(
@@ -1323,12 +1413,11 @@ mod tests {
             .as_bool()
             .unwrap());
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[tokio::test]
     async fn test_pagination_options() {
-        let license = create_test_license();
         let _m = mock("GET", "/v1/licenses/test_license_id/machines")
             .match_query(mockito::Matcher::AllOf(vec![
                 mockito::Matcher::UrlEncoded("limit".into(), "50".into()),
@@ -1345,12 +1434,21 @@ mod tests {
             )
             .create();
 
-        let _ = set_config(KeygenConfig {
+        set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
             ..Default::default()
-        });
+        })
+        .unwrap();
+
+        let config = KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        };
+        let license = create_test_license().with_config(config);
 
         let pagination_options = PaginationOptions {
             limit: Some(50),
@@ -1359,8 +1457,12 @@ mod tests {
         };
 
         let result = license.machines(Some(&pagination_options)).await;
+        match &result {
+            Ok(_) => println!("Test passed"),
+            Err(e) => println!("Test failed with error: {:?}", e),
+        }
         assert!(result.is_ok());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[tokio::test]
@@ -1413,18 +1515,19 @@ mod tests {
             )
             .create();
 
-        let _ = set_config(KeygenConfig {
+        set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         let result = license
             .validate(&["test_fingerprint".to_string()], &[])
             .await;
         assert!(matches!(result, Err(Error::LicenseExpired { .. })));
-        reset_config();
+        let _ = reset_config();
     }
 
     #[tokio::test]
@@ -1436,16 +1539,17 @@ mod tests {
             .with_body(get_mock_body())
             .create();
 
-        let _ = set_config(KeygenConfig {
+        set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         let result = license.validate(&[], &[]).await;
         assert!(result.is_ok());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[tokio::test]
@@ -1499,12 +1603,13 @@ mod tests {
             )
             .create();
 
-        let _ = set_config(KeygenConfig {
+        set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         let result = license
             .validate(&["test_fingerprint".to_string()], &[])
@@ -1530,7 +1635,7 @@ mod tests {
             "premium"
         );
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[tokio::test]
@@ -1551,16 +1656,17 @@ mod tests {
             )
             .create();
 
-        let _ = set_config(KeygenConfig {
+        set_config(KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
             ..Default::default()
-        });
+        })
+        .unwrap();
 
         let result = license.activate("test_fingerprint", &[]).await;
         assert!(result.is_err());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[test]
@@ -1765,7 +1871,7 @@ mod tests {
         assert_eq!(license.owner_id, Some("user-123".to_string()));
         assert!(license.metadata.contains_key("tier"));
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -1845,7 +1951,7 @@ mod tests {
         assert_eq!(license.group_id, Some("group-456".to_string()));
         assert!(license.owner_id.is_none());
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -1906,7 +2012,7 @@ mod tests {
         assert!(license.owner_id.is_none());
         assert!(license.group_id.is_none());
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -1940,7 +2046,7 @@ mod tests {
         let result = License::create(request).await;
 
         assert!(result.is_err());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2057,7 +2163,7 @@ mod tests {
             "enterprise"
         );
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2166,7 +2272,7 @@ mod tests {
             "enterprise"
         );
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2235,7 +2341,7 @@ mod tests {
         assert_eq!(updated_license.max_cores, None);
         assert_eq!(updated_license.max_uses, None);
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2309,7 +2415,7 @@ mod tests {
         assert_eq!(updated_license.name, Some("Updated Name".to_string()));
         assert!(updated_license.metadata.contains_key("updated"));
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[test]
@@ -2412,7 +2518,7 @@ mod tests {
         assert_eq!(licenses.len(), 1);
         assert_eq!(licenses[0].id, "license-1");
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2445,12 +2551,11 @@ mod tests {
         let result = License::list(Some(&options)).await;
         assert!(result.is_ok());
 
-        reset_config();
+        let _ = reset_config();
     }
 
     #[tokio::test]
     async fn test_pagination_options_with_new_parameters() {
-        let license = create_test_license();
         let _m = mock("GET", "/v1/licenses/test_license_id/machines")
             .match_query(mockito::Matcher::AllOf(vec![
                 mockito::Matcher::UrlEncoded("page[number]".into(), "3".into()),
@@ -2467,13 +2572,15 @@ mod tests {
             )
             .create();
 
-        let _ = set_config(KeygenConfig {
+        let config = KeygenConfig {
             api_url: server_url(),
             account: "test_account".to_string(),
             product: "test_product".to_string(),
             ..Default::default()
-        });
+        };
+        let _ = set_config(config.clone());
 
+        let license = create_test_license().with_config(config);
         let pagination_options = PaginationOptions {
             limit: Some(50),
             page_number: Some(3),
@@ -2482,7 +2589,7 @@ mod tests {
 
         let result = license.machines(Some(&pagination_options)).await;
         assert!(result.is_ok());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2505,7 +2612,7 @@ mod tests {
 
         let result = license.attach_entitlements(&entitlement_ids).await;
         assert!(result.is_ok());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2528,7 +2635,7 @@ mod tests {
 
         let result = license.detach_entitlements(&entitlement_ids).await;
         assert!(result.is_ok());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2550,7 +2657,7 @@ mod tests {
         let entitlement_ids: Vec<String> = vec![];
         let result = license.attach_entitlements(&entitlement_ids).await;
         assert!(result.is_ok());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2572,7 +2679,7 @@ mod tests {
         let entitlement_ids: Vec<String> = vec![];
         let result = license.detach_entitlements(&entitlement_ids).await;
         assert!(result.is_ok());
-        reset_config();
+        let _ = reset_config();
     }
 
     #[tokio::test]
@@ -2632,7 +2739,7 @@ mod tests {
         let updated_license = result.unwrap();
         assert_eq!(updated_license.uses, Some(6));
         assert_eq!(updated_license.id, "test_license_id");
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2692,7 +2799,7 @@ mod tests {
         let updated_license = result.unwrap();
         assert_eq!(updated_license.uses, Some(4));
         assert_eq!(updated_license.id, "test_license_id");
-        reset_config();
+        let _ = reset_config();
     }
 
     #[cfg(feature = "token")]
@@ -2749,6 +2856,6 @@ mod tests {
         let updated_license = result.unwrap();
         assert_eq!(updated_license.uses, Some(0));
         assert_eq!(updated_license.id, "test_license_id");
-        reset_config();
+        let _ = reset_config();
     }
 }
