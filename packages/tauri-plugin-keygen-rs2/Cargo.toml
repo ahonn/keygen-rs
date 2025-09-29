@@ -30,7 +30,7 @@ sys-locale = "0.3"
 keygen-rs = { workspace = true, default-features = false, features = ["license-key"] }
 
 [target."cfg(not(any(target_os = \"macos\", windows, target_os = \"linux\")))".dependencies]
-tauri-plugin-machine-uid = "0.1.0"
+tauri-plugin-machine-uid = "0.1.2"
 
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
 machine-uid = { version = "0.5.3" }
