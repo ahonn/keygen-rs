@@ -38,6 +38,18 @@ pub mod user;
 #[cfg(feature = "token")]
 pub mod webhook;
 
+// Distribution modules (only available with "token" feature flag)
+#[cfg(feature = "token")]
+pub mod arch;
+#[cfg(feature = "token")]
+pub mod artifact;
+#[cfg(feature = "token")]
+pub mod channel;
+#[cfg(feature = "token")]
+pub mod package;
+#[cfg(feature = "token")]
+pub mod platform;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationshipData {
     pub r#type: String,

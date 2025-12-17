@@ -439,5 +439,33 @@ path = "examples/release/yank_release.rs"
 name = "release_lifecycle"
 path = "examples/release/release_lifecycle.rs"
 
+[[example]]
+name = "create_package"
+path = "examples/package/create_package.rs"
+
+[[example]]
+name = "list_packages"
+path = "examples/package/list_packages.rs"
+
+[[example]]
+name = "create_artifact"
+path = "examples/artifact/create_artifact.rs"
+
+[[example]]
+name = "list_artifacts"
+path = "examples/artifact/list_artifacts.rs"
+
+[[example]]
+name = "list_platforms"
+path = "examples/platform/list_platforms.rs"
+
+[[example]]
+name = "list_arches"
+path = "examples/arch/list_arches.rs"
+
+[[example]]
+name = "list_channels"
+path = "examples/channel/list_channels.rs"
+
 [lib]
 doctest = false
