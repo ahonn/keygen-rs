@@ -30,6 +30,8 @@ pub mod policy;
 #[cfg(feature = "token")]
 pub mod product;
 #[cfg(feature = "token")]
+pub mod release;
+#[cfg(feature = "token")]
 pub mod token;
 #[cfg(feature = "token")]
 pub mod user;
@@ -70,6 +72,8 @@ pub(crate) struct KeygenRelationships {
     pub environment: Option<KeygenRelationship>,
     #[serde(default)]
     pub license: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub release: Option<KeygenRelationship>,
     // Use flatten to capture any other relationship fields we don't explicitly handle
     #[serde(flatten)]
     pub other: std::collections::HashMap<String, serde_json::Value>,

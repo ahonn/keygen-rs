@@ -9,20 +9,15 @@ use crate::KeygenResponseData;
 use super::event::{WebhookEventRecord, WebhookEventResponse, WebhookEventsResponse};
 use super::event_types::WebhookEvent;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum SignatureAlgorithm {
     #[serde(rename = "ed25519", alias = "ED25519")]
+    #[default]
     Ed25519,
     #[serde(rename = "rsa-pss-sha256", alias = "RSA_2048_PSS_SHA256")]
     RsaPssSha256,
     #[serde(rename = "rsa-sha256", alias = "RSA_2048_PKCS1_SHA256")]
     RsaSha256,
-}
-
-impl Default for SignatureAlgorithm {
-    fn default() -> Self {
-        Self::Ed25519
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

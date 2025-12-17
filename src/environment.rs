@@ -5,19 +5,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum IsolationStrategy {
     /// Complete resource isolation (default)
+    #[default]
     Isolated,
     /// Global environment resources readable
     Shared,
-}
-
-impl Default for IsolationStrategy {
-    fn default() -> Self {
-        Self::Isolated
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -333,6 +328,7 @@ mod tests {
                 machines: None,
                 environment: None,
                 license: None,
+                release: None,
                 other: HashMap::new(),
             },
         };

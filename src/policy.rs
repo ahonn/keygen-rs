@@ -972,6 +972,7 @@ mod tests {
                 machines: None,
                 environment: None,
                 license: None,
+                release: None,
                 other: HashMap::new(),
             },
         };
