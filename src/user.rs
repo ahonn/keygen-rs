@@ -182,19 +182,27 @@ pub async fn create(request: CreateUserRequest) -> Result<User, Error> {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListUsersOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
-    #[serde(rename = "page[size]")]
+    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u32>,
-    #[serde(rename = "page[number]")]
+    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<UserStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub assigned: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub product: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub roles: Option<Vec<UserRole>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sort: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub include: Option<String>,
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 

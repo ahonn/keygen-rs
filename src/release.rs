@@ -95,22 +95,23 @@ pub struct UpdateReleaseRequest {
 /// Options for listing releases
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListReleasesOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
-    #[serde(rename = "page[size]")]
+    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u32>,
-    #[serde(rename = "page[number]")]
+    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
     /// Filter by channel
-    #[serde(rename = "filter[channel]")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub channel: Option<ReleaseChannel>,
     /// Filter by status
-    #[serde(rename = "filter[status]")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<ReleaseStatus>,
     /// Filter by version
-    #[serde(rename = "filter[version]")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     /// Filter by product ID
-    #[serde(rename = "filter[product]")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub product: Option<String>,
 }
 
@@ -437,5 +438,22 @@ mod tests {
             serde_json::to_string(&ReleaseStatus::Yanked).unwrap(),
             "\"YANKED\""
         );
+    }
+
+    #[test]
+    fn test_list_releases_options_serialization() {
+        let options = ListReleasesOptions {
+            channel: Some(ReleaseChannel::Dev),
+            limit: Some(20),
+            ..Default::default()
+        };
+
+        let query = serde_urlencoded::to_string(&options).unwrap();
+        println!("Query string: {}", query);
+        assert!(query.contains("channel=dev"));
+        assert!(query.contains("limit=20"));
+        // Verify None values are not included
+        assert!(!query.contains("page"));
+        assert!(!query.contains("status"));
     }
 }

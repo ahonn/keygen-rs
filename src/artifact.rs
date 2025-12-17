@@ -80,22 +80,32 @@ pub struct UpdateArtifactRequest {
 /// Options for listing artifacts
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListArtifactsOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
-    #[serde(rename = "page[size]")]
+    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u32>,
-    #[serde(rename = "page[number]")]
+    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
     /// Filter by release ID
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
     /// Filter by product ID
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub product: Option<String>,
+    /// Filter by channel
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<String>,
     /// Filter by platform
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub platform: Option<String>,
     /// Filter by architecture
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub arch: Option<String>,
     /// Filter by filetype
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub filetype: Option<String>,
     /// Filter by status
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<ArtifactStatus>,
 }
 
