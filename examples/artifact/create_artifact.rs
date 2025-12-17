@@ -1,10 +1,18 @@
 use keygen_rs::{
-    artifact::{Artifact, CreateArtifactRequest},
+    artifact::{Artifact, ListArtifactsOptions},
     config::{self, KeygenConfig},
     errors::Error,
 };
 use std::env;
 
+/// This example demonstrates listing and getting artifacts.
+///
+/// Note: Creating artifacts in keygen.sh is a two-step process:
+/// 1. POST /artifacts - creates the artifact record and returns a redirect URL
+/// 2. PUT to the S3 URL - uploads the actual file content
+///
+/// The current SDK focuses on the metadata operations (list, get, update, yank).
+/// For full artifact upload, you may need to handle the redirect separately.
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
@@ -16,34 +24,49 @@ async fn main() -> Result<(), Error> {
         ..KeygenConfig::default()
     })?;
 
-    let release_id = env::var("KEYGEN_RELEASE_ID").expect("KEYGEN_RELEASE_ID must be set");
-
-    let request = CreateArtifactRequest {
-        filename: "my-app-1.0.0-darwin-amd64.dmg".to_string(),
-        release_id,
-        filetype: Some("dmg".to_string()),
-        filesize: Some(10485760), // 10 MB
-        platform: Some("darwin".to_string()),
-        arch: Some("amd64".to_string()),
-        signature: None,
-        checksum: Some("abc123def456...".to_string()),
-        metadata: None,
+    // List all artifacts
+    let options = ListArtifactsOptions {
+        limit: Some(10),
+        ..Default::default()
     };
 
-    match Artifact::create(request).await {
-        Ok(artifact) => {
-            println!("Artifact created successfully!");
-            println!("  ID: {}", artifact.id);
-            println!("  Filename: {}", artifact.filename);
-            println!("  Filetype: {:?}", artifact.filetype);
-            println!("  Filesize: {:?}", artifact.filesize);
-            println!("  Platform: {:?}", artifact.platform);
-            println!("  Arch: {:?}", artifact.arch);
-            println!("  Status: {:?}", artifact.status);
-            println!("  Created: {}", artifact.created);
+    match Artifact::list(Some(options)).await {
+        Ok(artifacts) => {
+            println!("Found {} artifacts:", artifacts.len());
+            for artifact in &artifacts {
+                println!("  - {} [{}]", artifact.filename, artifact.id);
+                println!("    Status: {:?}", artifact.status);
+                if let Some(platform) = &artifact.platform {
+                    print!("    Platform: {}", platform);
+                }
+                if let Some(arch) = &artifact.arch {
+                    println!(", Arch: {}", arch);
+                } else {
+                    println!();
+                }
+            }
+
+            // If we have artifacts, get details of the first one
+            if let Some(first) = artifacts.first() {
+                println!("\n=== Artifact Details ===");
+                match Artifact::get(&first.id).await {
+                    Ok(artifact) => {
+                        println!("  ID: {}", artifact.id);
+                        println!("  Filename: {}", artifact.filename);
+                        println!("  Filetype: {:?}", artifact.filetype);
+                        println!("  Filesize: {:?}", artifact.filesize);
+                        println!("  Platform: {:?}", artifact.platform);
+                        println!("  Arch: {:?}", artifact.arch);
+                        println!("  Status: {:?}", artifact.status);
+                        println!("  Checksum: {:?}", artifact.checksum);
+                        println!("  Created: {}", artifact.created);
+                    }
+                    Err(e) => println!("Failed to get artifact details: {e:?}"),
+                }
+            }
         }
         Err(e) => {
-            println!("Failed to create artifact: {e:?}");
+            println!("Failed to list artifacts: {e:?}");
         }
     }
 
