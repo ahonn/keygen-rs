@@ -448,8 +448,8 @@ name = "list_packages"
 path = "examples/package/list_packages.rs"
 
 [[example]]
-name = "create_artifact"
-path = "examples/artifact/create_artifact.rs"
+name = "get_artifact"
+path = "examples/artifact/get_artifact.rs"
 
 [[example]]
 name = "list_artifacts"
