@@ -407,5 +407,65 @@ path = "examples/environment/generate_environment_token.rs"
 name = "environment_lifecycle"
 path = "examples/environment/environment_lifecycle.rs"
 
+[[example]]
+name = "create_release"
+path = "examples/release/create_release.rs"
+
+[[example]]
+name = "list_releases"
+path = "examples/release/list_releases.rs"
+
+[[example]]
+name = "get_release"
+path = "examples/release/get_release.rs"
+
+[[example]]
+name = "update_release"
+path = "examples/release/update_release.rs"
+
+[[example]]
+name = "delete_release"
+path = "examples/release/delete_release.rs"
+
+[[example]]
+name = "publish_release"
+path = "examples/release/publish_release.rs"
+
+[[example]]
+name = "yank_release"
+path = "examples/release/yank_release.rs"
+
+[[example]]
+name = "release_lifecycle"
+path = "examples/release/release_lifecycle.rs"
+
+[[example]]
+name = "create_package"
+path = "examples/package/create_package.rs"
+
+[[example]]
+name = "list_packages"
+path = "examples/package/list_packages.rs"
+
+[[example]]
+name = "get_artifact"
+path = "examples/artifact/get_artifact.rs"
+
+[[example]]
+name = "list_artifacts"
+path = "examples/artifact/list_artifacts.rs"
+
+[[example]]
+name = "list_platforms"
+path = "examples/platform/list_platforms.rs"
+
+[[example]]
+name = "list_arches"
+path = "examples/arch/list_arches.rs"
+
+[[example]]
+name = "list_channels"
+path = "examples/channel/list_channels.rs"
+
 [lib]
 doctest = false

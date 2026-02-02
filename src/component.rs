@@ -39,16 +39,22 @@ pub struct CreateComponentRequest {
 #[cfg(feature = "token")]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListComponentsOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
-    #[serde(rename = "page[size]")]
+    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u32>,
-    #[serde(rename = "page[number]")]
+    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
     // Filters as per API documentation
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub machine: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub license: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub owner: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub product: Option<String>,
 }
 

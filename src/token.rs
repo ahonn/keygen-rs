@@ -47,10 +47,11 @@ pub(crate) struct TokensResponse {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListTokensOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
-    #[serde(rename = "page[size]")]
+    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u32>,
-    #[serde(rename = "page[number]")]
+    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
 }
 

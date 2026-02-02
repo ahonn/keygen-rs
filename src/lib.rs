@@ -30,11 +30,25 @@ pub mod policy;
 #[cfg(feature = "token")]
 pub mod product;
 #[cfg(feature = "token")]
+pub mod release;
+#[cfg(feature = "token")]
 pub mod token;
 #[cfg(feature = "token")]
 pub mod user;
 #[cfg(feature = "token")]
 pub mod webhook;
+
+// Distribution modules (only available with "token" feature flag)
+#[cfg(feature = "token")]
+pub mod arch;
+#[cfg(feature = "token")]
+pub mod artifact;
+#[cfg(feature = "token")]
+pub mod channel;
+#[cfg(feature = "token")]
+pub mod package;
+#[cfg(feature = "token")]
+pub mod platform;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationshipData {
@@ -70,6 +84,8 @@ pub(crate) struct KeygenRelationships {
     pub environment: Option<KeygenRelationship>,
     #[serde(default)]
     pub license: Option<KeygenRelationship>,
+    #[serde(default)]
+    pub release: Option<KeygenRelationship>,
     // Use flatten to capture any other relationship fields we don't explicitly handle
     #[serde(flatten)]
     pub other: std::collections::HashMap<String, serde_json::Value>,

@@ -1,0 +1,48 @@
+use keygen_rs::{
+    config::{self, KeygenConfig},
+    errors::Error,
+    release::Release,
+};
+use std::env;
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
+
+    // Set up configuration with Admin Token
+    config::set_config(KeygenConfig {
+        api_url: env::var("KEYGEN_API_URL").unwrap_or_else(|_| "https://api.keygen.sh".to_string()),
+        account: env::var("KEYGEN_ACCOUNT").expect("KEYGEN_ACCOUNT must be set"),
+        token: Some(env::var("KEYGEN_ADMIN_TOKEN").expect("KEYGEN_ADMIN_TOKEN must be set")),
+        ..KeygenConfig::default()
+    })?;
+
+    // Get release ID from environment
+    let release_id = env::var("KEYGEN_RELEASE_ID").expect("KEYGEN_RELEASE_ID must be set");
+
+    // First, get the release to check its current status
+    let release = Release::get(&release_id).await?;
+    println!("Current release status:");
+    println!("  ID: {}", release.id);
+    println!("  Version: {}", release.version);
+    println!("  Status: {:?}", release.status);
+    println!("  Yanked At: {:?}", release.yanked_at);
+
+    // Yank the release (PUBLISHED -> YANKED)
+    match release.yank().await {
+        Ok(yanked_release) => {
+            println!("\nRelease yanked successfully!");
+            println!("  ID: {}", yanked_release.id);
+            println!("  Version: {}", yanked_release.version);
+            println!("  Status: {:?}", yanked_release.status);
+            println!("  Yanked At: {:?}", yanked_release.yanked_at);
+            println!("  Updated: {}", yanked_release.updated);
+        }
+        Err(e) => {
+            println!("\nFailed to yank release: {e:?}");
+        }
+    }
+
+    Ok(())
+}

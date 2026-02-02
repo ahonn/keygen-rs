@@ -5,19 +5,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum IsolationStrategy {
     /// Complete resource isolation (default)
+    #[default]
     Isolated,
     /// Global environment resources readable
     Shared,
-}
-
-impl Default for IsolationStrategy {
-    fn default() -> Self {
-        Self::Isolated
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,10 +71,11 @@ pub struct UpdateEnvironmentRequest {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListEnvironmentsOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
-    #[serde(rename = "page[size]")]
+    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u32>,
-    #[serde(rename = "page[number]")]
+    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
 }
 
@@ -333,6 +329,7 @@ mod tests {
                 machines: None,
                 environment: None,
                 license: None,
+                release: None,
                 other: HashMap::new(),
             },
         };
