@@ -3,6 +3,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.9.0] - 2026-02-03
+
+### Added
+
+- Add Distribution API modules (Package, Artifact, Platform, Arch, Channel) ([a260869](https://github.com/ahonn/keygen-rs/commit/a260869c562bc4c247c5f145f91454ac9549d8ea))
+- Add Release API support for software distribution ([468d4a4](https://github.com/ahonn/keygen-rs/commit/468d4a49302a2ad0ddb5b4da52d2a7d5a7236962))
+
+### Fixed
+
+- Remove redundant error wrapping in signature verification ([243bb14](https://github.com/ahonn/keygen-rs/commit/243bb14aa91944aca282f1e4ad265df4fa715fb1))
+- Remove .pre-commit-config.yaml from .gitignore ([422de11](https://github.com/ahonn/keygen-rs/commit/422de1182f9cc6e25cc015dae3eff24a465add1e))
+- Correct query parameter serialization for all List APIs ([1c5c0cc](https://github.com/ahonn/keygen-rs/commit/1c5c0cccb321a46b133a3712e85b6fcec7862301))
+- Update create_artifact example to list/get operations ([58192cd](https://github.com/ahonn/keygen-rs/commit/58192cd81498014b2b46af2cc9507caa9ce68d2f))
+
+### Other
+
+- Update README for v0.9 release ([78a6908](https://github.com/ahonn/keygen-rs/commit/78a6908f28793f6b360fc55495191c130a69aad6))
+- [**breaking**] Apply Rust best practices across codebase ([6786528](https://github.com/ahonn/keygen-rs/commit/67865289be404cbc66f8ae91bcbb7c9034caac0e))
+- Rename create_artifact to get_artifact ([19e7372](https://github.com/ahonn/keygen-rs/commit/19e7372c8ab5b1da0bdb6101528e6164624ec6fe))
+- Migrate from devbox to devenv ([af1db5e](https://github.com/ahonn/keygen-rs/commit/af1db5e059daeb7b232b0e99974bb0c3f2f0570f))
+
+
 ## [0.8.1] - 2025-08-26
 
 ### Fixed
