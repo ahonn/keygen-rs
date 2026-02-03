@@ -8,11 +8,13 @@ The `keygen-rs` crate is an unofficial Rust SDK for integrating with the [keygen
 ## Features
 
 - **License Management**: Validate, activate, and verify licenses offline
-- **Machine Management**: Activate, deactivate, and manage machines
+- **Machine Management**: Activate, deactivate, and manage machines with heartbeat monitoring
 - **Administrative APIs**: Full CRUD operations for products, policies, licenses, users, and tokens (requires admin token)
+- **Distribution APIs**: Manage releases, packages, artifacts, platforms, architectures, and channels
 - **Offline Verification**: Verify signed license keys without internet connectivity
-- **Type Safety**: Strongly-typed enums for all API options
+- **Type Safety**: Strongly-typed enums for all API options (LicenseStatus, HeartbeatStatus, etc.)
 - **Service Introspection**: Check API availability and feature support
+- **Security**: Sensitive data is automatically zeroed from memory using `zeroize`
 
 ### Sponsored by
 
@@ -28,7 +30,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keygen-rs = "0.7"
+keygen-rs = "0.9"
 ```
 
 ### Feature Flags
@@ -40,13 +42,13 @@ The SDK uses feature flags to minimize binary size:
 
 ```toml
 # For end-user features only (default)
-keygen-rs = "0.7"
+keygen-rs = "0.9"
 
 # For administrative features
-keygen-rs = { version = "0.7", features = ["token"] }
+keygen-rs = { version = "0.9", features = ["token"] }
 
 # For both end-user and administrative features
-keygen-rs = { version = "0.7", features = ["license-key", "token"] }
+keygen-rs = { version = "0.9", features = ["license-key", "token"] }
 ```
 
 ## Tauri Plugin
@@ -123,7 +125,7 @@ async fn main() -> Result<(), Error> {
     ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    let license = keygen_rs::validate(&[fingerprint]).await?;
+    let license = keygen_rs::validate(&[fingerprint], &[]).await?;
     println!("License validated successfully: {:?}", license);
 
     Ok(())
@@ -150,7 +152,7 @@ async fn main() -> Result<(), Error> {
     ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Err(err) = keygen_rs::validate(&[fingerprint.clone()]).await {
+    if let Err(err) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
         match err {
             Error::LicenseNotActivated { license, .. } => {
                 let machine = license.activate(&fingerprint, &[]).await?;
@@ -209,7 +211,7 @@ async fn main() -> Result<(), Error> {
     ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    match keygen_rs::validate(&[fingerprint.clone()]).await {
+    match keygen_rs::validate(&[fingerprint.clone()], &[]).await {
         Ok(license) => println!("License is valid: {:?}", license),
         Err(Error::LicenseNotActivated { license, .. }) => {
             println!("License is not activated. Activating...");
@@ -316,18 +318,56 @@ async fn main() -> Result<(), Error> {
 }
 ```
 
+### Distribution APIs
+
+Manage software releases and artifacts:
+
+```rust
+use keygen_rs::release::{Release, CreateReleaseRequest, ListReleasesParams};
+use keygen_rs::artifact::Artifact;
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    // Create a new release
+    let release = Release::create(CreateReleaseRequest {
+        name: Some("v1.0.0".to_string()),
+        version: "1.0.0".to_string(),
+        channel: Some("stable".to_string()),
+        ..Default::default()
+    }).await?;
+
+    // List releases
+    let releases = Release::list(Some(ListReleasesParams {
+        product: Some("PRODUCT_ID".to_string()),
+        ..Default::default()
+    })).await?;
+
+    // Get artifacts for a release
+    let artifacts = Artifact::list(Some(ListArtifactsParams {
+        release: Some(release.id.clone()),
+        ..Default::default()
+    })).await?;
+
+    Ok(())
+}
+```
+
 ## Examples
 
 For more detailed examples, please refer to the `examples` directory in the repository:
 
 - **License Examples**: `/examples/license/` - License validation, activation, and management
-- **Machine Examples**: `/examples/machine/` - Machine activation and management
+- **Machine Examples**: `/examples/machine/` - Machine activation, heartbeat monitoring, and management
 - **Product Examples**: `/examples/product/` - Product CRUD operations (admin only)
 - **Policy Examples**: `/examples/policy/` - Policy management (admin only)
 - **User Examples**: `/examples/user/` - User management (admin only)
 - **Token Examples**: `/examples/token/` - Token management (admin only)
-- **Configuration Examples**: `/examples/config_examples.rs` - Different configuration approaches
-- **Service Info**: `/examples/service_info.rs` - Service introspection
+- **Release Examples**: `/examples/release/` - Release lifecycle management (admin only)
+- **Artifact Examples**: `/examples/artifact/` - Artifact management (admin only)
+- **Package Examples**: `/examples/package/` - Package management (admin only)
+- **Environment Examples**: `/examples/environment/` - Environment management (admin only)
+- **Webhook Examples**: `/examples/webhook_endpoint/` and `/examples/webhook_event/` - Webhook management (admin only)
+- **Service Examples**: `/examples/service/` - Service introspection
 
 ## Testing
 
