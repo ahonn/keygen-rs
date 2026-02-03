@@ -1,3 +1,9 @@
+//! License management and validation.
+//!
+//! This module provides functionality for validating, verifying, and managing licenses.
+//! It supports both online validation against the Keygen API and offline verification
+//! of signed license keys.
+
 use std::env;
 
 use chrono::{DateTime, Utc};
@@ -17,10 +23,69 @@ use crate::verifier::Verifier;
 use crate::KeygenResponseData;
 use std::sync::Arc;
 
+/// Represents an optional field update in API requests.
+///
+/// This enum provides explicit semantics for nullable field updates:
+/// - `Keep`: Do not include this field in the update (no change)
+/// - `Clear`: Set the field to null/None
+/// - `Set(T)`: Set the field to a specific value
+#[derive(Debug, Clone, Default)]
+pub enum UpdateField<T> {
+    /// Do not update this field
+    #[default]
+    Keep,
+    /// Clear this field (set to null)
+    Clear,
+    /// Set this field to a specific value
+    Set(T),
+}
+
+impl<T: Serialize> UpdateField<T> {
+    /// Applies this update field to a JSON map if it should be included
+    pub fn apply_to(&self, map: &mut serde_json::Map<String, Value>, key: &str) {
+        match self {
+            UpdateField::Keep => {}
+            UpdateField::Clear => {
+                map.insert(key.to_string(), Value::Null);
+            }
+            UpdateField::Set(value) => {
+                map.insert(key.to_string(), json!(value));
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SchemeCode {
     #[serde(rename = "ED25519_SIGN")]
     Ed25519Sign,
+}
+
+/// License status as returned by the Keygen API
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LicenseStatus {
+    Active,
+    Inactive,
+    Expiring,
+    Expired,
+    Suspended,
+    Banned,
+}
+
+impl LicenseStatus {
+    /// Parses a LicenseStatus from a string, returning None for unknown values
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.to_uppercase().as_str() {
+            "ACTIVE" => Some(Self::Active),
+            "INACTIVE" => Some(Self::Inactive),
+            "EXPIRING" => Some(Self::Expiring),
+            "EXPIRED" => Some(Self::Expired),
+            "SUSPENDED" => Some(Self::Suspended),
+            "BANNED" => Some(Self::Banned),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,6 +159,7 @@ pub struct License {
     pub config: Option<Arc<KeygenConfig>>,
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct LicenseCheckoutOpts {
     pub ttl: Option<i64>,
     pub include: Option<Vec<String>>,
@@ -102,32 +168,23 @@ pub struct LicenseCheckoutOpts {
 impl LicenseCheckoutOpts {
     /// Create new checkout options with default settings
     pub fn new() -> Self {
-        Self {
-            ttl: None,
-            include: None,
-        }
+        Self::default()
     }
 
     /// Create checkout options with TTL
     pub fn with_ttl(ttl: i64) -> Self {
         Self {
             ttl: Some(ttl),
-            include: None,
+            ..Self::default()
         }
     }
 
     /// Create checkout options with specific relationships to include
     pub fn with_include(include: Vec<String>) -> Self {
         Self {
-            ttl: None,
             include: Some(include),
+            ..Self::default()
         }
-    }
-}
-
-impl Default for LicenseCheckoutOpts {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -185,11 +242,11 @@ pub struct LicenseUpdateRequest {
     // All optional attributes that can be updated
     pub name: Option<String>,
     pub expiry: Option<DateTime<Utc>>,
-    pub max_machines: Option<Option<i32>>, // None = don't update, Some(None) = set to null, Some(Some(val)) = set to val
-    pub max_processes: Option<Option<i32>>,
-    pub max_users: Option<Option<i32>>,
-    pub max_cores: Option<Option<i32>>,
-    pub max_uses: Option<Option<i32>>,
+    pub max_machines: UpdateField<i32>,
+    pub max_processes: UpdateField<i32>,
+    pub max_users: UpdateField<i32>,
+    pub max_cores: UpdateField<i32>,
+    pub max_uses: UpdateField<i32>,
     pub protected: Option<bool>,
     pub suspended: Option<bool>,
     pub permissions: Option<Vec<String>>,
@@ -397,61 +454,61 @@ impl LicenseUpdateRequest {
 
     /// Set the maximum number of machines
     pub fn with_max_machines(mut self, max_machines: i32) -> Self {
-        self.max_machines = Some(Some(max_machines));
+        self.max_machines = UpdateField::Set(max_machines);
         self
     }
 
     /// Clear the maximum number of machines (set to null)
     pub fn clear_max_machines(mut self) -> Self {
-        self.max_machines = Some(None);
+        self.max_machines = UpdateField::Clear;
         self
     }
 
     /// Set the maximum number of processes
     pub fn with_max_processes(mut self, max_processes: i32) -> Self {
-        self.max_processes = Some(Some(max_processes));
+        self.max_processes = UpdateField::Set(max_processes);
         self
     }
 
     /// Clear the maximum number of processes (set to null)
     pub fn clear_max_processes(mut self) -> Self {
-        self.max_processes = Some(None);
+        self.max_processes = UpdateField::Clear;
         self
     }
 
     /// Set the maximum number of users
     pub fn with_max_users(mut self, max_users: i32) -> Self {
-        self.max_users = Some(Some(max_users));
+        self.max_users = UpdateField::Set(max_users);
         self
     }
 
     /// Clear the maximum number of users (set to null)
     pub fn clear_max_users(mut self) -> Self {
-        self.max_users = Some(None);
+        self.max_users = UpdateField::Clear;
         self
     }
 
     /// Set the maximum number of cores
     pub fn with_max_cores(mut self, max_cores: i32) -> Self {
-        self.max_cores = Some(Some(max_cores));
+        self.max_cores = UpdateField::Set(max_cores);
         self
     }
 
     /// Clear the maximum number of cores (set to null)
     pub fn clear_max_cores(mut self) -> Self {
-        self.max_cores = Some(None);
+        self.max_cores = UpdateField::Clear;
         self
     }
 
     /// Set the maximum number of uses
     pub fn with_max_uses(mut self, max_uses: i32) -> Self {
-        self.max_uses = Some(Some(max_uses));
+        self.max_uses = UpdateField::Set(max_uses);
         self
     }
 
     /// Clear the maximum number of uses (set to null)
     pub fn clear_max_uses(mut self) -> Self {
-        self.max_uses = Some(None);
+        self.max_uses = UpdateField::Clear;
         self
     }
 
@@ -489,21 +546,11 @@ impl LicenseUpdateRequest {
         if let Some(expiry) = self.expiry {
             attributes.insert("expiry".to_string(), json!(expiry));
         }
-        if let Some(max_machines) = self.max_machines {
-            attributes.insert("maxMachines".to_string(), json!(max_machines));
-        }
-        if let Some(max_processes) = self.max_processes {
-            attributes.insert("maxProcesses".to_string(), json!(max_processes));
-        }
-        if let Some(max_users) = self.max_users {
-            attributes.insert("maxUsers".to_string(), json!(max_users));
-        }
-        if let Some(max_cores) = self.max_cores {
-            attributes.insert("maxCores".to_string(), json!(max_cores));
-        }
-        if let Some(max_uses) = self.max_uses {
-            attributes.insert("maxUses".to_string(), json!(max_uses));
-        }
+        self.max_machines.apply_to(&mut attributes, "maxMachines");
+        self.max_processes.apply_to(&mut attributes, "maxProcesses");
+        self.max_users.apply_to(&mut attributes, "maxUsers");
+        self.max_cores.apply_to(&mut attributes, "maxCores");
+        self.max_uses.apply_to(&mut attributes, "maxUses");
         if let Some(protected) = self.protected {
             attributes.insert("protected".to_string(), json!(protected));
         }
@@ -544,32 +591,12 @@ impl License {
             protected: data.attributes.protected,
             suspended: data.attributes.suspended,
             permissions: data.attributes.permissions,
-            policy: data
-                .relationships
-                .policy
-                .as_ref()
-                .and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
+            policy: data.relationships.policy_id(),
             metadata: data.attributes.metadata,
-            account_id: data
-                .relationships
-                .account
-                .as_ref()
-                .and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
-            product_id: data
-                .relationships
-                .product
-                .as_ref()
-                .and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
-            group_id: data
-                .relationships
-                .group
-                .as_ref()
-                .and_then(|g| g.data.as_ref().map(|d| d.id.clone())),
-            owner_id: data
-                .relationships
-                .owner
-                .as_ref()
-                .and_then(|o| o.data.as_ref().map(|d| d.id.clone())),
+            account_id: data.relationships.account_id(),
+            product_id: data.relationships.product_id(),
+            group_id: data.relationships.group_id(),
+            owner_id: data.relationships.owner_id(),
             config: None,
         }
     }
@@ -704,7 +731,11 @@ impl License {
             return Err(self.handle_validation_code(&meta));
         };
         let license = License::from(validation.data);
-        Ok(license)
+        Ok(if let Some(cfg) = self.config {
+            license.with_config((*cfg).clone())
+        } else {
+            license
+        })
     }
 
     pub async fn validate_key(
@@ -735,9 +766,14 @@ impl License {
             return Err(self.handle_validation_code(&meta));
         };
         let license = License::from(validation.data);
-        Ok(license)
+        Ok(if let Some(cfg) = self.config {
+            license.with_config((*cfg).clone())
+        } else {
+            license
+        })
     }
 
+    #[must_use = "verification result should be checked"]
     pub fn verify(&self) -> Result<Vec<u8>, Error> {
         if self.scheme.is_none() {
             return Err(Error::LicenseNotSigned);
@@ -1151,7 +1187,7 @@ impl License {
     /// Attach entitlements to a license
     #[cfg(feature = "token")]
     pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("licenses/{}/entitlements", self.id);
 
         let data: Vec<Value> = entitlement_ids
@@ -1177,7 +1213,7 @@ impl License {
     /// Detach entitlements from a license
     #[cfg(feature = "token")]
     pub async fn detach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("licenses/{}/entitlements", self.id);
 
         let data: Vec<Value> = entitlement_ids
@@ -2432,7 +2468,7 @@ mod tests {
             .with_metadata(metadata.clone());
 
         assert_eq!(request.name, Some("Test License".to_string()));
-        assert_eq!(request.max_machines, Some(Some(10)));
+        assert!(matches!(request.max_machines, UpdateField::Set(10)));
         assert!(request.protected == Some(true));
         assert_eq!(request.metadata, Some(metadata));
 
@@ -2441,7 +2477,10 @@ mod tests {
             .with_max_machines(5)
             .clear_max_machines();
 
-        assert_eq!(request_with_clear.max_machines, Some(None));
+        assert!(matches!(
+            request_with_clear.max_machines,
+            UpdateField::Clear
+        ));
 
         // Test JSON body conversion
         let body = request.to_json_body();

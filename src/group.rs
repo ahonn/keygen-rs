@@ -129,7 +129,7 @@ impl Group {
     /// Create a new group
     #[cfg(feature = "token")]
     pub async fn create(request: CreateGroupRequest) -> Result<Group, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
@@ -171,7 +171,7 @@ impl Group {
     /// List groups with optional pagination and filtering
     #[cfg(feature = "token")]
     pub async fn list(options: Option<ListGroupsOptions>) -> Result<Vec<Group>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("groups", options.as_ref()).await?;
         let groups_response: GroupsResponse = serde_json::from_value(response.body)?;
         Ok(groups_response.data.into_iter().map(Group::from).collect())
@@ -180,7 +180,7 @@ impl Group {
     /// Get a group by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<Group, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("groups/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let group_response: GroupResponse = serde_json::from_value(response.body)?;
@@ -190,7 +190,7 @@ impl Group {
     /// Update a group
     #[cfg(feature = "token")]
     pub async fn update(&self, request: UpdateGroupRequest) -> Result<Group, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("groups/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -234,7 +234,7 @@ impl Group {
     /// Delete a group
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("groups/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())

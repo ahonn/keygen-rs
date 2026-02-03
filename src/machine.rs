@@ -1,3 +1,8 @@
+//! Machine activation and management.
+//!
+//! This module provides functionality for activating machines against licenses,
+//! managing machine heartbeats, and checking out machine files for offline use.
+
 use crate::certificate::CertificateFileResponse;
 use crate::client::{Client, ClientOptions, Response};
 use crate::config::get_config;
@@ -7,13 +12,33 @@ use crate::machine_file::MachineFile;
 use crate::KeygenResponseData;
 use chrono::{DateTime, Utc};
 use futures::future::{BoxFuture, FutureExt};
-use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc;
+
+/// Heartbeat status as returned by the Keygen API
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HeartbeatStatus {
+    Alive,
+    Dead,
+    NotStarted,
+}
+
+impl HeartbeatStatus {
+    /// Parses a HeartbeatStatus from a string, returning None for unknown values
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.to_uppercase().as_str() {
+            "ALIVE" => Some(Self::Alive),
+            "DEAD" => Some(Self::Dead),
+            "NOT_STARTED" => Some(Self::NotStarted),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct MachineAttributes {
@@ -72,6 +97,7 @@ pub struct Machine {
     pub config: Option<Arc<KeygenConfig>>,
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct MachineCheckoutOpts {
     pub ttl: Option<i64>,
     pub include: Option<Vec<String>>,
@@ -79,30 +105,21 @@ pub struct MachineCheckoutOpts {
 
 impl MachineCheckoutOpts {
     pub fn new() -> Self {
-        Self {
-            ttl: None,
-            include: None,
-        }
+        Self::default()
     }
 
     pub fn with_ttl(ttl: i64) -> Self {
         Self {
             ttl: Some(ttl),
-            include: None,
+            ..Self::default()
         }
     }
 
     pub fn with_include(include: Vec<String>) -> Self {
         Self {
-            ttl: None,
             include: Some(include),
+            ..Self::default()
         }
-    }
-}
-
-impl Default for MachineCheckoutOpts {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -162,36 +179,12 @@ impl Machine {
             heartbeat_duration: data.attributes.heartbeat_duration,
             created: data.attributes.created,
             updated: data.attributes.updated,
-            account_id: data
-                .relationships
-                .account
-                .as_ref()
-                .and_then(|a| a.data.as_ref().map(|d| d.id.clone())),
-            environment_id: data
-                .relationships
-                .environment
-                .as_ref()
-                .and_then(|e| e.data.as_ref().map(|d| d.id.clone())),
-            product_id: data
-                .relationships
-                .product
-                .as_ref()
-                .and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
-            license_id: data
-                .relationships
-                .license
-                .as_ref()
-                .and_then(|l| l.data.as_ref().map(|d| d.id.clone())),
-            owner_id: data
-                .relationships
-                .owner
-                .as_ref()
-                .and_then(|o| o.data.as_ref().map(|d| d.id.clone())),
-            group_id: data
-                .relationships
-                .group
-                .as_ref()
-                .and_then(|g| g.data.as_ref().map(|d| d.id.clone())),
+            account_id: data.relationships.account_id(),
+            environment_id: data.relationships.environment_id(),
+            product_id: data.relationships.product_id(),
+            license_id: data.relationships.license_id(),
+            owner_id: data.relationships.owner_id(),
+            group_id: data.relationships.group_id(),
             config: None,
         }
     }
@@ -271,32 +264,39 @@ impl Machine {
     pub fn monitor(
         self: Arc<Self>,
         heartbeat_interval: Duration,
-        tx: Option<Sender<Result<Machine, Error>>>,
-        cancel_rx: Option<Receiver<()>>,
+        tx: Option<mpsc::Sender<Result<Machine, Error>>>,
+        mut cancel_rx: Option<mpsc::Receiver<()>>,
     ) -> BoxFuture<'static, ()> {
         async move {
-            let send = |result: Result<Machine, Error>| {
-                if let Some(tx) = &tx {
-                    tx.send(result).unwrap();
+            async fn send(
+                tx: &Option<mpsc::Sender<Result<Machine, Error>>>,
+                result: Result<Machine, Error>,
+            ) {
+                if let Some(tx) = tx {
+                    let _ = tx.send(result).await;
                 }
-            };
+            }
 
-            let mut interval_stream = futures::stream::unfold((), move |_| {
-                let delay = futures_timer::Delay::new(heartbeat_interval);
-                Box::pin(async move {
-                    delay.await;
-                    Some(((), ()))
-                })
-            });
+            let mut interval = tokio::time::interval(heartbeat_interval);
+            interval.tick().await;
 
-            send(self.ping().await);
-            while interval_stream.next().await.is_some() {
-                if let Some(ref rx) = cancel_rx {
-                    if rx.try_recv().is_ok() {
+            send(&tx, self.ping().await).await;
+
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => {
+                        send(&tx, self.ping().await).await;
+                    }
+                    _ = async {
+                        if let Some(ref mut rx) = cancel_rx {
+                            rx.recv().await
+                        } else {
+                            std::future::pending::<Option<()>>().await
+                        }
+                    } => {
                         break;
                     }
                 }
-                send(self.ping().await);
             }
         }
         .boxed()

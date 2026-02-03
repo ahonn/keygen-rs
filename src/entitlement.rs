@@ -84,7 +84,7 @@ impl Entitlement {
     /// Create a new entitlement
     #[cfg(feature = "token")]
     pub async fn create(request: CreateEntitlementRequest) -> Result<Entitlement, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
         if let Some(name) = request.name {
@@ -112,7 +112,7 @@ impl Entitlement {
     /// List entitlements with optional pagination and filtering
     #[cfg(feature = "token")]
     pub async fn list(options: Option<ListEntitlementsOptions>) -> Result<Vec<Entitlement>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("entitlements", options.as_ref()).await?;
         let entitlements_response: EntitlementsResponse = serde_json::from_value(response.body)?;
         Ok(entitlements_response
@@ -125,7 +125,7 @@ impl Entitlement {
     /// Get an entitlement by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<Entitlement, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("entitlements/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let entitlement_response: EntitlementResponse = serde_json::from_value(response.body)?;
@@ -135,7 +135,7 @@ impl Entitlement {
     /// Update an entitlement
     #[cfg(feature = "token")]
     pub async fn update(&self, request: UpdateEntitlementRequest) -> Result<Entitlement, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("entitlements/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -164,7 +164,7 @@ impl Entitlement {
     /// Delete an entitlement
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("entitlements/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())

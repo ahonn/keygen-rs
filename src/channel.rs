@@ -67,7 +67,7 @@ impl Channel {
     ///
     /// Channels are automatically populated based on releases.
     pub async fn list(options: Option<ListChannelsOptions>) -> Result<Vec<Channel>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("channels", options.as_ref()).await?;
         let channels_response: ChannelsResponse = serde_json::from_value(response.body)?;
         Ok(channels_response
@@ -79,7 +79,7 @@ impl Channel {
 
     /// Get a channel by ID
     pub async fn get(id: &str) -> Result<Channel, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("channels/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let channel_response: ChannelResponse = serde_json::from_value(response.body)?;

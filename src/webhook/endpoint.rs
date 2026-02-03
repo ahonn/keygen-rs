@@ -235,7 +235,7 @@ impl WebhookEndpoint {
     /// Create a new webhook endpoint
     #[cfg(feature = "token")]
     pub async fn create(request: WebhookEndpointCreateRequest) -> Result<WebhookEndpoint, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let body = request.to_json_body();
         let response = client
             .post("webhook-endpoints", Some(&body), None::<&()>)
@@ -249,7 +249,7 @@ impl WebhookEndpoint {
     pub async fn list(
         options: Option<&WebhookEndpointListOptions>,
     ) -> Result<Vec<WebhookEndpoint>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let mut query = json!({});
 
         if let Some(opts) = options {
@@ -282,7 +282,7 @@ impl WebhookEndpoint {
     /// Get a webhook endpoint by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<WebhookEndpoint, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("webhook-endpoints/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let endpoint_response: WebhookEndpointResponse = serde_json::from_value(response.body)?;
@@ -295,7 +295,7 @@ impl WebhookEndpoint {
         &self,
         request: WebhookEndpointUpdateRequest,
     ) -> Result<WebhookEndpoint, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("webhook-endpoints/{}", self.id);
         let body = request.to_json_body();
         let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
@@ -306,7 +306,7 @@ impl WebhookEndpoint {
     /// Delete a webhook endpoint
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("webhook-endpoints/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
@@ -318,7 +318,7 @@ impl WebhookEndpoint {
         &self,
         options: Option<&WebhookEndpointListOptions>,
     ) -> Result<Vec<WebhookEventRecord>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let mut query = json!({});
 
         if let Some(opts) = options {
@@ -347,7 +347,7 @@ impl WebhookEndpoint {
     /// Retry a specific webhook event
     #[cfg(feature = "token")]
     pub async fn retry_event(&self, event_id: &str) -> Result<WebhookEventRecord, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("webhook-events/{}/actions/retry", event_id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
 

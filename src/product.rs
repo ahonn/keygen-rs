@@ -123,7 +123,7 @@ impl Product {
 
     /// Create a new product
     pub async fn create(request: CreateProductRequest) -> Result<Product, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
@@ -167,7 +167,7 @@ impl Product {
 
     /// List products with optional pagination and filtering
     pub async fn list(options: Option<ListProductsOptions>) -> Result<Vec<Product>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("products", options.as_ref()).await?;
         let products_response: ProductsResponse = serde_json::from_value(response.body)?;
         Ok(products_response
@@ -179,7 +179,7 @@ impl Product {
 
     /// Get a product by ID
     pub async fn get(id: &str) -> Result<Product, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("products/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let product_response: ProductResponse = serde_json::from_value(response.body)?;
@@ -188,7 +188,7 @@ impl Product {
 
     /// Update a product
     pub async fn update(&self, request: UpdateProductRequest) -> Result<Product, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("products/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -234,7 +234,7 @@ impl Product {
 
     /// Delete a product
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("products/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
@@ -242,7 +242,7 @@ impl Product {
 
     /// Generate a product token
     pub async fn generate_token(&self) -> Result<String, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("products/{}/tokens", self.id);
         let response: crate::client::Response<serde_json::Value> =
             client.post(&endpoint, None::<&()>, None::<&()>).await?;

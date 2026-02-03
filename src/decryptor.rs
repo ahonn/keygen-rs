@@ -1,13 +1,20 @@
+//! Decryption for encrypted license and machine files.
+//!
+//! This module provides AES-256-GCM decryption for license files and machine files
+//! that have been encrypted by the Keygen API.
+
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::engine::general_purpose;
 use base64::Engine;
 use sha2::Digest;
 use sha2::Sha256;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::certificate::Certificate;
 use crate::errors::Error;
 
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct Decryptor {
     secret: String,
 }

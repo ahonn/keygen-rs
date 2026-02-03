@@ -67,7 +67,7 @@ impl Platform {
     ///
     /// Platforms are automatically populated based on releases and artifacts.
     pub async fn list(options: Option<ListPlatformsOptions>) -> Result<Vec<Platform>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("platforms", options.as_ref()).await?;
         let platforms_response: PlatformsResponse = serde_json::from_value(response.body)?;
         Ok(platforms_response
@@ -79,7 +79,7 @@ impl Platform {
 
     /// Get a platform by ID
     pub async fn get(id: &str) -> Result<Platform, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("platforms/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let platform_response: PlatformResponse = serde_json::from_value(response.body)?;

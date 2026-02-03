@@ -90,7 +90,7 @@ impl WebhookEventRecord {
     pub async fn list(
         options: Option<&WebhookEventListOptions>,
     ) -> Result<Vec<WebhookEventRecord>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let mut query = serde_json::json!({});
 
         if let Some(opts) = options {
@@ -123,7 +123,7 @@ impl WebhookEventRecord {
     /// Get a webhook event by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<WebhookEventRecord, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("webhook-events/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let event_response: WebhookEventResponse = serde_json::from_value(response.body)?;
@@ -133,7 +133,7 @@ impl WebhookEventRecord {
     /// Retry this webhook event
     #[cfg(feature = "token")]
     pub async fn retry(&self) -> Result<WebhookEventRecord, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("webhook-events/{}/actions/retry", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let event_response: WebhookEventResponse = serde_json::from_value(response.body)?;
@@ -143,7 +143,7 @@ impl WebhookEventRecord {
     /// Delete this webhook event
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("webhook-events/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())

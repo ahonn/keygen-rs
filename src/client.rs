@@ -1,3 +1,8 @@
+//! HTTP client for the Keygen API.
+//!
+//! This module provides the low-level HTTP client used to communicate with the Keygen API.
+//! It handles authentication, request signing verification, and error handling.
+
 use crate::config::get_config;
 use crate::errors::Error;
 use crate::verifier::Verifier;
@@ -38,6 +43,11 @@ pub struct Response<T> {
     pub body: T,
 }
 
+/// Empty response body for API calls that return no content
+#[allow(dead_code)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EmptyResponse;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ErrorMeta {
     pub code: String,
@@ -74,11 +84,15 @@ impl From<crate::config::KeygenConfig> for ClientOptions {
 }
 
 impl Client {
-    pub fn default() -> Result<Self, Error> {
+    /// Creates a client using the global configuration.
+    ///
+    /// This is a convenience method that reads from the global config set via `set_config`.
+    pub fn from_global_config() -> Result<Self, Error> {
         let config = get_config()?;
         Self::new(ClientOptions::from(config))
     }
 
+    /// Creates a new client with the specified options.
     pub fn new(options: ClientOptions) -> Result<Self, Error> {
         let client = ReqwestClient::builder()
             .timeout(Duration::from_secs(30))
@@ -189,68 +203,7 @@ impl Client {
         path: &str,
         params: Option<&T>,
     ) -> Result<Request, Error> {
-        let mut url = Url::parse(&self.options.api_url)?;
-
-        if self.options.api_url == "https://api.keygen.sh" {
-            url.path_segments_mut()
-                .map_err(|_| Error::InvalidUrl)?
-                .push(self.options.api_prefix.as_str())
-                .push("accounts")
-                .push(self.options.account.as_str())
-                .extend(path.split('/'));
-        } else {
-            url.path_segments_mut()
-                .map_err(|_| Error::InvalidUrl)?
-                .push(self.options.api_prefix.as_str())
-                .extend(path.split('/'));
-        }
-
-        if method == reqwest::Method::GET {
-            if let Some(params) = params {
-                let query = serde_urlencoded::to_string(params)?;
-                url.set_query(Some(&query));
-            }
-        }
-
-        let mut headers = HeaderMap::new();
-        headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.api+json"));
-        if params.is_some() {
-            headers.insert(
-                CONTENT_TYPE,
-                HeaderValue::from_static("application/vnd.api+json"),
-            );
-        }
-        if let Some(user_agent) = &self.options.user_agent {
-            headers.insert(USER_AGENT, HeaderValue::from_str(user_agent)?);
-        }
-
-        if let Some(env) = &self.options.environment {
-            headers.insert("Keygen-Environment", HeaderValue::from_str(env)?);
-        }
-
-        headers.insert(
-            "Keygen-Version",
-            HeaderValue::from_str(&self.options.api_version)?,
-        );
-
-        if let Some(key) = &self.options.license_key {
-            headers.insert(
-                AUTHORIZATION,
-                HeaderValue::from_str(&format!("License {key}"))?,
-            );
-        } else if let Some(token) = &self.options.token {
-            headers.insert(
-                AUTHORIZATION,
-                HeaderValue::from_str(&format!("Bearer {token}"))?,
-            );
-        }
-
-        let mut request = self.inner.request(method.clone(), url).headers(headers);
-
-        if method != reqwest::Method::GET && params.is_some() {
-            request = request.json(&json!(params));
-        }
-        Ok(request.build()?)
+        self.build_request(method, path, params, true)
     }
 
     fn new_request_no_version<T: Serialize + ?Sized>(
@@ -258,6 +211,16 @@ impl Client {
         method: reqwest::Method,
         path: &str,
         params: Option<&T>,
+    ) -> Result<Request, Error> {
+        self.build_request(method, path, params, false)
+    }
+
+    fn build_request<T: Serialize + ?Sized>(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        params: Option<&T>,
+        include_version: bool,
     ) -> Result<Request, Error> {
         let mut url = Url::parse(&self.options.api_url)?;
 
@@ -298,7 +261,12 @@ impl Client {
             headers.insert("Keygen-Environment", HeaderValue::from_str(env)?);
         }
 
-        // Note: Intentionally NOT setting Keygen-Version header for service introspection
+        if include_version {
+            headers.insert(
+                "Keygen-Version",
+                HeaderValue::from_str(&self.options.api_version)?,
+            );
+        }
 
         if let Some(key) = &self.options.license_key {
             headers.insert(

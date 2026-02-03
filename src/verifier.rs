@@ -1,8 +1,14 @@
+//! Cryptographic verification for licenses and API responses.
+//!
+//! This module provides Ed25519 signature verification for license keys,
+//! license files, machine files, and Keygen API response signatures.
+
 use base64::{engine::general_purpose, Engine};
 use ed25519_dalek::{Signature, Verifier as Ed25519Verifier, VerifyingKey};
 use reqwest::header::HeaderMap;
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::certificate::Certificate;
 use crate::errors::Error;
@@ -18,6 +24,7 @@ struct SignatureComponents {
     headers: String,
 }
 
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct Verifier {
     public_key: String,
 }
@@ -27,6 +34,7 @@ impl Verifier {
         Self { public_key }
     }
 
+    #[must_use = "verification result should be checked"]
     pub fn verify_machine_file(&self, lic: &MachineFile) -> Result<(), Error> {
         let cert = lic.certificate()?;
         if let Err(e) = self.verify_certificate(&cert, "machine") {
@@ -43,6 +51,7 @@ impl Verifier {
         Ok(())
     }
 
+    #[must_use = "verification result should be checked"]
     pub fn verify_license_file(&self, lic: &LicenseFile) -> Result<(), Error> {
         let cert = lic.certificate()?;
         if let Err(e) = self.verify_certificate(&cert, "license") {
@@ -59,6 +68,7 @@ impl Verifier {
         Ok(())
     }
 
+    #[must_use = "verification result should be checked"]
     pub fn verify_license(&self, license: &License) -> Result<Vec<u8>, Error> {
         if license.key.is_empty() {
             return Err(Error::LicenseKeyMissing);
@@ -73,6 +83,7 @@ impl Verifier {
         }
     }
 
+    #[must_use = "verification result should be checked"]
     pub fn verify_keygen_signature(
         &self,
         headers: &HeaderMap,

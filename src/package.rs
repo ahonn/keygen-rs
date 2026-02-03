@@ -122,7 +122,7 @@ impl Package {
 
     /// Create a new package
     pub async fn create(request: CreatePackageRequest) -> Result<Package, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
@@ -157,7 +157,7 @@ impl Package {
 
     /// List packages with optional filtering and pagination
     pub async fn list(options: Option<ListPackagesOptions>) -> Result<Vec<Package>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("packages", options.as_ref()).await?;
         let packages_response: PackagesResponse = serde_json::from_value(response.body)?;
         Ok(packages_response
@@ -169,7 +169,7 @@ impl Package {
 
     /// Get a package by ID or key
     pub async fn get(id: &str) -> Result<Package, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("packages/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let package_response: PackageResponse = serde_json::from_value(response.body)?;
@@ -178,7 +178,7 @@ impl Package {
 
     /// Update an existing package
     pub async fn update(&self, request: UpdatePackageRequest) -> Result<Package, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("packages/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -206,7 +206,7 @@ impl Package {
 
     /// Delete a package
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("packages/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())

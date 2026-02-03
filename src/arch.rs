@@ -67,7 +67,7 @@ impl Arch {
     ///
     /// Architectures are automatically populated based on releases and artifacts.
     pub async fn list(options: Option<ListArchesOptions>) -> Result<Vec<Arch>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("arches", options.as_ref()).await?;
         let arches_response: ArchesResponse = serde_json::from_value(response.body)?;
         Ok(arches_response.data.into_iter().map(Arch::from).collect())
@@ -75,7 +75,7 @@ impl Arch {
 
     /// Get an architecture by ID
     pub async fn get(id: &str) -> Result<Arch, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("arches/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let arch_response: ArchResponse = serde_json::from_value(response.body)?;

@@ -137,7 +137,7 @@ impl Environment {
     /// Create a new environment
     #[cfg(feature = "token")]
     pub async fn create(request: CreateEnvironmentRequest) -> Result<Environment, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), json!(request.name));
@@ -166,7 +166,7 @@ impl Environment {
     pub async fn list(
         options: Option<ListEnvironmentsOptions>,
     ) -> Result<EnvironmentsListResult, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
 
         let mut query_params = HashMap::new();
         if let Some(options) = options {
@@ -204,7 +204,7 @@ impl Environment {
     /// Get an environment by ID or code
     #[cfg(feature = "token")]
     pub async fn get(id_or_code: &str) -> Result<Environment, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("environments/{id_or_code}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let environment_response: EnvironmentResponse = serde_json::from_value(response.body)?;
@@ -214,7 +214,7 @@ impl Environment {
     /// Update an environment
     #[cfg(feature = "token")]
     pub async fn update(&self, request: UpdateEnvironmentRequest) -> Result<Environment, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("environments/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -240,7 +240,7 @@ impl Environment {
     /// Delete an environment
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("environments/{}", self.id);
         let _response = client
             .delete::<(), serde_json::Value>(&endpoint, None::<&()>)
@@ -254,7 +254,7 @@ impl Environment {
         &self,
         request: Option<CreateEnvironmentTokenRequest>,
     ) -> Result<EnvironmentToken, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("environments/{}/tokens", self.id);
 
         let mut attributes = serde_json::Map::new();

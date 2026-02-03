@@ -1,11 +1,7 @@
-use std::{
-    env,
-    sync::{mpsc, Arc},
-    thread,
-    time::Duration,
-};
+use std::{env, sync::Arc, time::Duration};
 
 use dotenv::dotenv;
+use tokio::sync::mpsc;
 
 use keygen_rs::{
     config::{self, KeygenConfig},
@@ -32,42 +28,39 @@ async fn main() -> Result<(), Error> {
         let interval = Duration::from_secs(machine.heartbeat_duration.unwrap_or(600) as u64 - 30);
         let machine_arc = Arc::new(machine);
 
-        let (tx, rx) = mpsc::channel();
-        let (cancel_tx, cancel_rx) = mpsc::channel();
+        let (tx, mut rx) = mpsc::channel(32);
+        let (cancel_tx, cancel_rx) = mpsc::channel(1);
         let monitor_future = machine_arc
             .clone()
             .monitor(interval, Some(tx), Some(cancel_rx));
 
-        let monitor_futures = tokio::spawn(async move {
+        let monitor_handle = tokio::spawn(async move {
             monitor_future.await;
         });
 
-        // Spawn a new thread to handle message receiving and cancellation
-        let message_handler = thread::spawn(move || {
-            // Set a timer to cancel the monitor after 100 seconds
-            let cancel_timer = std::time::Instant::now() + Duration::from_secs(100);
+        // Spawn a task to handle message receiving and cancellation
+        let message_handler = tokio::spawn(async move {
+            let cancel_deadline = tokio::time::Instant::now() + Duration::from_secs(100);
+            let mut cancel_interval = tokio::time::interval(Duration::from_millis(100));
 
             loop {
-                match rx.recv_timeout(Duration::from_millis(100)) {
-                    Ok(message) => println!("Received message: {message:?}"),
-                    Err(mpsc::RecvTimeoutError::Timeout) => {
-                        if std::time::Instant::now() >= cancel_timer {
+                tokio::select! {
+                    Some(message) = rx.recv() => {
+                        println!("Received message: {message:?}");
+                    }
+                    _ = cancel_interval.tick() => {
+                        if tokio::time::Instant::now() >= cancel_deadline {
                             println!("Timer expired, sending cancel signal...");
-                            cancel_tx.send(()).unwrap();
+                            let _ = cancel_tx.send(()).await;
                             break;
                         }
-                    }
-                    Err(mpsc::RecvTimeoutError::Disconnected) => {
-                        println!("Channel disconnected, exiting...");
-                        break;
                     }
                 }
             }
         });
 
-        // Wait for the message handler to complete
-        message_handler.join().unwrap();
-        monitor_futures.await.unwrap();
+        // Wait for both tasks to complete
+        let _ = tokio::join!(message_handler, monitor_handle);
     } else {
         // License not activated, run activate_machine.rs first
         println!("License not activated");

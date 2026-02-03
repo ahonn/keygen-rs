@@ -93,7 +93,7 @@ impl Token {
 
     /// List tokens with optional pagination and filtering
     pub async fn list(options: Option<ListTokensOptions>) -> Result<Vec<Token>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("tokens", options.as_ref()).await?;
         let tokens_response: TokensResponse = serde_json::from_value(response.body)?;
         Ok(tokens_response.data.into_iter().map(Token::from).collect())
@@ -101,7 +101,7 @@ impl Token {
 
     /// Get a token by ID
     pub async fn get(id: &str) -> Result<Token, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("tokens/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let token_response: TokenResponse = serde_json::from_value(response.body)?;
@@ -110,7 +110,7 @@ impl Token {
 
     /// Regenerate a token
     pub async fn regenerate(&self, request: RegenerateTokenRequest) -> Result<Token, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("tokens/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -144,7 +144,7 @@ impl Token {
 
     /// Revoke a token
     pub async fn revoke(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("tokens/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())

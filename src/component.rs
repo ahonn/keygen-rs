@@ -156,7 +156,7 @@ impl Component {
     /// Create a new component
     #[cfg(feature = "token")]
     pub async fn create(request: CreateComponentRequest) -> Result<Component, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
         attributes.insert(
@@ -192,7 +192,7 @@ impl Component {
     /// List all components with optional filtering
     #[cfg(feature = "token")]
     pub async fn list(options: Option<ListComponentsOptions>) -> Result<Vec<Component>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let mut query_params = HashMap::new();
 
         if let Some(opts) = options {
@@ -241,7 +241,7 @@ impl Component {
     /// Get a component by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<Component, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("components/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let component_response: ComponentResponse = serde_json::from_value(response.body)?;
@@ -251,7 +251,7 @@ impl Component {
     /// Update a component (only name and metadata are updatable per API docs)
     #[cfg(feature = "token")]
     pub async fn update(&self, request: UpdateComponentRequest) -> Result<Component, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("components/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -277,7 +277,7 @@ impl Component {
     /// Delete a component
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("components/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())

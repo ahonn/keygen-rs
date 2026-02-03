@@ -164,7 +164,7 @@ impl Release {
 
     /// Create a new release
     pub async fn create(request: CreateReleaseRequest) -> Result<Release, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
         attributes.insert(
@@ -217,7 +217,7 @@ impl Release {
 
     /// List releases with optional filtering and pagination
     pub async fn list(options: Option<ListReleasesOptions>) -> Result<Vec<Release>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("releases", options.as_ref()).await?;
         let releases_response: ReleasesResponse = serde_json::from_value(response.body)?;
         Ok(releases_response
@@ -229,7 +229,7 @@ impl Release {
 
     /// Get a release by ID
     pub async fn get(id: &str) -> Result<Release, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("releases/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
@@ -238,7 +238,7 @@ impl Release {
 
     /// Update an existing release
     pub async fn update(&self, request: UpdateReleaseRequest) -> Result<Release, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("releases/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -275,7 +275,7 @@ impl Release {
 
     /// Delete a release
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("releases/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
@@ -285,7 +285,7 @@ impl Release {
     ///
     /// Makes the release visible to customers
     pub async fn publish(&self) -> Result<Release, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("releases/{}/actions/publish", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
@@ -296,7 +296,7 @@ impl Release {
     ///
     /// Makes the release unavailable for distribution
     pub async fn yank(&self) -> Result<Release, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("releases/{}/actions/yank", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;

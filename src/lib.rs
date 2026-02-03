@@ -91,6 +91,42 @@ pub(crate) struct KeygenRelationships {
     pub other: std::collections::HashMap<String, serde_json::Value>,
 }
 
+impl KeygenRelationships {
+    /// Extracts the ID from a relationship field
+    pub(crate) fn extract_id(rel: &Option<KeygenRelationship>) -> Option<String> {
+        rel.as_ref()
+            .and_then(|r| r.data.as_ref().map(|d| d.id.clone()))
+    }
+
+    pub(crate) fn policy_id(&self) -> Option<String> {
+        Self::extract_id(&self.policy)
+    }
+
+    pub(crate) fn account_id(&self) -> Option<String> {
+        Self::extract_id(&self.account)
+    }
+
+    pub(crate) fn product_id(&self) -> Option<String> {
+        Self::extract_id(&self.product)
+    }
+
+    pub(crate) fn group_id(&self) -> Option<String> {
+        Self::extract_id(&self.group)
+    }
+
+    pub(crate) fn owner_id(&self) -> Option<String> {
+        Self::extract_id(&self.owner)
+    }
+
+    pub(crate) fn environment_id(&self) -> Option<String> {
+        Self::extract_id(&self.environment)
+    }
+
+    pub(crate) fn license_id(&self) -> Option<String> {
+        Self::extract_id(&self.license)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenResponseData<T> {
     pub id: String,
@@ -134,10 +170,8 @@ pub async fn validate_with_config(
     let client = Client::new(ClientOptions::from(config.clone()))?;
     let response = client.get("me", None::<&()>).await?;
     let profile: license::LicenseResponse<()> = serde_json::from_value(response.body)?;
-    let license = License::from(profile.data);
-    license
-        .clone()
-        .with_config(config.clone())
+    License::from(profile.data)
+        .with_config(config)
         .validate_key(fingerprints, entitlements)
         .await
 }
@@ -170,16 +204,19 @@ pub async fn validate_with_config(
 ///       println!("License verification failed");
 ///     }
 /// }
+#[must_use = "verification result should be checked"]
 pub fn verify(scheme: SchemeCode, signed_key: &str) -> Result<Vec<u8>, Error> {
     let config = get_config()?;
     verify_with_config(&config, scheme, signed_key)
 }
 
+#[must_use = "verification result should be checked"]
 pub fn verify_with_config(
     config: &config::KeygenConfig,
     scheme: SchemeCode,
     signed_key: &str,
 ) -> Result<Vec<u8>, Error> {
-    let license = License::from_signed_key(scheme, signed_key);
-    license.clone().with_config(config.clone()).verify()
+    License::from_signed_key(scheme, signed_key)
+        .with_config(config.clone())
+        .verify()
 }

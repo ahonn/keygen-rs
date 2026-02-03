@@ -169,7 +169,7 @@ impl Artifact {
     /// Note: After creating an artifact, you need to upload the actual file
     /// using the upload URL provided in the response links.
     pub async fn create(request: CreateArtifactRequest) -> Result<Artifact, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
         attributes.insert(
@@ -224,7 +224,7 @@ impl Artifact {
 
     /// List artifacts with optional filtering and pagination
     pub async fn list(options: Option<ListArtifactsOptions>) -> Result<Vec<Artifact>, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let response = client.get("artifacts", options.as_ref()).await?;
         let artifacts_response: ArtifactsResponse = serde_json::from_value(response.body)?;
         Ok(artifacts_response
@@ -236,7 +236,7 @@ impl Artifact {
 
     /// Get an artifact by ID
     pub async fn get(id: &str) -> Result<Artifact, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("artifacts/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let artifact_response: ArtifactResponse = serde_json::from_value(response.body)?;
@@ -245,7 +245,7 @@ impl Artifact {
 
     /// Update an existing artifact
     pub async fn update(&self, request: UpdateArtifactRequest) -> Result<Artifact, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("artifacts/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
@@ -288,7 +288,7 @@ impl Artifact {
 
     /// Delete an artifact
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("artifacts/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
@@ -296,7 +296,7 @@ impl Artifact {
 
     /// Yank an artifact (make it unavailable for download)
     pub async fn yank(&self) -> Result<Artifact, Error> {
-        let client = Client::default()?;
+        let client = Client::from_global_config()?;
         let endpoint = format!("artifacts/{}/actions/yank", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let artifact_response: ArtifactResponse = serde_json::from_value(response.body)?;
