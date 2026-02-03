@@ -321,11 +321,7 @@ impl Client {
                     base_path.to_string()
                 };
 
-                verifier
-                    .verify_keygen_signature(&headers, &bytes, &method, &full_path, &host)
-                    .map_err(|err| Error::KeygenSignatureInvalid {
-                        reason: format!("Keygen signature validation failed: {err}"),
-                    })?;
+                verifier.verify_keygen_signature(&headers, &bytes, &method, &full_path, &host)?;
             }
         }
 
@@ -374,11 +370,13 @@ impl Client {
                     base_path.to_string()
                 };
 
-                verifier
-                    .verify_keygen_signature(&headers, text.as_bytes(), &method, &full_path, &host)
-                    .map_err(|err| Error::KeygenSignatureInvalid {
-                        reason: format!("Keygen signature validation failed: {err}"),
-                    })?;
+                verifier.verify_keygen_signature(
+                    &headers,
+                    text.as_bytes(),
+                    &method,
+                    &full_path,
+                    &host,
+                )?;
             }
         }
 
