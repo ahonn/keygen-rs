@@ -16,6 +16,7 @@ pub struct EntitlementAttributes {
     pub updated: DateTime<Utc>,
 }
 
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct EntitlementResponse {
     pub data: KeygenResponseData<EntitlementAttributes>,

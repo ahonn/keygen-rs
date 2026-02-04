@@ -93,8 +93,8 @@ impl Verifier {
         host: &str,
     ) -> Result<(), Error> {
         let signature_header = self.get_required_header(headers, "keygen-signature")?;
-        let date_header = self.get_required_header(headers, "date")?;
-        let digest_header = self.get_required_header(headers, "digest")?;
+        let date_header = self.get_required_header(headers, "keygen-date")?;
+        let digest_header = self.get_required_header(headers, "keygen-digest")?;
 
         self.verify_digest(digest_header, body)?;
 
@@ -486,8 +486,11 @@ mod tests {
             "keygen-signature",
             HeaderValue::from_str(&signature_header).unwrap(),
         );
-        headers.insert("date", HeaderValue::from_str(date).unwrap());
-        headers.insert("digest", HeaderValue::from_str(&digest_header).unwrap());
+        headers.insert("keygen-date", HeaderValue::from_str(date).unwrap());
+        headers.insert(
+            "keygen-digest",
+            HeaderValue::from_str(&digest_header).unwrap(),
+        );
 
         let verifier = Verifier::new(public_key);
         let result = verifier.verify_keygen_signature(

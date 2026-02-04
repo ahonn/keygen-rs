@@ -21,11 +21,13 @@ pub struct GroupAttributes {
     pub updated: DateTime<Utc>,
 }
 
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct GroupResponse {
     pub data: KeygenResponseData<GroupAttributes>,
 }
 
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct GroupsResponse {
     pub data: Vec<KeygenResponseData<GroupAttributes>>,

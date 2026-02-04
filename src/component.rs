@@ -17,11 +17,13 @@ pub struct ComponentAttributes {
     pub updated: DateTime<Utc>,
 }
 
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ComponentResponse {
     pub data: KeygenResponseData<ComponentAttributes>,
 }
 
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ComponentsResponse {
     pub data: Vec<KeygenResponseData<ComponentAttributes>>,
