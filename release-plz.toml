@@ -9,6 +9,12 @@ git_tag_enable = true
 git_tag_name = "v{{ version }}"
 
 # Changelog configuration
+# Disable separate git tag/release for tauri plugin (follows main crate release)
+[[package]]
+name = "tauri-plugin-keygen-rs2"
+git_tag_enable = false
+git_release_enable = false
+
 [changelog]
 header = """
 # Changelog
