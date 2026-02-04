@@ -3,6 +3,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.9.1] - 2026-02-04
+
+### Fixed
+
+- Update signature headers and fix dead_code warnings ([55578ce](https://github.com/ahonn/keygen-rs/commit/55578ce7cdc5bc0000097532877de7225946b96d))
+
+### Other
+
+- Install Linux dependencies for tauri-plugin-keygen-rs2 ([c637ac2](https://github.com/ahonn/keygen-rs/commit/c637ac25c48318ea34e379455b5c9a91d8617c74))
+- Update README for v0.9 release ([78a6908](https://github.com/ahonn/keygen-rs/commit/78a6908f28793f6b360fc55495191c130a69aad6))
+
+
 ## [0.9.0] - 2026-02-03
 
 ### Added
