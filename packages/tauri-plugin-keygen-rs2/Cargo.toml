@@ -22,7 +22,7 @@ tauri-plugin-os = "2"
 serde = "1.0"
 serde_json = "1.0"
 thiserror = "1.0"
-tokio = { version = "1.33.0", features = ["sync"] }
+tokio = { version = "1.46.1", features = ["sync"] }
 whoami = "1.5.1"
 lazy_static = "1.4.0"
 log = { version = "0.4", features = ["std"] }
