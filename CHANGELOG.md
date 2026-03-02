@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.10.0] - 2026-03-02
+
+### Fixed
+
+- Add missing enum variants ([3fbfe3b](https://github.com/ahonn/keygen-rs/commit/3fbfe3bb3628dc8cb89ae25a691d2af395abeb96))
+- Disable separate git tag for tauri plugin to avoid tag conflict ([a09d64d](https://github.com/ahonn/keygen-rs/commit/a09d64d7048ee822ea93620b53a027b5c71ca264))
+
+
 ## [0.9.1] - 2026-02-04
 
 ### Fixed
