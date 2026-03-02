@@ -14,6 +14,8 @@ pub enum SignatureAlgorithm {
     #[serde(rename = "ed25519", alias = "ED25519")]
     #[default]
     Ed25519,
+    #[serde(rename = "ecdsa-p256", alias = "ECDSA_P256")]
+    EcdsaP256,
     #[serde(rename = "rsa-pss-sha256", alias = "RSA_2048_PSS_SHA256")]
     RsaPssSha256,
     #[serde(rename = "rsa-sha256", alias = "RSA_2048_PKCS1_SHA256")]
@@ -582,8 +584,30 @@ mod tests {
         let json = serde_json::to_value(&algo).unwrap();
         assert_eq!(json, "ed25519");
 
+        let algo = SignatureAlgorithm::EcdsaP256;
+        let json = serde_json::to_value(&algo).unwrap();
+        assert_eq!(json, "ecdsa-p256");
+
         let algo = SignatureAlgorithm::RsaPssSha256;
         let json = serde_json::to_value(&algo).unwrap();
         assert_eq!(json, "rsa-pss-sha256");
+    }
+
+    #[test]
+    fn test_signature_algorithm_deserialization() {
+        let algo: SignatureAlgorithm = serde_json::from_value(json!("ed25519")).unwrap();
+        assert!(matches!(algo, SignatureAlgorithm::Ed25519));
+
+        let algo: SignatureAlgorithm = serde_json::from_value(json!("ecdsa-p256")).unwrap();
+        assert!(matches!(algo, SignatureAlgorithm::EcdsaP256));
+
+        let algo: SignatureAlgorithm = serde_json::from_value(json!("ECDSA_P256")).unwrap();
+        assert!(matches!(algo, SignatureAlgorithm::EcdsaP256));
+
+        let algo: SignatureAlgorithm = serde_json::from_value(json!("rsa-pss-sha256")).unwrap();
+        assert!(matches!(algo, SignatureAlgorithm::RsaPssSha256));
+
+        let algo: SignatureAlgorithm = serde_json::from_value(json!("rsa-sha256")).unwrap();
+        assert!(matches!(algo, SignatureAlgorithm::RsaSha256));
     }
 }

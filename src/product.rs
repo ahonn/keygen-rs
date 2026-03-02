@@ -12,19 +12,54 @@ pub enum DistributionStrategy {
     Licensed,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Platform {
     Windows,
-    #[serde(rename = "macOS")]
     MacOs,
     Linux,
-    #[serde(rename = "darwin")]
     Darwin,
     Android,
-    #[serde(rename = "iOS")]
     Ios,
     Web,
+    /// Any platform string not covered by the known variants.
+    Other(String),
+}
+
+impl Serialize for Platform {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Platform::Windows => serializer.serialize_str("windows"),
+            Platform::MacOs => serializer.serialize_str("macOS"),
+            Platform::Linux => serializer.serialize_str("linux"),
+            Platform::Darwin => serializer.serialize_str("darwin"),
+            Platform::Android => serializer.serialize_str("android"),
+            Platform::Ios => serializer.serialize_str("iOS"),
+            Platform::Web => serializer.serialize_str("web"),
+            Platform::Other(s) => serializer.serialize_str(s),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Platform {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(match s.as_str() {
+            "windows" => Platform::Windows,
+            "macOS" => Platform::MacOs,
+            "linux" => Platform::Linux,
+            "darwin" => Platform::Darwin,
+            "android" => Platform::Android,
+            "iOS" => Platform::Ios,
+            "web" => Platform::Web,
+            _ => Platform::Other(s),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -329,5 +364,98 @@ mod tests {
         let product = Product::from(product_data);
 
         assert_eq!(product.account_id, None);
+    }
+
+    #[test]
+    fn test_platform_serialization() {
+        assert_eq!(
+            serde_json::to_string(&Platform::Windows).unwrap(),
+            "\"windows\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Platform::MacOs).unwrap(),
+            "\"macOS\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Platform::Linux).unwrap(),
+            "\"linux\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Platform::Darwin).unwrap(),
+            "\"darwin\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Platform::Android).unwrap(),
+            "\"android\""
+        );
+        assert_eq!(serde_json::to_string(&Platform::Ios).unwrap(), "\"iOS\"");
+        assert_eq!(serde_json::to_string(&Platform::Web).unwrap(), "\"web\"");
+        assert_eq!(
+            serde_json::to_string(&Platform::Other("embedded".to_string())).unwrap(),
+            "\"embedded\""
+        );
+    }
+
+    #[test]
+    fn test_platform_deserialization() {
+        assert_eq!(
+            serde_json::from_str::<Platform>("\"windows\"").unwrap(),
+            Platform::Windows
+        );
+        assert_eq!(
+            serde_json::from_str::<Platform>("\"macOS\"").unwrap(),
+            Platform::MacOs
+        );
+        assert_eq!(
+            serde_json::from_str::<Platform>("\"linux\"").unwrap(),
+            Platform::Linux
+        );
+        assert_eq!(
+            serde_json::from_str::<Platform>("\"darwin\"").unwrap(),
+            Platform::Darwin
+        );
+        assert_eq!(
+            serde_json::from_str::<Platform>("\"android\"").unwrap(),
+            Platform::Android
+        );
+        assert_eq!(
+            serde_json::from_str::<Platform>("\"iOS\"").unwrap(),
+            Platform::Ios
+        );
+        assert_eq!(
+            serde_json::from_str::<Platform>("\"web\"").unwrap(),
+            Platform::Web
+        );
+    }
+
+    #[test]
+    fn test_platform_custom_value_deserialization() {
+        let custom: Platform = serde_json::from_str("\"embedded\"").unwrap();
+        assert_eq!(custom, Platform::Other("embedded".to_string()));
+
+        let custom: Platform = serde_json::from_str("\"custom_device\"").unwrap();
+        assert_eq!(custom, Platform::Other("custom_device".to_string()));
+    }
+
+    #[test]
+    fn test_platform_custom_value_roundtrip() {
+        let original = Platform::Other("my-custom-platform".to_string());
+        let json = serde_json::to_string(&original).unwrap();
+        let deserialized: Platform = serde_json::from_str(&json).unwrap();
+        assert_eq!(original, deserialized);
+    }
+
+    #[test]
+    fn test_multiple_platforms_deserialization() {
+        let json = r#"["windows", "iOS", "embedded"]"#;
+        let platforms: Vec<Platform> = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            platforms,
+            vec![
+                Platform::Windows,
+                Platform::Ios,
+                Platform::Other("embedded".to_string()),
+            ]
+        );
     }
 }

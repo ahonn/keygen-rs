@@ -55,10 +55,26 @@ impl<T: Serialize> UpdateField<T> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SchemeCode {
     #[serde(rename = "ED25519_SIGN")]
     Ed25519Sign,
+    #[serde(rename = "ECDSA_P256_SIGN")]
+    EcdsaP256Sign,
+    #[serde(rename = "RSA_2048_PKCS1_PSS_SIGN_V2")]
+    Rsa2048Pkcs1PssSignV2,
+    #[serde(rename = "RSA_2048_PKCS1_SIGN_V2")]
+    Rsa2048Pkcs1SignV2,
+    #[serde(rename = "RSA_2048_PKCS1_ENCRYPT")]
+    Rsa2048Pkcs1Encrypt,
+    #[serde(rename = "RSA_2048_JWT_RS256")]
+    Rsa2048JwtRs256,
+    #[serde(rename = "LEGACY_ENCRYPT")]
+    LegacyEncrypt,
+    #[serde(rename = "RSA_2048_PKCS1_PSS_SIGN")]
+    Rsa2048Pkcs1PssSign, // Deprecated
+    #[serde(rename = "RSA_2048_PKCS1_SIGN")]
+    Rsa2048Pkcs1Sign, // Deprecated
 }
 
 /// License status as returned by the Keygen API
@@ -2898,5 +2914,45 @@ mod tests {
         assert_eq!(updated_license.uses, Some(0));
         assert_eq!(updated_license.id, "test_license_id");
         let _ = reset_config();
+    }
+
+    #[test]
+    fn test_scheme_code_serialization() {
+        assert_eq!(
+            serde_json::to_string(&SchemeCode::Ed25519Sign).unwrap(),
+            "\"ED25519_SIGN\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SchemeCode::EcdsaP256Sign).unwrap(),
+            "\"ECDSA_P256_SIGN\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SchemeCode::Rsa2048Pkcs1PssSignV2).unwrap(),
+            "\"RSA_2048_PKCS1_PSS_SIGN_V2\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SchemeCode::LegacyEncrypt).unwrap(),
+            "\"LEGACY_ENCRYPT\""
+        );
+    }
+
+    #[test]
+    fn test_scheme_code_deserialization() {
+        assert_eq!(
+            serde_json::from_str::<SchemeCode>("\"ED25519_SIGN\"").unwrap(),
+            SchemeCode::Ed25519Sign
+        );
+        assert_eq!(
+            serde_json::from_str::<SchemeCode>("\"ECDSA_P256_SIGN\"").unwrap(),
+            SchemeCode::EcdsaP256Sign
+        );
+        assert_eq!(
+            serde_json::from_str::<SchemeCode>("\"RSA_2048_PKCS1_PSS_SIGN_V2\"").unwrap(),
+            SchemeCode::Rsa2048Pkcs1PssSignV2
+        );
+        assert_eq!(
+            serde_json::from_str::<SchemeCode>("\"LEGACY_ENCRYPT\"").unwrap(),
+            SchemeCode::LegacyEncrypt
+        );
     }
 }

@@ -38,6 +38,7 @@ pub enum TransferStrategy {
     KeepPolicy,
     ResetPolicy,
     KeepExpiry,
+    ResetExpiry,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -71,6 +72,8 @@ pub enum MatchingStrategy {
 pub enum Scheme {
     #[serde(rename = "ED25519_SIGN")]
     Ed25519Sign,
+    #[serde(rename = "ECDSA_P256_SIGN")]
+    EcdsaP256Sign,
     #[serde(rename = "RSA_2048_PKCS1_PSS_SIGN_V2")]
     Rsa2048Pkcs1PssSignV2,
     #[serde(rename = "RSA_2048_PKCS1_SIGN_V2")]
@@ -983,5 +986,59 @@ mod tests {
 
         assert_eq!(policy.account_id, Some("test-account-id".to_string()));
         assert_eq!(policy.product_id, Some("test-product-id".to_string()));
+    }
+
+    #[test]
+    fn test_ecdsa_p256_sign_serialization() {
+        let scheme = Scheme::EcdsaP256Sign;
+        let json = serde_json::to_string(&scheme).unwrap();
+        assert_eq!(json, "\"ECDSA_P256_SIGN\"");
+    }
+
+    #[test]
+    fn test_ecdsa_p256_sign_deserialization() {
+        let json = "\"ECDSA_P256_SIGN\"";
+        let scheme: Scheme = serde_json::from_str(json).unwrap();
+        assert_eq!(scheme, Scheme::EcdsaP256Sign);
+    }
+
+    #[test]
+    fn test_transfer_strategy_serialization() {
+        assert_eq!(
+            serde_json::to_string(&TransferStrategy::KeepPolicy).unwrap(),
+            "\"KEEP_POLICY\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TransferStrategy::ResetPolicy).unwrap(),
+            "\"RESET_POLICY\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TransferStrategy::KeepExpiry).unwrap(),
+            "\"KEEP_EXPIRY\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TransferStrategy::ResetExpiry).unwrap(),
+            "\"RESET_EXPIRY\""
+        );
+    }
+
+    #[test]
+    fn test_transfer_strategy_deserialization() {
+        assert_eq!(
+            serde_json::from_str::<TransferStrategy>("\"KEEP_POLICY\"").unwrap(),
+            TransferStrategy::KeepPolicy
+        );
+        assert_eq!(
+            serde_json::from_str::<TransferStrategy>("\"RESET_POLICY\"").unwrap(),
+            TransferStrategy::ResetPolicy
+        );
+        assert_eq!(
+            serde_json::from_str::<TransferStrategy>("\"KEEP_EXPIRY\"").unwrap(),
+            TransferStrategy::KeepExpiry
+        );
+        assert_eq!(
+            serde_json::from_str::<TransferStrategy>("\"RESET_EXPIRY\"").unwrap(),
+            TransferStrategy::ResetExpiry
+        );
     }
 }

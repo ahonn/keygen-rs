@@ -26,6 +26,7 @@ pub enum HeartbeatStatus {
     Alive,
     Dead,
     NotStarted,
+    Resurrected,
 }
 
 impl HeartbeatStatus {
@@ -35,6 +36,7 @@ impl HeartbeatStatus {
             "ALIVE" => Some(Self::Alive),
             "DEAD" => Some(Self::Dead),
             "NOT_STARTED" => Some(Self::NotStarted),
+            "RESURRECTED" => Some(Self::Resurrected),
             _ => None,
         }
     }
@@ -619,5 +621,80 @@ mod tests {
         assert_eq!(machine.license_id, None);
         assert_eq!(machine.owner_id, None);
         assert_eq!(machine.group_id, None);
+    }
+
+    #[test]
+    fn test_heartbeat_status_parse() {
+        assert_eq!(
+            HeartbeatStatus::parse("ALIVE"),
+            Some(HeartbeatStatus::Alive)
+        );
+        assert_eq!(HeartbeatStatus::parse("DEAD"), Some(HeartbeatStatus::Dead));
+        assert_eq!(
+            HeartbeatStatus::parse("NOT_STARTED"),
+            Some(HeartbeatStatus::NotStarted)
+        );
+        assert_eq!(
+            HeartbeatStatus::parse("RESURRECTED"),
+            Some(HeartbeatStatus::Resurrected)
+        );
+        assert_eq!(HeartbeatStatus::parse("UNKNOWN"), None);
+    }
+
+    #[test]
+    fn test_heartbeat_status_parse_case_insensitive() {
+        assert_eq!(
+            HeartbeatStatus::parse("alive"),
+            Some(HeartbeatStatus::Alive)
+        );
+        assert_eq!(HeartbeatStatus::parse("dead"), Some(HeartbeatStatus::Dead));
+        assert_eq!(
+            HeartbeatStatus::parse("not_started"),
+            Some(HeartbeatStatus::NotStarted)
+        );
+        assert_eq!(
+            HeartbeatStatus::parse("resurrected"),
+            Some(HeartbeatStatus::Resurrected)
+        );
+    }
+
+    #[test]
+    fn test_heartbeat_status_serialize() {
+        assert_eq!(
+            serde_json::to_string(&HeartbeatStatus::Alive).unwrap(),
+            "\"ALIVE\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HeartbeatStatus::Dead).unwrap(),
+            "\"DEAD\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HeartbeatStatus::NotStarted).unwrap(),
+            "\"NOT_STARTED\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HeartbeatStatus::Resurrected).unwrap(),
+            "\"RESURRECTED\""
+        );
+    }
+
+    #[test]
+    fn test_heartbeat_status_deserialize() {
+        assert_eq!(
+            serde_json::from_str::<HeartbeatStatus>("\"ALIVE\"").unwrap(),
+            HeartbeatStatus::Alive
+        );
+        assert_eq!(
+            serde_json::from_str::<HeartbeatStatus>("\"DEAD\"").unwrap(),
+            HeartbeatStatus::Dead
+        );
+        assert_eq!(
+            serde_json::from_str::<HeartbeatStatus>("\"NOT_STARTED\"").unwrap(),
+            HeartbeatStatus::NotStarted
+        );
+        assert_eq!(
+            serde_json::from_str::<HeartbeatStatus>("\"RESURRECTED\"").unwrap(),
+            HeartbeatStatus::Resurrected
+        );
     }
 }
