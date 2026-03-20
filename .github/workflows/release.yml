@@ -99,7 +99,7 @@ jobs:
 
       - name: Build
         working-directory: ${{ env.NAPI_WORKING_DIR }}
-        run: npx napi build --platform --release --target ${{ matrix.target }} --cargo-cwd ../../
+        run: npx napi build --platform --release --target ${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -159,10 +159,12 @@ jobs:
         run: npx napi artifacts
 
       - name: Sync version from Cargo.toml
+        working-directory: ${{ env.NAPI_WORKING_DIR }}
         run: |
-          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
-          echo "Syncing version to $VERSION"
-          npx napi version -c ${{ env.NAPI_WORKING_DIR }}/package.json $VERSION
+          VERSION=$(grep -A1 '^\[workspace.package\]' ../../Cargo.toml | grep version | sed 's/.*"\(.*\)".*/\1/')
+          echo "Syncing npm version to $VERSION"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          npx napi version
 
       - name: List packages
         working-directory: ${{ env.NAPI_WORKING_DIR }}
