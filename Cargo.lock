@@ -2035,7 +2035,7 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -2068,7 +2068,7 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs-napi"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "chrono",
  "keygen-rs",
@@ -4240,7 +4240,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-keygen-rs2"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "keygen-rs",
  "lazy_static",

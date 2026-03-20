@@ -3,6 +3,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.10.2] - 2026-03-20
+
+### Fixed
+
+- Include generated JS bindings in build artifact and sync napi version ([3b80ab5](https://github.com/ahonn/keygen-rs/commit/3b80ab5adfcda2e60b7af936136630b88b00c987))
+- Replace invalid --zig flag with --cross-compile for napi build ([8a95960](https://github.com/ahonn/keygen-rs/commit/8a959603518a2d277611270b080ee91f6aad861a))
+- Add --zig flag for Linux cross-compile napi targets ([cf659b2](https://github.com/ahonn/keygen-rs/commit/cf659b2913c53aeeec3aa955d83f272784bbfc0d))
+
+### Other
+
+- Update lock files and sync napi version to v0.10.1 ([dee4fc0](https://github.com/ahonn/keygen-rs/commit/dee4fc0fa0478cf4703790ab50dcf5b10bb24989))
+
+
 ## [0.10.1] - 2026-03-20
 
 ### Added
