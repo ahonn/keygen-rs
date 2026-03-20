@@ -112,7 +112,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.target }}
-          path: ${{ env.NAPI_WORKING_DIR }}/*.node
+          path: |
+            ${{ env.NAPI_WORKING_DIR }}/*.node
+            ${{ env.NAPI_WORKING_DIR }}/index.js
+            ${{ env.NAPI_WORKING_DIR }}/index.d.ts
           if-no-files-found: error
 
   napi-test:
