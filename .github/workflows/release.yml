@@ -93,8 +93,12 @@ jobs:
           shared-key: napi-${{ matrix.target }}
 
       - name: Install ziglang (Linux cross-compile)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.use-zig
         uses: goto-bus-stop/setup-zig@v2
+
+      - name: Install cargo-zigbuild (Linux cross-compile)
+        if: matrix.use-zig
+        run: cargo install cargo-zigbuild
 
       - name: Install dependencies
         working-directory: ${{ env.NAPI_WORKING_DIR }}
@@ -102,7 +106,7 @@ jobs:
 
       - name: Build
         working-directory: ${{ env.NAPI_WORKING_DIR }}
-        run: npx napi build --platform --release --target ${{ matrix.target }} ${{ matrix.use-zig && '--zig' || '' }}
+        run: npx napi build --platform --release --target ${{ matrix.target }} ${{ matrix.use-zig && '--cross-compile' || '' }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
