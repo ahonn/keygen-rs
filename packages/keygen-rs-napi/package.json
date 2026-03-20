@@ -1,0 +1,48 @@
+{
+  "name": "@keygen-rs/napi",
+  "version": "0.9.1",
+  "description": "Node.js bindings for keygen-rs - Unofficial SDK for keygen.sh licensing service",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "binaryName": "keygen-rs-napi",
+    "targets": [
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-unknown-linux-musl",
+      "x86_64-pc-windows-msvc",
+      "aarch64-pc-windows-msvc"
+    ]
+  },
+  "files": [
+    "index.d.ts",
+    "index.js"
+  ],
+  "scripts": {
+    "build": "napi build --manifest-path ./Cargo.toml --platform --release",
+    "build:debug": "napi build --manifest-path ./Cargo.toml --platform",
+    "prepublishOnly": "napi prepublish -t npm",
+    "artifacts": "napi artifacts",
+    "version": "napi version",
+    "test": "node --test __test__/index.test.mjs"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.5.1"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahonn/keygen-rs",
+    "directory": "packages/keygen-rs-napi"
+  },
+  "keywords": [
+    "keygen",
+    "licensing",
+    "license-key",
+    "napi-rs",
+    "rust"
+  ]
+}
