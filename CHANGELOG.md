@@ -3,6 +3,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.10.1] - 2026-03-20
+
+### Added
+
+- Add Node.js bindings via napi-rs (@keygen-rs/napi) ([2bcebf5](https://github.com/ahonn/keygen-rs/commit/2bcebf5807e56b7fbbd75604a83a08ed48e1aa9e))
+
+### Fixed
+
+- Fix napi build command and version sync ([01be19a](https://github.com/ahonn/keygen-rs/commit/01be19a469fb29c00a638d8201495000891c8eb0))
+- Address PR review feedback ([5d261e3](https://github.com/ahonn/keygen-rs/commit/5d261e33868c03f62277568efa723c9226affdda))
+
+### Other
+
+- Merge pull request #78 from ahonn/feat/napi-bindings ([26bf126](https://github.com/ahonn/keygen-rs/commit/26bf126a3ec0b479302cac6e45a9b0083b258913))
+- Integrate napi build and npm publish into release workflow ([2c6499e](https://github.com/ahonn/keygen-rs/commit/2c6499e8c8c35ef21bf88a3f1f51d74b10b8a202))
+
+
 ## [0.10.0] - 2026-03-02
 
 ### Fixed
