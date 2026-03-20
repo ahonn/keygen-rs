@@ -1,0 +1,28 @@
+[package]
+name = "keygen-rs-napi"
+version.workspace = true
+description = "Node.js bindings for keygen-rs via napi-rs"
+license.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["rustls"]
+rustls = ["keygen-rs/rustls"]
+native-tls = ["keygen-rs/native-tls"]
+
+[dependencies]
+keygen-rs = { workspace = true, default-features = false, features = [
+  "license-key",
+  "token",
+] }
+napi = { version = "3", features = ["async", "tokio_rt", "serde-json", "chrono_date"] }
+napi-derive = "3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+
+[build-dependencies]
+napi-build = "2"

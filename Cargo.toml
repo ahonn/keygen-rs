@@ -2,7 +2,8 @@
 members = [
   ".",
   # "./packages/tauri-plugin-keygen-rs",
-  "./packages/tauri-plugin-keygen-rs2"
+  "./packages/tauri-plugin-keygen-rs2",
+  "./packages/keygen-rs-napi",
 ]
 
 [package]

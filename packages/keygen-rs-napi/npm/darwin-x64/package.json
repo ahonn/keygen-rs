@@ -1,0 +1,28 @@
+{
+  "name": "@keygen-rs/napi-darwin-x64",
+  "version": "0.9.1",
+  "cpu": [
+    "x64"
+  ],
+  "main": "keygen-rs-napi.darwin-x64.node",
+  "files": [
+    "keygen-rs-napi.darwin-x64.node"
+  ],
+  "description": "Node.js bindings for keygen-rs - Unofficial SDK for keygen.sh licensing service",
+  "keywords": [
+    "keygen",
+    "licensing",
+    "license-key",
+    "napi-rs",
+    "rust"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahonn/keygen-rs",
+    "directory": "packages/keygen-rs-napi"
+  },
+  "os": [
+    "darwin"
+  ]
+}
