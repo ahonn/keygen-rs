@@ -48,16 +48,8 @@ pub struct Policy {
     pub product_id: Option<String>,
 }
 
-/// Serialize a serde-serializable enum to an `Option<String>`.
-fn enum_to_string<T: serde::Serialize>(val: &T) -> Option<String> {
-    serde_json::to_value(val)
-        .ok()
-        .and_then(|v| v.as_str().map(String::from))
-}
-
-/// Serialize an `Option<T>` enum to `Option<String>`.
 fn opt_enum_to_string<T: serde::Serialize>(val: &Option<T>) -> Option<String> {
-    val.as_ref().and_then(|v| enum_to_string(v))
+    val.as_ref().and_then(|v| crate::enum_to_string(v))
 }
 
 impl From<keygen_rs::policy::Policy> for Policy {
@@ -77,14 +69,14 @@ impl From<keygen_rs::policy::Policy> for Policy {
             component_uniqueness_strategy: opt_enum_to_string(&p.component_uniqueness_strategy),
             machine_matching_strategy: opt_enum_to_string(&p.machine_matching_strategy),
             component_matching_strategy: opt_enum_to_string(&p.component_matching_strategy),
-            expiration_strategy: enum_to_string(&p.expiration_strategy),
+            expiration_strategy: crate::enum_to_string(&p.expiration_strategy),
             expiration_basis: p.expiration_basis,
             renewal_basis: p.renewal_basis,
-            authentication_strategy: enum_to_string(&p.authentication_strategy),
-            machine_leasing_strategy: enum_to_string(&p.machine_leasing_strategy),
-            process_leasing_strategy: enum_to_string(&p.process_leasing_strategy),
-            overage_strategy: enum_to_string(&p.overage_strategy),
-            transfer_strategy: enum_to_string(&p.transfer_strategy),
+            authentication_strategy: crate::enum_to_string(&p.authentication_strategy),
+            machine_leasing_strategy: crate::enum_to_string(&p.machine_leasing_strategy),
+            process_leasing_strategy: crate::enum_to_string(&p.process_leasing_strategy),
+            overage_strategy: crate::enum_to_string(&p.overage_strategy),
+            transfer_strategy: crate::enum_to_string(&p.transfer_strategy),
             max_machines: p.max_machines,
             max_processes: p.max_processes,
             max_cores: p.max_cores,
@@ -243,17 +235,8 @@ fn make_policy(id: String) -> keygen_rs::policy::Policy {
     }
 }
 
-fn parse_enum<T: serde::de::DeserializeOwned>(s: &str, label: &str) -> Result<T> {
-    serde_json::from_value(serde_json::Value::String(s.to_string()))
-        .map_err(|e| napi::Error::new(Status::InvalidArg, format!("Invalid {label}: {e}")))
-}
-
-fn to_metadata(
-    v: serde_json::Value,
-) -> Result<std::collections::HashMap<String, serde_json::Value>> {
-    serde_json::from_value(v)
-        .map_err(|e| napi::Error::new(Status::InvalidArg, format!("Invalid metadata: {e}")))
-}
+use crate::parse_enum;
+use crate::to_metadata;
 
 #[napi]
 pub async fn create_policy(request: CreatePolicyRequest) -> Result<Policy> {

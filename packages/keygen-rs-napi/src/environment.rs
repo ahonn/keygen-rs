@@ -91,10 +91,7 @@ fn make_environment(id: String) -> keygen_rs::environment::Environment {
     }
 }
 
-fn parse_enum<T: serde::de::DeserializeOwned>(s: &str, label: &str) -> Result<T> {
-    serde_json::from_value(serde_json::Value::String(s.to_string()))
-        .map_err(|e| napi::Error::new(Status::InvalidArg, format!("Invalid {label}: {e}")))
-}
+use crate::parse_enum;
 
 #[napi]
 pub async fn create_environment(request: CreateEnvironmentRequest) -> Result<Environment> {

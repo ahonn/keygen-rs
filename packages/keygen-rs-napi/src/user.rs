@@ -15,17 +15,11 @@ pub struct User {
     pub role: String,
     pub permissions: Option<Vec<String>>,
     pub metadata: Option<serde_json::Value>,
+    pub last_seen_at: Option<String>,
+    pub ban_reason: Option<String>,
     pub created: String,
     pub updated: String,
     pub account_id: Option<String>,
-}
-
-/// Serialize a serde-serializable enum to a String, falling back to an empty string.
-fn enum_to_string<T: serde::Serialize>(val: &T) -> String {
-    serde_json::to_value(val)
-        .ok()
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_default()
 }
 
 impl From<keygen_rs::user::User> for User {
@@ -36,12 +30,14 @@ impl From<keygen_rs::user::User> for User {
             first_name: u.first_name,
             last_name: u.last_name,
             full_name: u.full_name,
-            status: enum_to_string(&u.status),
-            role: enum_to_string(&u.role),
+            status: crate::enum_to_string(&u.status).unwrap_or_default(),
+            role: crate::enum_to_string(&u.role).unwrap_or_default(),
             permissions: u.permissions,
             metadata: u
                 .metadata
                 .map(|m| serde_json::to_value(m).unwrap_or_default()),
+            last_seen_at: u.last_seen_at,
+            ban_reason: u.ban_reason,
             created: u.created,
             updated: u.updated,
             account_id: None,
@@ -80,17 +76,7 @@ pub struct ListUsersOptions {
     pub status: Option<String>,
 }
 
-fn parse_enum<T: serde::de::DeserializeOwned>(s: &str, label: &str) -> Result<T> {
-    serde_json::from_value(serde_json::Value::String(s.to_string()))
-        .map_err(|e| napi::Error::new(Status::InvalidArg, format!("Invalid {label}: {e}")))
-}
-
-fn to_metadata(
-    v: serde_json::Value,
-) -> Result<std::collections::HashMap<String, serde_json::Value>> {
-    serde_json::from_value(v)
-        .map_err(|e| napi::Error::new(Status::InvalidArg, format!("Invalid metadata: {e}")))
-}
+use crate::{parse_enum, to_metadata};
 
 #[napi]
 pub async fn create_user(request: CreateUserRequest) -> Result<User> {

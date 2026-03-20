@@ -94,12 +94,6 @@ pub struct ListArtifactsOptions {
     pub status: Option<String>,
 }
 
-fn to_hashmap(
-    val: Option<serde_json::Value>,
-) -> Option<std::collections::HashMap<String, serde_json::Value>> {
-    val.and_then(|v| serde_json::from_value(v).ok())
-}
-
 fn make_minimal_artifact(id: String) -> keygen_rs::artifact::Artifact {
     keygen_rs::artifact::Artifact {
         id,
@@ -132,7 +126,7 @@ pub async fn create_artifact(request: CreateArtifactRequest) -> Result<Artifact>
         arch: Some(request.arch),
         signature: request.signature,
         checksum: request.checksum,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     keygen_rs::artifact::Artifact::create(req)
         .await
@@ -189,7 +183,7 @@ pub async fn update_artifact(id: String, request: UpdateArtifactRequest) -> Resu
         arch: request.arch,
         signature: request.signature,
         checksum: request.checksum,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     art.update(req)
         .await

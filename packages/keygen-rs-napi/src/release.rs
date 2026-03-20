@@ -54,8 +54,10 @@ pub struct CreateReleaseRequest {
 #[napi(object)]
 #[derive(Clone)]
 pub struct UpdateReleaseRequest {
-    pub version: Option<String>,
+    pub name: Option<String>,
+    pub description: Option<String>,
     pub channel: Option<String>,
+    pub tag: Option<String>,
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -67,12 +69,6 @@ pub struct ListReleasesOptions {
     pub page_number: Option<u32>,
     pub channel: Option<String>,
     pub product: Option<String>,
-}
-
-fn to_hashmap(
-    val: Option<serde_json::Value>,
-) -> Option<std::collections::HashMap<String, serde_json::Value>> {
-    val.and_then(|v| serde_json::from_value(v).ok())
 }
 
 fn parse_channel(s: &str) -> std::result::Result<keygen_rs::release::ReleaseChannel, napi::Error> {
@@ -94,7 +90,7 @@ pub async fn create_release(request: CreateReleaseRequest) -> Result<Release> {
         description: None,
         status: None,
         tag: None,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     keygen_rs::release::Release::create(req)
         .await
@@ -163,11 +159,11 @@ pub async fn update_release(id: String, request: UpdateReleaseRequest) -> Result
         None => None,
     };
     let req = keygen_rs::release::UpdateReleaseRequest {
-        name: None,
-        description: None,
+        name: request.name,
+        description: request.description,
         channel,
-        tag: None,
-        metadata: to_hashmap(request.metadata),
+        tag: request.tag,
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     rel.update(req)
         .await

@@ -55,18 +55,12 @@ pub struct ListEntitlementsOptions {
     pub page_number: Option<u32>,
 }
 
-fn to_hashmap(
-    val: Option<serde_json::Value>,
-) -> Option<std::collections::HashMap<String, serde_json::Value>> {
-    val.and_then(|v| serde_json::from_value(v).ok())
-}
-
 #[napi]
 pub async fn create_entitlement(request: CreateEntitlementRequest) -> Result<Entitlement> {
     let req = keygen_rs::entitlement::CreateEntitlementRequest {
         name: request.name,
         code: request.code,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     keygen_rs::entitlement::Entitlement::create(req)
         .await
@@ -114,7 +108,7 @@ pub async fn update_entitlement(
     let req = keygen_rs::entitlement::UpdateEntitlementRequest {
         name: request.name,
         code: request.code,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     ent.update(req)
         .await

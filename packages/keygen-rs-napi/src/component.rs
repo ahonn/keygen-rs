@@ -68,18 +68,12 @@ pub struct ListComponentsOptions {
     pub product: Option<String>,
 }
 
-fn to_hashmap(
-    val: Option<serde_json::Value>,
-) -> Option<std::collections::HashMap<String, serde_json::Value>> {
-    val.and_then(|v| serde_json::from_value(v).ok())
-}
-
 #[napi]
 pub async fn create_component(request: CreateComponentRequest) -> Result<Component> {
     let req = keygen_rs::component::CreateComponentRequest {
         fingerprint: request.fingerprint,
         name: request.name,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
         machine_id: request.machine_id,
     };
     keygen_rs::component::Component::create(req)
@@ -122,7 +116,7 @@ pub async fn update_component(id: String, request: UpdateComponentRequest) -> Re
     };
     let req = keygen_rs::component::UpdateComponentRequest {
         name: request.name,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     comp.update(req)
         .await

@@ -30,3 +30,27 @@ fn to_napi_error(e: keygen_rs::errors::Error) -> napi::Error {
     let detail = e.detail();
     napi::Error::new(napi::Status::GenericFailure, format!("[{code}] {detail}"))
 }
+
+fn parse_enum<T: serde::de::DeserializeOwned>(s: &str, label: &str) -> napi::Result<T> {
+    serde_json::from_value(serde_json::Value::String(s.to_string()))
+        .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("Invalid {label}: {e}")))
+}
+
+fn enum_to_string<T: serde::Serialize>(val: &T) -> Option<String> {
+    serde_json::to_value(val)
+        .ok()
+        .and_then(|v| v.as_str().map(String::from))
+}
+
+fn to_metadata(
+    v: serde_json::Value,
+) -> napi::Result<std::collections::HashMap<String, serde_json::Value>> {
+    serde_json::from_value(v)
+        .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("Invalid metadata: {e}")))
+}
+
+fn opt_metadata(
+    v: Option<serde_json::Value>,
+) -> napi::Result<Option<std::collections::HashMap<String, serde_json::Value>>> {
+    v.map(to_metadata).transpose()
+}

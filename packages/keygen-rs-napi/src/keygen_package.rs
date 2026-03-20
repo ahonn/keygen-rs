@@ -71,12 +71,6 @@ pub struct ListPackagesOptions {
     pub engine: Option<String>,
 }
 
-fn to_hashmap(
-    val: Option<serde_json::Value>,
-) -> Option<std::collections::HashMap<String, serde_json::Value>> {
-    val.and_then(|v| serde_json::from_value(v).ok())
-}
-
 fn parse_engine(s: &str) -> std::result::Result<keygen_rs::package::PackageEngine, napi::Error> {
     serde_json::from_value(serde_json::Value::String(s.to_string()))
         .map_err(|e| napi::Error::new(Status::InvalidArg, format!("Invalid package engine: {e}")))
@@ -105,7 +99,7 @@ pub async fn create_package(request: CreatePackageRequest) -> Result<Package> {
         key: request.key,
         product_id: request.product_id,
         engine: Some(engine),
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     keygen_rs::package::Package::create(req)
         .await
@@ -151,7 +145,7 @@ pub async fn update_package(id: String, request: UpdatePackageRequest) -> Result
     let req = keygen_rs::package::UpdatePackageRequest {
         name: request.name,
         key: request.key,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     pkg.update(req)
         .await

@@ -65,12 +65,6 @@ pub struct ListGroupsOptions {
     pub page_number: Option<u32>,
 }
 
-fn to_hashmap(
-    val: Option<serde_json::Value>,
-) -> Option<std::collections::HashMap<String, serde_json::Value>> {
-    val.and_then(|v| serde_json::from_value(v).ok())
-}
-
 #[napi]
 pub async fn create_group(request: CreateGroupRequest) -> Result<Group> {
     let req = keygen_rs::group::CreateGroupRequest {
@@ -78,7 +72,7 @@ pub async fn create_group(request: CreateGroupRequest) -> Result<Group> {
         max_users: request.max_users,
         max_licenses: request.max_licenses,
         max_machines: request.max_machines,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     keygen_rs::group::Group::create(req)
         .await
@@ -118,7 +112,7 @@ pub async fn update_group(id: String, request: UpdateGroupRequest) -> Result<Gro
         max_users: request.max_users,
         max_licenses: request.max_licenses,
         max_machines: request.max_machines,
-        metadata: to_hashmap(request.metadata),
+        metadata: crate::opt_metadata(request.metadata)?,
     };
     grp.update(req)
         .await

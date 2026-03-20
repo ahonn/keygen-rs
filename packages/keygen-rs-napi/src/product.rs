@@ -118,12 +118,7 @@ fn parse_platforms(ps: Vec<String>) -> Result<Vec<keygen_rs::product::Platform>>
         .collect()
 }
 
-fn to_metadata(
-    v: serde_json::Value,
-) -> Result<std::collections::HashMap<String, serde_json::Value>> {
-    serde_json::from_value(v)
-        .map_err(|e| napi::Error::new(Status::InvalidArg, format!("Invalid metadata: {e}")))
-}
+use crate::to_metadata;
 
 #[napi]
 pub async fn create_product(request: CreateProductRequest) -> Result<Product> {

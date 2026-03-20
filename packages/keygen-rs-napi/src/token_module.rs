@@ -48,6 +48,7 @@ pub struct RegenerateTokenRequest {
     pub name: Option<String>,
     pub expiry: Option<String>,
     pub permissions: Option<Vec<String>>,
+    pub metadata: Option<serde_json::Value>,
 }
 
 fn make_token(id: String) -> keygen_rs::token::Token {
@@ -94,7 +95,7 @@ pub async fn regenerate_token(id: String, request: RegenerateTokenRequest) -> Re
         name: request.name,
         expiry: request.expiry,
         permissions: request.permissions,
-        metadata: None,
+        metadata: crate::opt_metadata(request.metadata)?,
     };
 
     token
