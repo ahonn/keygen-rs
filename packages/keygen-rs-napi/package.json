@@ -24,7 +24,7 @@
   "scripts": {
     "build": "napi build --manifest-path ./Cargo.toml --platform --release",
     "build:debug": "napi build --manifest-path ./Cargo.toml --platform",
-    "prepublishOnly": "napi prepublish -t npm",
+    "prepublishOnly": "napi prepublish -t npm --skip-optional-publish",
     "artifacts": "napi artifacts",
     "version": "napi version",
     "test": "node --test __test__/index.test.mjs"
