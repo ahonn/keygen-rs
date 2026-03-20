@@ -252,7 +252,6 @@ describe("user CRUD", () => {
     const user = await keygen.createUser({
       email: `napi-test-${Date.now()}@example.com`,
       role: "user",
-      password: "test-password-123!",
     });
 
     assert.ok(user.id);

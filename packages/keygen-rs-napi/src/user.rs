@@ -56,7 +56,6 @@ pub struct CreateUserRequest {
     pub first_name: Option<String>,
     pub last_name: Option<String>,
     pub role: String,
-    pub password: Option<String>,
     pub permissions: Option<Vec<String>>,
     pub metadata: Option<serde_json::Value>,
 }

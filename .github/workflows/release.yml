@@ -158,6 +158,12 @@ jobs:
         working-directory: ${{ env.NAPI_WORKING_DIR }}
         run: npx napi artifacts
 
+      - name: Sync version from Cargo.toml
+        run: |
+          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo "Syncing version to $VERSION"
+          npx napi version -c ${{ env.NAPI_WORKING_DIR }}/package.json $VERSION
+
       - name: List packages
         working-directory: ${{ env.NAPI_WORKING_DIR }}
         run: ls -R npm/

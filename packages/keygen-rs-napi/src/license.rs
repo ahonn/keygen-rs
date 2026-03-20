@@ -91,21 +91,9 @@ pub struct LicenseCreateRequest {
     pub group_id: Option<String>,
 }
 
-#[napi(object)]
-#[derive(Clone)]
-pub struct LicenseUpdateRequest {
-    pub name: Option<String>,
-    pub expiry: Option<String>,
-    pub max_machines: Option<i32>,
-    pub max_processes: Option<i32>,
-    pub max_users: Option<i32>,
-    pub max_cores: Option<i32>,
-    pub max_uses: Option<i32>,
-    pub protected: Option<bool>,
-    pub suspended: Option<bool>,
-    pub permissions: Option<Vec<String>>,
-    pub metadata: Option<serde_json::Value>,
-}
+// LicenseUpdateRequest is accepted as serde_json::Value in update_license()
+// to distinguish null (clear) from undefined (keep) for clearable fields.
+// The TypeScript type is specified via #[napi(ts_args_type)] on the function.
 
 #[napi(object)]
 #[derive(Clone)]
@@ -234,47 +222,85 @@ pub async fn get_license(id: String) -> Result<License> {
         .map_err(to_napi_error)
 }
 
-#[napi]
-pub async fn update_license(id: String, request: LicenseUpdateRequest) -> Result<License> {
+/// Update a license. Clearable integer fields accept `number | null`:
+/// - `undefined` / absent → keep unchanged
+/// - `null` → clear (set to null)
+/// - `number` → set to value
+#[napi(
+    ts_args_type = "id: string, request: { name?: string; expiry?: string; maxMachines?: number | null; maxProcesses?: number | null; maxUsers?: number | null; maxCores?: number | null; maxUses?: number | null; protected?: boolean; suspended?: boolean; permissions?: string[]; metadata?: any }"
+)]
+pub async fn update_license(id: String, request: serde_json::Value) -> Result<License> {
     let lic = make_license(id);
 
+    let obj = request
+        .as_object()
+        .ok_or_else(|| napi::Error::new(Status::InvalidArg, "request must be an object"))?;
+
     let mut req = keygen_rs::license::LicenseUpdateRequest::new();
-    if let Some(name) = request.name {
-        req = req.with_name(name);
+
+    if let Some(serde_json::Value::String(name)) = obj.get("name") {
+        req = req.with_name(name.clone());
     }
-    if let Some(expiry) = request.expiry {
-        let dt = chrono::DateTime::parse_from_rfc3339(&expiry)
-            .map_err(|e| napi::Error::new(Status::InvalidArg, format!("Invalid expiry: {e}")))?
-            .with_timezone(&chrono::Utc);
-        req = req.with_expiry(dt);
+    if let Some(v) = obj.get("expiry") {
+        if let Some(s) = v.as_str() {
+            let dt = chrono::DateTime::parse_from_rfc3339(s)
+                .map_err(|e| napi::Error::new(Status::InvalidArg, format!("Invalid expiry: {e}")))?
+                .with_timezone(&chrono::Utc);
+            req = req.with_expiry(dt);
+        }
     }
-    if let Some(max_machines) = request.max_machines {
-        req = req.with_max_machines(max_machines);
+
+    // Clearable integer fields: null → clear, number → set, absent → keep
+    macro_rules! apply_clearable {
+        ($obj:expr, $req:expr, $field:literal, $set:ident, $clear:ident) => {
+            if let Some(v) = $obj.get($field) {
+                if v.is_null() {
+                    $req = $req.$clear();
+                } else if let Some(n) = v.as_i64() {
+                    $req = $req.$set(n as i32);
+                }
+            }
+        };
     }
-    if let Some(max_processes) = request.max_processes {
-        req = req.with_max_processes(max_processes);
+
+    apply_clearable!(
+        obj,
+        req,
+        "maxMachines",
+        with_max_machines,
+        clear_max_machines
+    );
+    apply_clearable!(
+        obj,
+        req,
+        "maxProcesses",
+        with_max_processes,
+        clear_max_processes
+    );
+    apply_clearable!(obj, req, "maxUsers", with_max_users, clear_max_users);
+    apply_clearable!(obj, req, "maxCores", with_max_cores, clear_max_cores);
+    apply_clearable!(obj, req, "maxUses", with_max_uses, clear_max_uses);
+
+    if let Some(serde_json::Value::Bool(protected)) = obj.get("protected") {
+        req = req.with_protected(*protected);
     }
-    if let Some(max_users) = request.max_users {
-        req = req.with_max_users(max_users);
+    if let Some(serde_json::Value::Bool(suspended)) = obj.get("suspended") {
+        req = req.with_suspended(*suspended);
     }
-    if let Some(max_cores) = request.max_cores {
-        req = req.with_max_cores(max_cores);
-    }
-    if let Some(max_uses) = request.max_uses {
-        req = req.with_max_uses(max_uses);
-    }
-    if let Some(protected) = request.protected {
-        req = req.with_protected(protected);
-    }
-    if let Some(suspended) = request.suspended {
-        req = req.with_suspended(suspended);
-    }
-    if let Some(permissions) = request.permissions {
+    if let Some(serde_json::Value::Array(perms)) = obj.get("permissions") {
+        let permissions: Vec<String> = perms
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
         req = req.with_permissions(permissions);
     }
-    if let Some(meta) = request.metadata {
-        if let Ok(map) = serde_json::from_value::<HashMap<String, serde_json::Value>>(meta) {
-            req = req.with_metadata(map);
+    if let Some(meta) = obj.get("metadata") {
+        if !meta.is_null() {
+            if let Ok(map) =
+                serde_json::from_value::<HashMap<String, serde_json::Value>>(meta.clone())
+            {
+                req = req.with_metadata(map);
+            }
         }
     }
 
