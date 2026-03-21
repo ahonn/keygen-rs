@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.10.2] - 2026-03-21
+
+### Fixed
+
+- Fix napi publish by skipping internal platform publish ([e52981f](https://github.com/ahonn/keygen-rs/commit/e52981fa0d324b4130cc39bb6e4daaa35d3210db))
+- Fix napi cross-compile build for Linux targets ([12654fe](https://github.com/ahonn/keygen-rs/commit/12654fe7841792de461126129c61ee544c85479c))
+
+
 ## [0.10.1] - 2026-03-20
 
 ### Added
