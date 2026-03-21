@@ -183,12 +183,13 @@ jobs:
       - name: Publish to npm
         working-directory: ${{ env.NAPI_WORKING_DIR }}
         run: |
-          npx napi prepublish -t npm
-          npm publish --access public --provenance
+          npx napi prepublish -t npm --skip-optional-publish
           for dir in npm/*/; do
             if [ -f "$dir/package.json" ]; then
               npm publish "$dir" --access public --provenance
             fi
           done
+          npm publish --access public --provenance
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
