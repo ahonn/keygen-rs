@@ -226,9 +226,10 @@ jobs:
         working-directory: ${{ env.WASM_WORKING_DIR }}
         run: wasm-pack build --target bundler --release
 
-      - name: Sync version from Cargo.toml
+      - name: Prepare package for publish
         working-directory: ${{ env.WASM_WORKING_DIR }}/pkg
         run: |
+          npm pkg set name='@keygen-rs/wasm'
           VERSION=$(grep -A1 '^\[workspace.package\]' ../../../Cargo.toml | grep version | sed 's/.*"\(.*\)".*/\1/')
           echo "Syncing npm version to $VERSION"
           npm version "$VERSION" --no-git-tag-version --allow-same-version
