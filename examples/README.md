@@ -37,6 +37,7 @@ cargo run --features=admin --example user/create_user
 ### `/license/` - License Management (admin feature required)
 - `create_license.rs` - Create new licenses
 - `list_licenses.rs` - List all licenses
+- `license_relationship_lifecycle.rs` - Temporary user/group/license lifecycle for new relationships
 - `suspend_license.rs` - Suspend licenses
 - `reinstate_license.rs` - Reinstate suspended licenses
 - `checkout_license.rs` - License checkout (client feature)
@@ -46,6 +47,7 @@ cargo run --features=admin --example user/create_user
 
 ### `/machine/` - Machine Management
 - `list_machines.rs` - List machines (admin feature)
+- `machine_transfer_and_filters.rs` - Change owner/group and query new filters
 - `reset_machine.rs` - Reset machine heartbeat (admin feature)
 - `activate_machine.rs` - Activate machines (client feature)
 - `deactivate_machine.rs` - Deactivate machines (client feature)
@@ -55,6 +57,7 @@ cargo run --features=admin --example user/create_user
 ### `/product/` - Product Management (admin feature required)
 - `create_product.rs` - Create products
 - `list_products.rs` - List products
+- `generate_product_token_with_options.rs` - Generate and clean up a product token
 
 ### `/policy/` - Policy Management (admin feature required)
 - `create_policy.rs` - Create policies
@@ -63,6 +66,12 @@ cargo run --features=admin --example user/create_user
 ### `/user/` - User Management (admin feature required)
 - `create_user.rs` - Create users
 - `list_users.rs` - List users
+
+### `/group/` - Group Management (admin feature required)
+- `list_group_relationships.rs` - Query owners, users, licenses, and machines for a group
+
+### `/release/` - Release Management (admin feature required)
+- `inspect_release_distribution.rs` - Inspect upgrade resolution and artifact redirects
 
 ## Environment Variables
 
