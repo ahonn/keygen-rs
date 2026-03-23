@@ -812,9 +812,12 @@ impl License {
         fingerprint: &str,
         components: &[Component],
     ) -> Result<Machine, Error> {
+        #[cfg(not(target_arch = "wasm32"))]
         let hostname = hostname::get()
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_else(|_| String::from("unknown"));
+        #[cfg(target_arch = "wasm32")]
+        let hostname = String::from("wasm");
 
         let config = if let Some(ref cfg) = self.config {
             cfg.as_ref()
@@ -826,12 +829,17 @@ impl License {
             .clone()
             .or_else(|| Some(format!("{}/{}", env::consts::OS, env::consts::ARCH)));
 
+        #[cfg(not(target_arch = "wasm32"))]
+        let cores = num_cpus::get();
+        #[cfg(target_arch = "wasm32")]
+        let cores = 0usize;
+
         let mut params = json!({
           "data": {
             "type": "machines",
             "attributes": {
               "fingerprint": fingerprint,
-              "cores": num_cpus::get(),
+              "cores": cores,
               "hostname": hostname,
               "platform": platform,
             },

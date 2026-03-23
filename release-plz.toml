@@ -23,6 +23,14 @@ git_tag_enable = false
 git_release_enable = false
 changelog_update = false
 
+# wasm crate is published to npm, not crates.io
+[[package]]
+name = "keygen-rs-wasm"
+publish = false
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+
 [changelog]
 header = """
 # Changelog
