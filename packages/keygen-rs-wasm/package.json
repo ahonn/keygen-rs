@@ -1,0 +1,31 @@
+{
+  "name": "@keygen-rs/wasm",
+  "version": "0.10.1",
+  "description": "WASM bindings for keygen-rs - Unofficial SDK for keygen.sh licensing service",
+  "main": "keygen_rs_wasm.js",
+  "types": "keygen_rs_wasm.d.ts",
+  "files": [
+    "keygen_rs_wasm_bg.wasm",
+    "keygen_rs_wasm.js",
+    "keygen_rs_wasm.d.ts",
+    "keygen_rs_wasm_bg.wasm.d.ts"
+  ],
+  "scripts": {
+    "build": "wasm-pack build --target bundler --release",
+    "build:dev": "wasm-pack build --target bundler --dev"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahonn/keygen-rs",
+    "directory": "packages/keygen-rs-wasm"
+  },
+  "keywords": [
+    "keygen",
+    "licensing",
+    "license-key",
+    "wasm",
+    "cloudflare-workers",
+    "rust"
+  ]
+}

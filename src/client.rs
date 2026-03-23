@@ -11,6 +11,7 @@ use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 use url::Url;
 
@@ -94,8 +95,10 @@ impl Client {
 
     /// Creates a new client with the specified options.
     pub fn new(options: ClientOptions) -> Result<Self, Error> {
-        let client = ReqwestClient::builder()
-            .timeout(Duration::from_secs(30))
+        let builder = ReqwestClient::builder();
+        #[cfg(not(target_arch = "wasm32"))]
+        let builder = builder.timeout(Duration::from_secs(30));
+        let client = builder
             .build()
             .map_err(|e| Error::UnexpectedError(format!("Failed to build HTTP client: {e}")))?;
 

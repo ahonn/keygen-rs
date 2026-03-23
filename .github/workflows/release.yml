@@ -11,6 +11,11 @@ on:
         required: false
         type: boolean
         default: false
+      publish-wasm:
+        description: "Publish @keygen-rs/wasm to npm"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -19,6 +24,7 @@ permissions:
 
 env:
   NAPI_WORKING_DIR: packages/keygen-rs-napi
+  WASM_WORKING_DIR: packages/keygen-rs-wasm
 
 jobs:
   release-plz:
@@ -192,4 +198,43 @@ jobs:
           npm publish --access public --provenance
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  wasm-publish:
+    name: WASM Publish
+    needs: release-plz
+    if: needs.release-plz.outputs.releases-created == 'true' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish-wasm == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM package
+        working-directory: ${{ env.WASM_WORKING_DIR }}
+        run: wasm-pack build --target bundler --release
+
+      - name: Sync version from Cargo.toml
+        working-directory: ${{ env.WASM_WORKING_DIR }}/pkg
+        run: |
+          VERSION=$(grep -A1 '^\[workspace.package\]' ../../../Cargo.toml | grep version | sed 's/.*"\(.*\)".*/\1/')
+          echo "Syncing npm version to $VERSION"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Publish to npm
+        working-directory: ${{ env.WASM_WORKING_DIR }}/pkg
+        run: npm publish --access public --provenance
+        env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

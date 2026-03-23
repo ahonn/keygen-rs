@@ -13,6 +13,7 @@ default = ["rustls"]
 rustls = ["keygen-rs/rustls"]
 native-tls = ["keygen-rs/native-tls"]
 
+
 [dependencies]
 keygen-rs = { workspace = true, default-features = false, features = [
   "license-key",

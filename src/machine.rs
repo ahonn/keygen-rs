@@ -11,12 +11,15 @@ use crate::errors::Error;
 use crate::machine_file::MachineFile;
 use crate::KeygenResponseData;
 use chrono::{DateTime, Utc};
+#[cfg(not(target_arch = "wasm32"))]
 use futures::future::{BoxFuture, FutureExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::sync::mpsc;
 
 /// Heartbeat status as returned by the Keygen API
@@ -263,6 +266,7 @@ impl Machine {
         Ok(machine)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn monitor(
         self: Arc<Self>,
         heartbeat_interval: Duration,
