@@ -230,6 +230,9 @@ jobs:
         working-directory: ${{ env.WASM_WORKING_DIR }}/pkg
         run: |
           npm pkg set name='@keygen-rs/wasm'
+          npm pkg set 'repository.type'='git'
+          npm pkg set 'repository.url'='https://github.com/ahonn/keygen-rs'
+          npm pkg set 'repository.directory'='packages/keygen-rs-wasm'
           VERSION=$(grep -A1 '^\[workspace.package\]' ../../../Cargo.toml | grep version | sed 's/.*"\(.*\)".*/\1/')
           echo "Syncing npm version to $VERSION"
           npm version "$VERSION" --no-git-tag-version --allow-same-version
