@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.10.3] - 2026-03-23
+
+### Added
+
+- Add WASM support for Cloudflare Workers ([69e8331](https://github.com/ahonn/keygen-rs/commit/69e83314e61cdd62bd1609b5233873aa2022f0c3))
+
+### Other
+
+- Merge pull request #85 from ahonn/feat/wasm-support ([d108d9c](https://github.com/ahonn/keygen-rs/commit/d108d9c50c5c2003ee0ea7a097b1eed317bd5c31))
+
+
 ## [0.10.2] - 2026-03-21
 
 ### Fixed
