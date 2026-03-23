@@ -14,7 +14,14 @@ pub struct Release {
     pub created: String,
     pub updated: String,
     pub product_id: Option<String>,
+    pub package_id: Option<String>,
     pub account_id: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReleaseArtifactDownload {
+    pub location: String,
 }
 
 impl From<keygen_rs::release::Release> for Release {
@@ -37,6 +44,7 @@ impl From<keygen_rs::release::Release> for Release {
             created: r.created,
             updated: r.updated,
             product_id: r.product_id,
+            package_id: r.package_id,
             account_id: r.account_id,
         }
     }
@@ -62,6 +70,7 @@ fn make_minimal_release(id: String) -> keygen_rs::release::Release {
         updated: String::new(),
         yanked_at: None,
         product_id: None,
+        package_id: None,
         account_id: None,
     }
 }
@@ -112,7 +121,11 @@ pub async fn list_releases(options: JsValue) -> Result<JsValue, JsError> {
         page_size: Option<u32>,
         page_number: Option<u32>,
         channel: Option<String>,
+        status: Option<String>,
         product: Option<String>,
+        package: Option<String>,
+        engine: Option<String>,
+        entitlements: Option<Vec<String>>,
     }
 
     let opts: Option<Opts> = if options.is_undefined() || options.is_null() {
@@ -132,9 +145,18 @@ pub async fn list_releases(options: JsValue) -> Result<JsValue, JsError> {
                 page_size: o.page_size,
                 page_number: o.page_number,
                 channel,
-                status: None,
+                status: o
+                    .status
+                    .as_deref()
+                    .map(|s| {
+                        crate::parse_enum::<keygen_rs::release::ReleaseStatus>(s, "release status")
+                    })
+                    .transpose()?,
                 version: None,
                 product: o.product,
+                package: o.package,
+                engine: o.engine,
+                entitlements: o.entitlements,
             })
         }
         None => None,
@@ -214,5 +236,65 @@ pub async fn publish_release(id: String) -> Result<JsValue, JsError> {
 pub async fn yank_release(id: String) -> Result<JsValue, JsError> {
     let rel = make_minimal_release(id);
     let release = rel.yank().await.map(Release::from).map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&release).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "upgradeRelease")]
+pub async fn upgrade_release(id: String, request: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase")]
+    struct Req {
+        product: Option<String>,
+        constraint: Option<String>,
+        package: Option<String>,
+        channel: Option<String>,
+    }
+
+    let req: Option<Req> = if request.is_undefined() || request.is_null() {
+        None
+    } else {
+        Some(serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?)
+    };
+
+    let req = req
+        .map(
+            |request| -> Result<keygen_rs::release::ReleaseUpgradeRequest, JsError> {
+                Ok(keygen_rs::release::ReleaseUpgradeRequest {
+                    product: request.product,
+                    constraint: request.constraint,
+                    package: request.package,
+                    channel: request.channel.as_deref().map(parse_channel).transpose()?,
+                })
+            },
+        )
+        .transpose()?;
+
+    let release = make_minimal_release(id)
+        .upgrade(req.as_ref())
+        .await
+        .map(Release::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&release).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "downloadReleaseArtifact")]
+pub async fn download_release_artifact(id: String, artifact: String) -> Result<JsValue, JsError> {
+    let download = make_minimal_release(id)
+        .download_artifact(&artifact)
+        .await
+        .map(|download| ReleaseArtifactDownload {
+            location: download.location,
+        })
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&download).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "changeReleasePackage")]
+pub async fn change_release_package(id: String, package_id: String) -> Result<JsValue, JsError> {
+    let release = make_minimal_release(id)
+        .change_package(&package_id)
+        .await
+        .map(Release::from)
+        .map_err(to_js_error)?;
     serde_wasm_bindgen::to_value(&release).map_err(|e| JsError::new(&e.to_string()))
 }

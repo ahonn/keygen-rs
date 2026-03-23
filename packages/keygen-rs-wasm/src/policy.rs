@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+use crate::entitlement::Entitlement;
 use crate::to_js_error;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -465,4 +466,40 @@ pub async fn update_policy(id: String, request: JsValue) -> Result<JsValue, JsEr
 pub async fn delete_policy(id: String) -> Result<(), JsError> {
     let policy = make_policy(id);
     policy.delete().await.map_err(to_js_error)
+}
+
+#[wasm_bindgen(js_name = "attachPolicyEntitlements")]
+pub async fn attach_policy_entitlements(
+    id: String,
+    entitlement_ids: JsValue,
+) -> Result<(), JsError> {
+    let ids: Vec<String> = serde_wasm_bindgen::from_value(entitlement_ids)
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    make_policy(id)
+        .attach_entitlements(&ids)
+        .await
+        .map_err(to_js_error)
+}
+
+#[wasm_bindgen(js_name = "detachPolicyEntitlements")]
+pub async fn detach_policy_entitlements(
+    id: String,
+    entitlement_ids: JsValue,
+) -> Result<(), JsError> {
+    let ids: Vec<String> = serde_wasm_bindgen::from_value(entitlement_ids)
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    make_policy(id)
+        .detach_entitlements(&ids)
+        .await
+        .map_err(to_js_error)
+}
+
+#[wasm_bindgen(js_name = "listPolicyEntitlements")]
+pub async fn list_policy_entitlements(id: String) -> Result<JsValue, JsError> {
+    let items: Vec<Entitlement> = make_policy(id)
+        .entitlements(None)
+        .await
+        .map(|items| items.into_iter().map(Entitlement::from).collect())
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&items).map_err(|e| JsError::new(&e.to_string()))
 }

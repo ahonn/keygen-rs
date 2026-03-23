@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -275,23 +276,34 @@ impl Product {
         Ok(())
     }
 
-    /// Generate a product token
+    /// Generate a product token, returning the token value for backward compatibility.
     pub async fn generate_token(&self) -> Result<String, Error> {
+        let token = self.generate_token_with_options(None).await?;
+        token.token.ok_or_else(|| Error::KeygenApiError {
+            code: "INVALID_RESPONSE".to_string(),
+            detail: "Token response did not include a token value".to_string(),
+            body: serde_json::json!({ "id": token.id }),
+        })
+    }
+
+    /// Generate a product token with optional attributes.
+    pub async fn generate_token_with_options(
+        &self,
+        request: Option<CreateTokenRequest>,
+    ) -> Result<Token, Error> {
         let client = Client::from_global_config()?;
         let endpoint = format!("products/{}/tokens", self.id);
-        let response: crate::client::Response<serde_json::Value> =
-            client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let attributes = token_request_attributes(request.as_ref())?;
+        let body = serde_json::json!({
+            "data": {
+                "type": "tokens",
+                "attributes": attributes
+            }
+        });
 
-        // Extract token from response
-        let token_data = response.body["data"]["attributes"]["token"]
-            .as_str()
-            .ok_or_else(|| Error::KeygenApiError {
-                code: "INVALID_RESPONSE".to_string(),
-                detail: "Invalid token response format".to_string(),
-                body: response.body.clone(),
-            })?;
-
-        Ok(token_data.to_string())
+        let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+        let token_response: TokenResponse = serde_json::from_value(response.body)?;
+        Ok(Token::from(token_response.data))
     }
 }
 

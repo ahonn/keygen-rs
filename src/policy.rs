@@ -1,5 +1,7 @@
 use crate::client::Client;
+use crate::entitlement::{Entitlement, EntitlementsResponse};
 use crate::errors::Error;
+use crate::license::PaginationOptions;
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -829,6 +831,62 @@ impl Policy {
         let endpoint = format!("policies/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
+    }
+
+    /// Attach entitlements to a policy.
+    pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("policies/{}/entitlements", self.id);
+        let data: Vec<serde_json::Value> = entitlement_ids
+            .iter()
+            .map(|id| {
+                serde_json::json!({
+                    "type": "entitlements",
+                    "id": id
+                })
+            })
+            .collect();
+        let body = serde_json::json!({ "data": data });
+        client
+            .post::<serde_json::Value, serde_json::Value, ()>(&endpoint, Some(&body), None::<&()>)
+            .await?;
+        Ok(())
+    }
+
+    /// Detach entitlements from a policy.
+    pub async fn detach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("policies/{}/entitlements", self.id);
+        let data: Vec<serde_json::Value> = entitlement_ids
+            .iter()
+            .map(|id| {
+                serde_json::json!({
+                    "type": "entitlements",
+                    "id": id
+                })
+            })
+            .collect();
+        let body = serde_json::json!({ "data": data });
+        client
+            .delete::<serde_json::Value, serde_json::Value>(&endpoint, Some(&body))
+            .await?;
+        Ok(())
+    }
+
+    /// List entitlements attached to a policy.
+    pub async fn entitlements(
+        &self,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<Entitlement>, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("policies/{}/entitlements", self.id);
+        let response = client.get(&endpoint, options).await?;
+        let entitlements_response: EntitlementsResponse = serde_json::from_value(response.body)?;
+        Ok(entitlements_response
+            .data
+            .into_iter()
+            .map(Entitlement::from)
+            .collect())
     }
 
     /// Pop a key from policy pool

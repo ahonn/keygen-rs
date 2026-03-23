@@ -56,6 +56,8 @@ pub async fn list_tokens(options: JsValue) -> Result<JsValue, JsError> {
         limit: Option<u32>,
         page_size: Option<u32>,
         page_number: Option<u32>,
+        bearer_type: Option<String>,
+        bearer_id: Option<String>,
     }
 
     let opts: Option<Opts> = if options.is_undefined() || options.is_null() {
@@ -68,6 +70,8 @@ pub async fn list_tokens(options: JsValue) -> Result<JsValue, JsError> {
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        bearer_type: o.bearer_type,
+        bearer_id: o.bearer_id,
     });
 
     let tokens: Vec<Token> = keygen_rs::token::Token::list(keygen_opts)

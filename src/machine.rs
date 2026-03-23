@@ -140,6 +140,8 @@ pub struct MachineListFilters {
     pub product: Option<String>,
     pub owner: Option<String>,
     pub group: Option<String>,
+    pub policy: Option<String>,
+    pub key: Option<String>,
     pub metadata: Option<HashMap<String, Value>>,
     pub page_number: Option<i32>,
     pub page_size: Option<i32>,
@@ -392,6 +394,12 @@ impl Machine {
             if let Some(group) = filters.group {
                 query_params.push(("group".to_string(), group));
             }
+            if let Some(policy) = filters.policy {
+                query_params.push(("policy".to_string(), policy));
+            }
+            if let Some(key) = filters.key {
+                query_params.push(("key".to_string(), key));
+            }
             if let Some(metadata) = filters.metadata {
                 for (key, value) in metadata {
                     query_params.push((format!("metadata[{key}]"), value.to_string()));
@@ -483,6 +491,38 @@ impl Machine {
         let client = self.get_client()?;
         let endpoint = format!("machines/{}/actions/reset", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        Ok(Machine::from(machine_response.data))
+    }
+
+    /// Change the machine owner.
+    #[cfg(feature = "token")]
+    pub async fn change_owner(&self, owner_id: &str) -> Result<Machine, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("machines/{}/owner", self.id);
+        let body = json!({
+            "data": {
+                "type": "users",
+                "id": owner_id
+            }
+        });
+        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        Ok(Machine::from(machine_response.data))
+    }
+
+    /// Change the machine group.
+    #[cfg(feature = "token")]
+    pub async fn change_group(&self, group_id: &str) -> Result<Machine, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("machines/{}/group", self.id);
+        let body = json!({
+            "data": {
+                "type": "groups",
+                "id": group_id
+            }
+        });
+        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))
     }

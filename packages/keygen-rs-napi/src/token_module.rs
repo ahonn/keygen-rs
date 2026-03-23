@@ -40,6 +40,8 @@ pub struct ListTokensOptions {
     pub limit: Option<u32>,
     pub page_size: Option<u32>,
     pub page_number: Option<u32>,
+    pub bearer_type: Option<String>,
+    pub bearer_id: Option<String>,
 }
 
 #[napi(object)]
@@ -71,6 +73,8 @@ pub async fn list_tokens(options: Option<ListTokensOptions>) -> Result<Vec<Token
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        bearer_type: o.bearer_type,
+        bearer_id: o.bearer_id,
     });
 
     keygen_rs::token::Token::list(opts)

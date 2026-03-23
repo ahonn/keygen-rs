@@ -14,7 +14,23 @@ pub struct Release {
     pub created: String,
     pub updated: String,
     pub product_id: Option<String>,
+    pub package_id: Option<String>,
     pub account_id: Option<String>,
+}
+
+#[napi(object)]
+#[derive(Clone)]
+pub struct ReleaseUpgradeRequest {
+    pub product: Option<String>,
+    pub constraint: Option<String>,
+    pub package: Option<String>,
+    pub channel: Option<String>,
+}
+
+#[napi(object)]
+#[derive(Clone)]
+pub struct ReleaseArtifactDownload {
+    pub location: String,
 }
 
 impl From<keygen_rs::release::Release> for Release {
@@ -37,6 +53,7 @@ impl From<keygen_rs::release::Release> for Release {
             created: r.created,
             updated: r.updated,
             product_id: r.product_id,
+            package_id: r.package_id,
             account_id: r.account_id,
         }
     }
@@ -68,7 +85,11 @@ pub struct ListReleasesOptions {
     pub page_size: Option<u32>,
     pub page_number: Option<u32>,
     pub channel: Option<String>,
+    pub status: Option<String>,
     pub product: Option<String>,
+    pub package: Option<String>,
+    pub engine: Option<String>,
+    pub entitlements: Option<Vec<String>>,
 }
 
 fn parse_channel(s: &str) -> std::result::Result<keygen_rs::release::ReleaseChannel, napi::Error> {
@@ -111,9 +132,16 @@ pub async fn list_releases(options: Option<ListReleasesOptions>) -> Result<Vec<R
                 page_size: o.page_size,
                 page_number: o.page_number,
                 channel,
-                status: None,
+                status: o
+                    .status
+                    .as_deref()
+                    .map(|s| crate::parse_enum(s, "release status"))
+                    .transpose()?,
                 version: None,
                 product: o.product,
+                package: o.package,
+                engine: o.engine,
+                entitlements: o.entitlements,
             })
         }
         None => None,
@@ -147,6 +175,7 @@ fn make_minimal_release(id: String) -> keygen_rs::release::Release {
         updated: String::new(),
         yanked_at: None,
         product_id: None,
+        package_id: None,
         account_id: None,
     }
 }
@@ -190,4 +219,52 @@ pub async fn publish_release(id: String) -> Result<Release> {
 pub async fn yank_release(id: String) -> Result<Release> {
     let rel = make_minimal_release(id);
     rel.yank().await.map(Release::from).map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn upgrade_release(
+    id: String,
+    request: Option<ReleaseUpgradeRequest>,
+) -> Result<Release> {
+    let rel = make_minimal_release(id);
+    let req = request
+        .map(
+            |request| -> Result<keygen_rs::release::ReleaseUpgradeRequest> {
+                Ok(keygen_rs::release::ReleaseUpgradeRequest {
+                    product: request.product,
+                    constraint: request.constraint,
+                    package: request.package,
+                    channel: request.channel.as_deref().map(parse_channel).transpose()?,
+                })
+            },
+        )
+        .transpose()?;
+
+    rel.upgrade(req.as_ref())
+        .await
+        .map(Release::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn download_release_artifact(
+    id: String,
+    artifact: String,
+) -> Result<ReleaseArtifactDownload> {
+    let rel = make_minimal_release(id);
+    rel.download_artifact(&artifact)
+        .await
+        .map(|download| ReleaseArtifactDownload {
+            location: download.location,
+        })
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn change_release_package(id: String, package_id: String) -> Result<Release> {
+    let rel = make_minimal_release(id);
+    rel.change_package(&package_id)
+        .await
+        .map(Release::from)
+        .map_err(to_napi_error)
 }

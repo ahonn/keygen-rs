@@ -143,6 +143,8 @@ pub async fn list_machines(options: JsValue) -> Result<JsValue, JsError> {
         product: Option<String>,
         owner: Option<String>,
         group: Option<String>,
+        policy: Option<String>,
+        key: Option<String>,
         metadata: Option<serde_json::Value>,
     }
     let opts: Option<Opts> = if options.is_undefined() || options.is_null() {
@@ -166,6 +168,8 @@ pub async fn list_machines(options: JsValue) -> Result<JsValue, JsError> {
             product: o.product,
             owner: o.owner,
             group: o.group,
+            policy: o.policy,
+            key: o.key,
             metadata: metadata_map,
             page_number: o.page_number,
             page_size: o.page_size,
@@ -277,4 +281,26 @@ pub async fn reset_machine(id: String) -> Result<JsValue, JsError> {
         .map(Machine::from)
         .map_err(to_js_error)?;
     serde_wasm_bindgen::to_value(&m).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "changeMachineOwner")]
+pub async fn change_machine_owner(id: String, owner_id: String) -> Result<JsValue, JsError> {
+    let machine = make_machine(id);
+    let updated = machine
+        .change_owner(&owner_id)
+        .await
+        .map(Machine::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&updated).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "changeMachineGroup")]
+pub async fn change_machine_group(id: String, group_id: String) -> Result<JsValue, JsError> {
+    let machine = make_machine(id);
+    let updated = machine
+        .change_group(&group_id)
+        .await
+        .map(Machine::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&updated).map_err(|e| JsError::new(&e.to_string()))
 }

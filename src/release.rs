@@ -1,8 +1,25 @@
+use crate::artifact::{Artifact, ListArtifactsOptions};
 use crate::client::Client;
+use crate::config::get_config;
 use crate::errors::Error;
+use crate::license::PaginationOptions;
+use crate::KeygenRelationship;
 use crate::KeygenResponseData;
-use serde::{Deserialize, Serialize};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use reqwest::{redirect::Policy, Client as ReqwestClient};
+use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
+use url::Url;
+
+fn serialize_string_vec<S>(value: &Option<Vec<String>>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(values) => values.serialize(serializer),
+        None => serializer.serialize_none(),
+    }
+}
 
 /// Release channel for distribution
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -113,6 +130,58 @@ pub struct ListReleasesOptions {
     /// Filter by product ID
     #[serde(skip_serializing_if = "Option::is_none")]
     pub product: Option<String>,
+    /// Filter by package ID or key
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub package: Option<String>,
+    /// Filter by engine ID or key
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub engine: Option<String>,
+    /// Filter by entitlement codes
+    #[serde(
+        rename = "entitlements[]",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_string_vec"
+    )]
+    pub entitlements: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ReleaseUpgradeRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub constraint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub package: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<ReleaseChannel>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReleaseArtifactDownload {
+    pub location: String,
+    pub headers: HeaderMap,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConstraintAttributes {
+    pub created: String,
+    pub updated: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Constraint {
+    pub id: String,
+    pub created: String,
+    pub updated: String,
+    pub account_id: Option<String>,
+    pub entitlement_id: Option<String>,
+    pub release_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ConstraintsResponse {
+    pub data: Vec<KeygenResponseData<ConstraintAttributes>>,
 }
 
 /// A release represents a specific version of your software
@@ -131,6 +200,7 @@ pub struct Release {
     pub updated: String,
     pub yanked_at: Option<String>,
     pub product_id: Option<String>,
+    pub package_id: Option<String>,
     pub account_id: Option<String>,
 }
 
@@ -154,6 +224,12 @@ impl Release {
                 .product
                 .as_ref()
                 .and_then(|p| p.data.as_ref().map(|d| d.id.clone())),
+            package_id: data
+                .relationships
+                .other
+                .get("package")
+                .and_then(|value| serde_json::from_value::<KeygenRelationship>(value.clone()).ok())
+                .and_then(|rel| rel.data.map(|d| d.id)),
             account_id: data
                 .relationships
                 .account
@@ -236,6 +312,15 @@ impl Release {
         Ok(Release::from(release_response.data))
     }
 
+    /// Upgrade a release according to the provided constraints.
+    pub async fn upgrade(&self, request: Option<&ReleaseUpgradeRequest>) -> Result<Release, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}/upgrade", self.id);
+        let response = client.get(&endpoint, request).await?;
+        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
+        Ok(Release::from(release_response.data))
+    }
+
     /// Update an existing release
     pub async fn update(&self, request: UpdateReleaseRequest) -> Result<Release, Error> {
         let client = Client::from_global_config()?;
@@ -301,6 +386,194 @@ impl Release {
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
         Ok(Release::from(release_response.data))
+    }
+
+    /// Download an artifact by ID or filename, returning the redirect URL.
+    pub async fn download_artifact(
+        &self,
+        artifact: &str,
+    ) -> Result<ReleaseArtifactDownload, Error> {
+        let config = get_config()?;
+        let mut url = Url::parse(&config.api_url)?;
+        url.path_segments_mut()
+            .map_err(|_| Error::InvalidUrl)?
+            .push(config.api_prefix.as_str())
+            .push("accounts")
+            .push(config.account.as_str())
+            .push("releases")
+            .push(self.id.as_str())
+            .push("artifacts")
+            .push(artifact);
+
+        let client = ReqwestClient::builder()
+            .redirect(Policy::none())
+            .build()
+            .map_err(|e| Error::UnexpectedError(format!("Failed to build HTTP client: {e}")))?;
+
+        let mut headers = HeaderMap::new();
+        headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.api+json"));
+        headers.insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/vnd.api+json"),
+        );
+        headers.insert(
+            "Keygen-Version",
+            HeaderValue::from_str(&config.api_version)?,
+        );
+        if let Some(environment) = &config.environment {
+            headers.insert("Keygen-Environment", HeaderValue::from_str(environment)?);
+        }
+        if let Some(user_agent) = &config.user_agent {
+            headers.insert(USER_AGENT, HeaderValue::from_str(user_agent)?);
+        }
+        if let Some(token) = &config.token {
+            headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("Bearer {token}"))?,
+            );
+        } else if let Some(license_key) = &config.license_key {
+            headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("License {license_key}"))?,
+            );
+        }
+
+        let response = client.get(url).headers(headers).send().await?;
+        if response.status().is_client_error() || response.status().is_server_error() {
+            let body = response.json().await?;
+            return Err(Error::KeygenApiError {
+                code: "DOWNLOAD_FAILED".to_string(),
+                detail: "Failed to download release artifact".to_string(),
+                body,
+            });
+        }
+
+        let headers = response.headers().clone();
+        let location = headers
+            .get(reqwest::header::LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .ok_or_else(|| Error::UnexpectedError("Missing redirect Location header".to_string()))?
+            .to_string();
+
+        Ok(ReleaseArtifactDownload { location, headers })
+    }
+
+    /// List artifacts scoped to this release.
+    pub async fn artifacts(
+        &self,
+        options: Option<ListArtifactsOptions>,
+    ) -> Result<Vec<Artifact>, Error> {
+        let mut options = options.unwrap_or_default();
+        options.release = Some(self.id.clone());
+        Artifact::list(Some(options)).await
+    }
+
+    /// Attach entitlement constraints to this release.
+    pub async fn attach_constraints(
+        &self,
+        entitlement_ids: &[String],
+    ) -> Result<Vec<Constraint>, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}/constraints", self.id);
+        let data: Vec<serde_json::Value> = entitlement_ids
+            .iter()
+            .map(|id| {
+                serde_json::json!({
+                    "type": "constraints",
+                    "relationships": {
+                        "entitlement": {
+                            "data": {
+                                "type": "entitlements",
+                                "id": id
+                            }
+                        }
+                    }
+                })
+            })
+            .collect();
+        let body = serde_json::json!({ "data": data });
+        let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+        let constraints_response: ConstraintsResponse = serde_json::from_value(response.body)?;
+        Ok(constraints_response
+            .data
+            .into_iter()
+            .map(Constraint::from)
+            .collect())
+    }
+
+    /// Detach constraints from this release by constraint ID.
+    pub async fn detach_constraints(&self, constraint_ids: &[String]) -> Result<(), Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}/constraints", self.id);
+        let data: Vec<serde_json::Value> = constraint_ids
+            .iter()
+            .map(|id| {
+                serde_json::json!({
+                    "type": "constraint",
+                    "id": id
+                })
+            })
+            .collect();
+        let body = serde_json::json!({ "data": data });
+        client
+            .delete::<serde_json::Value, serde_json::Value>(&endpoint, Some(&body))
+            .await?;
+        Ok(())
+    }
+
+    /// List entitlement constraints for this release.
+    pub async fn constraints(
+        &self,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<Constraint>, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}/constraints", self.id);
+        let response = client.get(&endpoint, options).await?;
+        let constraints_response: ConstraintsResponse = serde_json::from_value(response.body)?;
+        Ok(constraints_response
+            .data
+            .into_iter()
+            .map(Constraint::from)
+            .collect())
+    }
+
+    /// Change the package associated with this release.
+    pub async fn change_package(&self, package_id: &str) -> Result<Release, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}/package", self.id);
+        let body = serde_json::json!({
+            "data": {
+                "type": "packages",
+                "id": package_id
+            }
+        });
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
+        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
+        Ok(Release::from(release_response.data))
+    }
+}
+
+impl Constraint {
+    fn from(data: KeygenResponseData<ConstraintAttributes>) -> Self {
+        let entitlement = data
+            .relationships
+            .other
+            .get("entitlement")
+            .and_then(|value| serde_json::from_value::<KeygenRelationship>(value.clone()).ok())
+            .and_then(|relationship| relationship.data.map(|d| d.id));
+
+        Self {
+            id: data.id,
+            created: data.attributes.created,
+            updated: data.attributes.updated,
+            account_id: data.relationships.account_id(),
+            entitlement_id: entitlement,
+            release_id: data
+                .relationships
+                .release
+                .as_ref()
+                .and_then(|rel| rel.data.as_ref().map(|d| d.id.clone())),
+        }
     }
 }
 

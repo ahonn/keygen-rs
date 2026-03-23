@@ -2,6 +2,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use crate::to_napi_error;
+use crate::token_module::Token;
 
 #[napi(object)]
 #[derive(Clone)]
@@ -74,6 +75,32 @@ pub struct ListUsersOptions {
     pub page_number: Option<u32>,
     pub role: Option<String>,
     pub status: Option<String>,
+    pub assigned: Option<bool>,
+    pub product: Option<String>,
+    pub group: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[napi(object)]
+#[derive(Clone)]
+pub struct CreateTokenRequest {
+    pub name: Option<String>,
+    pub expiry: Option<String>,
+    pub permissions: Option<Vec<String>>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[napi(object)]
+#[derive(Clone)]
+pub struct UpdatePasswordRequest {
+    pub current_password: Option<String>,
+    pub password: String,
+}
+
+#[napi(object)]
+#[derive(Clone)]
+pub struct ResetPasswordRequest {
+    pub email: Option<String>,
 }
 
 use crate::{parse_enum, to_metadata};
@@ -110,6 +137,9 @@ pub async fn list_users(options: Option<ListUsersOptions>) -> Result<Vec<User>> 
                     .as_deref()
                     .map(|s| parse_enum(s, "user status"))
                     .transpose()?,
+                assigned: o.assigned,
+                product: o.product,
+                group: o.group,
                 roles: o
                     .role
                     .as_deref()
@@ -117,6 +147,7 @@ pub async fn list_users(options: Option<ListUsersOptions>) -> Result<Vec<User>> 
                         parse_enum::<keygen_rs::user::UserRole>(s, "user role").map(|r| vec![r])
                     })
                     .transpose()?,
+                metadata: o.metadata.map(to_metadata).transpose()?,
                 ..Default::default()
             })
         })
@@ -172,6 +203,61 @@ pub async fn ban_user(id: String) -> Result<User> {
 #[napi]
 pub async fn unban_user(id: String) -> Result<User> {
     keygen_rs::user::unban(&id)
+        .await
+        .map(User::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn generate_user_token(id: String, request: Option<CreateTokenRequest>) -> Result<Token> {
+    let req = request
+        .map(|request| -> Result<keygen_rs::token::CreateTokenRequest> {
+            Ok(keygen_rs::token::CreateTokenRequest {
+                name: request.name,
+                expiry: request.expiry,
+                permissions: request.permissions,
+                metadata: request.metadata.map(to_metadata).transpose()?,
+            })
+        })
+        .transpose()?;
+
+    keygen_rs::user::generate_token(&id, req)
+        .await
+        .map(Token::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn change_user_group(id: String, group_id: String) -> Result<User> {
+    keygen_rs::user::change_group(&id, &group_id)
+        .await
+        .map(User::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn update_user_password(id: String, request: UpdatePasswordRequest) -> Result<User> {
+    let req = keygen_rs::user::UpdatePasswordRequest {
+        current_password: request.current_password,
+        password: request.password,
+    };
+
+    keygen_rs::user::update_password(&id, req)
+        .await
+        .map(User::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn reset_user_password(
+    id: String,
+    request: Option<ResetPasswordRequest>,
+) -> Result<User> {
+    let req = request.map(|request| keygen_rs::user::ResetPasswordRequest {
+        email: request.email,
+    });
+
+    keygen_rs::user::reset_password(&id, req)
         .await
         .map(User::from)
         .map_err(to_napi_error)

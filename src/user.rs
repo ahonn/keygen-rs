@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -107,6 +108,19 @@ pub struct UpdateUserRequest {
     pub last_name: Option<String>,
     pub role: Option<UserRole>,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UpdatePasswordRequest {
+    #[serde(rename = "currentPassword")]
+    pub current_password: Option<String>,
+    #[serde(rename = "password")]
+    pub password: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ResetPasswordRequest {
+    pub email: Option<String>,
 }
 
 impl User {
@@ -291,6 +305,80 @@ pub async fn unban(user_id: &str) -> Result<User, Error> {
     let body = serde_json::json!({
         "meta": {}
     });
+    let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+    let user_response: UserResponse = serde_json::from_value(response.body)?;
+    Ok(User::from(user_response.data))
+}
+
+/// Generate a token for a user.
+pub async fn generate_token(
+    user_id: &str,
+    request: Option<CreateTokenRequest>,
+) -> Result<Token, Error> {
+    let client = Client::from_global_config()?;
+    let endpoint = format!("users/{user_id}/tokens");
+    let attributes = token_request_attributes(request.as_ref())?;
+    let body = serde_json::json!({
+        "data": {
+            "type": "tokens",
+            "attributes": attributes
+        }
+    });
+    let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+    let token_response: TokenResponse = serde_json::from_value(response.body)?;
+    Ok(Token::from(token_response.data))
+}
+
+/// Change or assign a user's group.
+pub async fn change_group(user_id: &str, group_id: &str) -> Result<User, Error> {
+    let client = Client::from_global_config()?;
+    let endpoint = format!("users/{user_id}/group");
+    let body = serde_json::json!({
+        "data": {
+            "type": "groups",
+            "id": group_id
+        }
+    });
+    let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
+    let user_response: UserResponse = serde_json::from_value(response.body)?;
+    Ok(User::from(user_response.data))
+}
+
+/// Update a user's password.
+pub async fn update_password(user_id: &str, request: UpdatePasswordRequest) -> Result<User, Error> {
+    let client = Client::from_global_config()?;
+    let endpoint = format!("users/{user_id}/actions/update-password");
+    let mut meta = serde_json::Map::new();
+    if let Some(current_password) = request.current_password {
+        meta.insert(
+            "currentPassword".to_string(),
+            serde_json::Value::String(current_password),
+        );
+    }
+    meta.insert(
+        "password".to_string(),
+        serde_json::Value::String(request.password),
+    );
+    let body = serde_json::json!({ "meta": meta });
+    let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+    let user_response: UserResponse = serde_json::from_value(response.body)?;
+    Ok(User::from(user_response.data))
+}
+
+/// Trigger a reset-password email for a user.
+pub async fn reset_password(
+    user_id: &str,
+    request: Option<ResetPasswordRequest>,
+) -> Result<User, Error> {
+    let client = Client::from_global_config()?;
+    let endpoint = format!("users/{user_id}/actions/reset-password");
+    let mut meta = serde_json::Map::new();
+    if let Some(request) = request {
+        if let Some(email) = request.email {
+            meta.insert("email".to_string(), serde_json::Value::String(email));
+        }
+    }
+    let body = serde_json::json!({ "meta": meta });
     let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
     let user_response: UserResponse = serde_json::from_value(response.body)?;
     Ok(User::from(user_response.data))

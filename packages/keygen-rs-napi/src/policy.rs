@@ -1,6 +1,7 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
+use crate::entitlement::Entitlement;
 use crate::to_napi_error;
 
 #[napi(object)]
@@ -446,4 +447,32 @@ pub async fn update_policy(id: String, request: UpdatePolicyRequest) -> Result<P
 pub async fn delete_policy(id: String) -> Result<()> {
     let policy = make_policy(id);
     policy.delete().await.map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn attach_policy_entitlements(id: String, entitlement_ids: Vec<String>) -> Result<()> {
+    let policy = make_policy(id);
+    policy
+        .attach_entitlements(&entitlement_ids)
+        .await
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn detach_policy_entitlements(id: String, entitlement_ids: Vec<String>) -> Result<()> {
+    let policy = make_policy(id);
+    policy
+        .detach_entitlements(&entitlement_ids)
+        .await
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn list_policy_entitlements(id: String) -> Result<Vec<Entitlement>> {
+    let policy = make_policy(id);
+    policy
+        .entitlements(None)
+        .await
+        .map(|items| items.into_iter().map(Entitlement::from).collect())
+        .map_err(to_napi_error)
 }

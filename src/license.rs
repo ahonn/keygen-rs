@@ -19,6 +19,10 @@ use crate::entitlement::{Entitlement, EntitlementsResponse};
 use crate::errors::Error;
 use crate::license_file::LicenseFile;
 use crate::machine::{Machine, MachineResponse, MachinesResponse};
+#[cfg(feature = "token")]
+use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
+#[cfg(feature = "token")]
+use crate::user::{User, UserAttributes};
 use crate::verifier::Verifier;
 use crate::KeygenResponseData;
 use std::sync::Arc;
@@ -108,6 +112,12 @@ impl LicenseStatus {
 pub(crate) struct LicenseResponse<M> {
     pub meta: Option<M>,
     pub data: KeygenResponseData<LicenseAttributes>,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct LicenseUsersResponse {
+    pub data: Vec<KeygenResponseData<UserAttributes>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -211,6 +221,31 @@ pub struct PaginationOptions {
     pub page_size: Option<i32>, // Number of resources per page (1-100)
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct NumericFilter {
+    pub eq: Option<i32>,
+    pub gt: Option<i32>,
+    pub gte: Option<i32>,
+    pub lt: Option<i32>,
+    pub lte: Option<i32>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct DateWindowFilter {
+    pub r#in: Option<String>,
+    pub on: Option<String>,
+    pub before: Option<String>,
+    pub after: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct LicenseActivityFilter {
+    pub inside: Option<String>,
+    pub outside: Option<String>,
+    pub before: Option<String>,
+    pub after: Option<String>,
+}
+
 /// Simple license list options with common filters
 #[derive(Debug, Default)]
 pub struct LicenseListOptions {
@@ -225,6 +260,16 @@ pub struct LicenseListOptions {
     pub policy: Option<String>,  // Policy ID
     pub owner: Option<String>,   // Owner ID or email
     pub user: Option<String>,    // User ID or email
+    pub group: Option<String>,
+    pub machine: Option<String>,
+    pub assigned: Option<bool>,
+    pub unassigned: Option<bool>,
+    pub activated: Option<bool>,
+    pub metadata: Option<HashMap<String, Value>>,
+    pub activations: Option<NumericFilter>,
+    pub expires: Option<DateWindowFilter>,
+    pub expired: Option<DateWindowFilter>,
+    pub activity: Option<LicenseActivityFilter>,
 }
 
 /// Request structure for creating a new license with complete API support
@@ -1005,6 +1050,16 @@ impl License {
         Ok(license_file)
     }
 
+    /// Check a license back in, invalidating any offline license file.
+    #[cfg(feature = "token")]
+    pub async fn check_in(&self) -> Result<License, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("licenses/{}/actions/check-in", self.id);
+        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
+        Ok(License::from(license_response.data))
+    }
+
     fn handle_validation_code(&self, meta: &ValidationMeta) -> Error {
         let code = meta.code.clone();
         let detail = meta.detail.clone();
@@ -1082,6 +1137,87 @@ impl License {
             }
             if let Some(ref user) = opts.user {
                 query["user"] = json!(user);
+            }
+            if let Some(ref group) = opts.group {
+                query["group"] = json!(group);
+            }
+            if let Some(ref machine) = opts.machine {
+                query["machine"] = json!(machine);
+            }
+            if let Some(assigned) = opts.assigned {
+                query["assigned"] = json!(assigned);
+            }
+            if let Some(unassigned) = opts.unassigned {
+                query["unassigned"] = json!(unassigned);
+            }
+            if let Some(activated) = opts.activated {
+                query["activated"] = json!(activated);
+            }
+            if let Some(ref metadata) = opts.metadata {
+                for (key, value) in metadata {
+                    if let Some(obj) = query.as_object_mut() {
+                        obj.insert(format!("metadata[{key}]"), value.clone());
+                    }
+                }
+            }
+            if let Some(ref activations) = opts.activations {
+                if let Some(eq) = activations.eq {
+                    query["activations[eq]"] = json!(eq);
+                }
+                if let Some(gt) = activations.gt {
+                    query["activations[gt]"] = json!(gt);
+                }
+                if let Some(gte) = activations.gte {
+                    query["activations[gte]"] = json!(gte);
+                }
+                if let Some(lt) = activations.lt {
+                    query["activations[lt]"] = json!(lt);
+                }
+                if let Some(lte) = activations.lte {
+                    query["activations[lte]"] = json!(lte);
+                }
+            }
+            if let Some(ref expires) = opts.expires {
+                if let Some(value) = &expires.r#in {
+                    query["expires[in]"] = json!(value);
+                }
+                if let Some(value) = &expires.on {
+                    query["expires[on]"] = json!(value);
+                }
+                if let Some(value) = &expires.before {
+                    query["expires[before]"] = json!(value);
+                }
+                if let Some(value) = &expires.after {
+                    query["expires[after]"] = json!(value);
+                }
+            }
+            if let Some(ref expired) = opts.expired {
+                if let Some(value) = &expired.r#in {
+                    query["expired[in]"] = json!(value);
+                }
+                if let Some(value) = &expired.on {
+                    query["expired[on]"] = json!(value);
+                }
+                if let Some(value) = &expired.before {
+                    query["expired[before]"] = json!(value);
+                }
+                if let Some(value) = &expired.after {
+                    query["expired[after]"] = json!(value);
+                }
+            }
+            if let Some(ref activity) = opts.activity {
+                if let Some(value) = &activity.inside {
+                    query["activity[inside]"] = json!(value);
+                }
+                if let Some(value) = &activity.outside {
+                    query["activity[outside]"] = json!(value);
+                }
+                if let Some(value) = &activity.before {
+                    query["activity[before]"] = json!(value);
+                }
+                if let Some(value) = &activity.after {
+                    query["activity[after]"] = json!(value);
+                }
             }
         }
 
@@ -1259,12 +1395,133 @@ impl License {
             .await?;
         Ok(())
     }
+
+    /// Generate a token scoped to this license.
+    #[cfg(feature = "token")]
+    pub async fn generate_token(
+        &self,
+        request: Option<CreateTokenRequest>,
+    ) -> Result<Token, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("licenses/{}/tokens", self.id);
+        let attributes = token_request_attributes(request.as_ref())?;
+        let body = json!({
+            "data": {
+                "type": "tokens",
+                "attributes": attributes
+            }
+        });
+        let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+        let token_response: TokenResponse = serde_json::from_value(response.body)?;
+        Ok(Token::from(token_response.data))
+    }
+
+    /// Attach users to this license.
+    #[cfg(feature = "token")]
+    pub async fn attach_users(&self, user_ids: &[String]) -> Result<(), Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("licenses/{}/users", self.id);
+        let data: Vec<Value> = user_ids
+            .iter()
+            .map(|id| {
+                json!({
+                    "type": "users",
+                    "id": id
+                })
+            })
+            .collect();
+        let body = json!({ "data": data });
+        client
+            .post::<Value, Value, ()>(&endpoint, Some(&body), None::<&()>)
+            .await?;
+        Ok(())
+    }
+
+    /// Detach users from this license.
+    #[cfg(feature = "token")]
+    pub async fn detach_users(&self, user_ids: &[String]) -> Result<(), Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("licenses/{}/users", self.id);
+        let data: Vec<Value> = user_ids
+            .iter()
+            .map(|id| {
+                json!({
+                    "type": "users",
+                    "id": id
+                })
+            })
+            .collect();
+        let body = json!({ "data": data });
+        client
+            .delete::<Value, Value>(&endpoint, Some(&body))
+            .await?;
+        Ok(())
+    }
+
+    /// List users attached to this license.
+    #[cfg(feature = "token")]
+    pub async fn users(&self, options: Option<&PaginationOptions>) -> Result<Vec<User>, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("licenses/{}/users", self.id);
+        let response = client.get(&endpoint, options).await?;
+        let users_response: LicenseUsersResponse = serde_json::from_value(response.body)?;
+        Ok(users_response.data.into_iter().map(User::from).collect())
+    }
+
+    /// Change the policy associated with this license.
+    #[cfg(feature = "token")]
+    pub async fn change_policy(&self, policy_id: &str) -> Result<License, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("licenses/{}/policy", self.id);
+        let body = json!({
+            "data": {
+                "type": "policies",
+                "id": policy_id
+            }
+        });
+        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
+        Ok(License::from(license_response.data))
+    }
+
+    /// Change the owner associated with this license.
+    #[cfg(feature = "token")]
+    pub async fn change_owner(&self, owner_id: &str) -> Result<License, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("licenses/{}/owner", self.id);
+        let body = json!({
+            "data": {
+                "type": "users",
+                "id": owner_id
+            }
+        });
+        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
+        Ok(License::from(license_response.data))
+    }
+
+    /// Change the group associated with this license.
+    #[cfg(feature = "token")]
+    pub async fn change_group(&self, group_id: &str) -> Result<License, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("licenses/{}/group", self.id);
+        let body = json!({
+            "data": {
+                "type": "groups",
+                "id": group_id
+            }
+        });
+        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
+        Ok(License::from(license_response.data))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{reset_config, set_config, KeygenConfig};
+    #[cfg(feature = "token")]
     use chrono::TimeZone;
     use mockito::{mock, server_url};
     use serde_json::json;

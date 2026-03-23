@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use crate::to_js_error;
+use crate::token_module::Token;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -99,6 +100,10 @@ pub async fn list_users(options: JsValue) -> Result<JsValue, JsError> {
         page_number: Option<u32>,
         role: Option<String>,
         status: Option<String>,
+        assigned: Option<bool>,
+        product: Option<String>,
+        group: Option<String>,
+        metadata: Option<serde_json::Value>,
     }
     let opts: Option<Opts> = if options.is_undefined() || options.is_null() {
         None
@@ -117,6 +122,9 @@ pub async fn list_users(options: JsValue) -> Result<JsValue, JsError> {
                     .as_deref()
                     .map(|s| parse_enum(s, "user status"))
                     .transpose()?,
+                assigned: o.assigned,
+                product: o.product,
+                group: o.group,
                 roles: o
                     .role
                     .as_deref()
@@ -124,6 +132,7 @@ pub async fn list_users(options: JsValue) -> Result<JsValue, JsError> {
                         parse_enum::<keygen_rs::user::UserRole>(s, "user role").map(|r| vec![r])
                     })
                     .transpose()?,
+                metadata: o.metadata.map(crate::to_metadata).transpose()?,
                 ..Default::default()
             })
         })
@@ -198,5 +207,103 @@ pub async fn unban_user(id: String) -> Result<JsValue, JsError> {
         .await
         .map(User::from)
         .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&user).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "generateUserToken")]
+pub async fn generate_user_token(id: String, request: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase")]
+    struct Req {
+        name: Option<String>,
+        expiry: Option<String>,
+        permissions: Option<Vec<String>>,
+        metadata: Option<serde_json::Value>,
+    }
+
+    let req: Option<Req> = if request.is_undefined() || request.is_null() {
+        None
+    } else {
+        Some(serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?)
+    };
+
+    let req = req
+        .map(
+            |request| -> Result<keygen_rs::token::CreateTokenRequest, JsError> {
+                Ok(keygen_rs::token::CreateTokenRequest {
+                    name: request.name,
+                    expiry: request.expiry,
+                    permissions: request.permissions,
+                    metadata: crate::opt_metadata(request.metadata)?,
+                })
+            },
+        )
+        .transpose()?;
+
+    let token = keygen_rs::user::generate_token(&id, req)
+        .await
+        .map(Token::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&token).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "changeUserGroup")]
+pub async fn change_user_group(id: String, group_id: String) -> Result<JsValue, JsError> {
+    let user = keygen_rs::user::change_group(&id, &group_id)
+        .await
+        .map(User::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&user).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "updateUserPassword")]
+pub async fn update_user_password(id: String, request: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Req {
+        current_password: Option<String>,
+        password: String,
+    }
+    let req: Req =
+        serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?;
+
+    let user = keygen_rs::user::update_password(
+        &id,
+        keygen_rs::user::UpdatePasswordRequest {
+            current_password: req.current_password,
+            password: req.password,
+        },
+    )
+    .await
+    .map(User::from)
+    .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&user).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "resetUserPassword")]
+pub async fn reset_user_password(id: String, request: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase")]
+    struct Req {
+        email: Option<String>,
+    }
+    let req = if request.is_undefined() || request.is_null() {
+        None
+    } else {
+        Some(
+            serde_wasm_bindgen::from_value::<Req>(request)
+                .map_err(|e| JsError::new(&e.to_string()))?,
+        )
+    };
+
+    let user = keygen_rs::user::reset_password(
+        &id,
+        req.map(|request| keygen_rs::user::ResetPasswordRequest {
+            email: request.email,
+        }),
+    )
+    .await
+    .map(User::from)
+    .map_err(to_js_error)?;
     serde_wasm_bindgen::to_value(&user).map_err(|e| JsError::new(&e.to_string()))
 }

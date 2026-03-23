@@ -2,6 +2,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use crate::to_napi_error;
+use crate::token_module::Token;
 
 #[napi(object)]
 #[derive(Clone)]
@@ -82,6 +83,15 @@ pub struct ListProductsOptions {
     pub limit: Option<u32>,
     pub page_size: Option<u32>,
     pub page_number: Option<u32>,
+}
+
+#[napi(object)]
+#[derive(Clone)]
+pub struct CreateTokenRequest {
+    pub name: Option<String>,
+    pub expiry: Option<String>,
+    pub permissions: Option<Vec<String>>,
+    pub metadata: Option<serde_json::Value>,
 }
 
 fn make_product(id: String) -> keygen_rs::product::Product {
@@ -193,4 +203,28 @@ pub async fn update_product(id: String, request: UpdateProductRequest) -> Result
 pub async fn delete_product(id: String) -> Result<()> {
     let product = make_product(id);
     product.delete().await.map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn generate_product_token(
+    id: String,
+    request: Option<CreateTokenRequest>,
+) -> Result<Token> {
+    let product = make_product(id);
+    let req = request
+        .map(|request| -> Result<keygen_rs::token::CreateTokenRequest> {
+            Ok(keygen_rs::token::CreateTokenRequest {
+                name: request.name,
+                expiry: request.expiry,
+                permissions: request.permissions,
+                metadata: request.metadata.map(to_metadata).transpose()?,
+            })
+        })
+        .transpose()?;
+
+    product
+        .generate_token_with_options(req)
+        .await
+        .map(Token::from)
+        .map_err(to_napi_error)
 }

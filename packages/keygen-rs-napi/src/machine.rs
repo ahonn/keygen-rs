@@ -130,6 +130,8 @@ pub struct ListMachinesOptions {
     pub product: Option<String>,
     pub owner: Option<String>,
     pub group: Option<String>,
+    pub policy: Option<String>,
+    pub key: Option<String>,
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -177,6 +179,8 @@ pub async fn list_machines(options: Option<ListMachinesOptions>) -> Result<Vec<M
             product: o.product,
             owner: o.owner,
             group: o.group,
+            policy: o.policy,
+            key: o.key,
             metadata: metadata_map,
             page_number: o.page_number,
             page_size: o.page_size,
@@ -264,6 +268,26 @@ pub async fn reset_machine(id: String) -> Result<Machine> {
     let machine = make_machine(id);
     machine
         .reset()
+        .await
+        .map(Machine::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn change_machine_owner(id: String, owner_id: String) -> Result<Machine> {
+    let machine = make_machine(id);
+    machine
+        .change_owner(&owner_id)
+        .await
+        .map(Machine::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn change_machine_group(id: String, group_id: String) -> Result<Machine> {
+    let machine = make_machine(id);
+    machine
+        .change_group(&group_id)
         .await
         .map(Machine::from)
         .map_err(to_napi_error)
