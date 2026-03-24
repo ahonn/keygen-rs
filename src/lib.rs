@@ -6,6 +6,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::KeygenConfig;
 
+/// Insert a value into a JSON attribute map only when `Some`.
+/// Standardizes the repeated `if let Some(v) = opt { map.insert(key, ...) }` pattern.
+pub(crate) fn insert_optional<T: Serialize>(
+    map: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: Option<T>,
+) -> Result<(), Error> {
+    if let Some(v) = value {
+        map.insert(key.to_string(), serde_json::to_value(v)?);
+    }
+    Ok(())
+}
+
 pub(crate) mod certificate;
 pub(crate) mod client;
 pub(crate) mod decryptor;

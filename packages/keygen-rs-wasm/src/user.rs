@@ -83,7 +83,7 @@ pub async fn create_user(request: JsValue) -> Result<JsValue, JsError> {
         metadata: crate::opt_metadata(req.metadata)?,
     };
 
-    let user = keygen_rs::user::create(r)
+    let user = keygen_rs::user::User::create(r)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -138,7 +138,7 @@ pub async fn list_users(options: JsValue) -> Result<JsValue, JsError> {
         })
         .transpose()?;
 
-    let users: Vec<User> = keygen_rs::user::list(list_opts)
+    let users: Vec<User> = keygen_rs::user::User::list(list_opts)
         .await
         .map(|result| result.users.into_iter().map(User::from).collect())
         .map_err(to_js_error)?;
@@ -147,7 +147,7 @@ pub async fn list_users(options: JsValue) -> Result<JsValue, JsError> {
 
 #[wasm_bindgen(js_name = "getUser")]
 pub async fn get_user(id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::get(&id)
+    let user = keygen_rs::user::User::get(&id)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -180,7 +180,7 @@ pub async fn update_user(id: String, request: JsValue) -> Result<JsValue, JsErro
         metadata: crate::opt_metadata(req.metadata)?,
     };
 
-    let user = keygen_rs::user::update(&id, r)
+    let user = keygen_rs::user::User::update(&id, r)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -189,12 +189,14 @@ pub async fn update_user(id: String, request: JsValue) -> Result<JsValue, JsErro
 
 #[wasm_bindgen(js_name = "deleteUser")]
 pub async fn delete_user(id: String) -> Result<(), JsError> {
-    keygen_rs::user::delete(&id).await.map_err(to_js_error)
+    keygen_rs::user::User::delete(&id)
+        .await
+        .map_err(to_js_error)
 }
 
 #[wasm_bindgen(js_name = "banUser")]
 pub async fn ban_user(id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::ban(&id)
+    let user = keygen_rs::user::User::ban(&id)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -203,7 +205,7 @@ pub async fn ban_user(id: String) -> Result<JsValue, JsError> {
 
 #[wasm_bindgen(js_name = "unbanUser")]
 pub async fn unban_user(id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::unban(&id)
+    let user = keygen_rs::user::User::unban(&id)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -240,7 +242,7 @@ pub async fn generate_user_token(id: String, request: JsValue) -> Result<JsValue
         )
         .transpose()?;
 
-    let token = keygen_rs::user::generate_token(&id, req)
+    let token = keygen_rs::user::User::generate_token(&id, req)
         .await
         .map(Token::from)
         .map_err(to_js_error)?;
@@ -249,7 +251,7 @@ pub async fn generate_user_token(id: String, request: JsValue) -> Result<JsValue
 
 #[wasm_bindgen(js_name = "changeUserGroup")]
 pub async fn change_user_group(id: String, group_id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::change_group(&id, &group_id)
+    let user = keygen_rs::user::User::change_group(&id, &group_id)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -267,7 +269,7 @@ pub async fn update_user_password(id: String, request: JsValue) -> Result<JsValu
     let req: Req =
         serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?;
 
-    let user = keygen_rs::user::update_password(
+    let user = keygen_rs::user::User::update_password(
         &id,
         keygen_rs::user::UpdatePasswordRequest {
             current_password: req.current_password,
@@ -296,7 +298,7 @@ pub async fn reset_user_password(id: String, request: JsValue) -> Result<JsValue
         )
     };
 
-    let user = keygen_rs::user::reset_password(
+    let user = keygen_rs::user::User::reset_password(
         &id,
         req.map(|request| keygen_rs::user::ResetPasswordRequest {
             email: request.email,

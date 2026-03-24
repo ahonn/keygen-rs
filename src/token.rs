@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::insert_optional;
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -126,21 +127,10 @@ impl Token {
         let endpoint = format!("tokens/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name));
-        }
-        if let Some(expiry) = request.expiry {
-            attributes.insert("expiry".to_string(), serde_json::Value::String(expiry));
-        }
-        if let Some(permissions) = request.permissions {
-            attributes.insert(
-                "permissions".to_string(),
-                serde_json::to_value(permissions)?,
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "expiry", request.expiry)?;
+        insert_optional(&mut attributes, "permissions", request.permissions)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -193,24 +183,10 @@ pub(crate) fn token_request_attributes(
     let mut attributes = serde_json::Map::new();
 
     if let Some(request) = request {
-        if let Some(name) = &request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name.clone()));
-        }
-        if let Some(expiry) = &request.expiry {
-            attributes.insert(
-                "expiry".to_string(),
-                serde_json::Value::String(expiry.clone()),
-            );
-        }
-        if let Some(permissions) = &request.permissions {
-            attributes.insert(
-                "permissions".to_string(),
-                serde_json::to_value(permissions)?,
-            );
-        }
-        if let Some(metadata) = &request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name.clone())?;
+        insert_optional(&mut attributes, "expiry", request.expiry.clone())?;
+        insert_optional(&mut attributes, "permissions", request.permissions.clone())?;
+        insert_optional(&mut attributes, "metadata", request.metadata.clone())?;
     }
 
     Ok(attributes)

@@ -7,12 +7,16 @@ use crate::to_napi_error;
 #[derive(Clone)]
 pub struct Release {
     pub id: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
     pub version: String,
     pub channel: Option<String>,
     pub status: String,
+    pub tag: Option<String>,
     pub metadata: Option<serde_json::Value>,
     pub created: String,
     pub updated: String,
+    pub yanked_at: Option<String>,
     pub product_id: Option<String>,
     pub package_id: Option<String>,
     pub account_id: Option<String>,
@@ -44,14 +48,18 @@ impl From<keygen_rs::release::Release> for Release {
             .unwrap_or_default();
         Release {
             id: r.id,
+            name: r.name,
+            description: r.description,
             version: r.version,
             channel,
             status,
+            tag: r.tag,
             metadata: r
                 .metadata
                 .map(|m| serde_json::to_value(m).unwrap_or_default()),
             created: r.created,
             updated: r.updated,
+            yanked_at: r.yanked_at,
             product_id: r.product_id,
             package_id: r.package_id,
             account_id: r.account_id,
@@ -64,7 +72,11 @@ impl From<keygen_rs::release::Release> for Release {
 pub struct CreateReleaseRequest {
     pub product_id: String,
     pub version: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
     pub channel: Option<String>,
+    pub status: Option<String>,
+    pub tag: Option<String>,
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -107,10 +119,14 @@ pub async fn create_release(request: CreateReleaseRequest) -> Result<Release> {
         version: request.version,
         channel,
         product_id: request.product_id,
-        name: None,
-        description: None,
-        status: None,
-        tag: None,
+        name: request.name,
+        description: request.description,
+        status: request
+            .status
+            .as_deref()
+            .map(|s| crate::parse_enum(s, "release status"))
+            .transpose()?,
+        tag: request.tag,
         metadata: crate::opt_metadata(request.metadata)?,
     };
     keygen_rs::release::Release::create(req)
@@ -266,5 +282,92 @@ pub async fn change_release_package(id: String, package_id: String) -> Result<Re
     rel.change_package(&package_id)
         .await
         .map(Release::from)
+        .map_err(to_napi_error)
+}
+
+#[napi(object)]
+#[derive(Clone)]
+pub struct Constraint {
+    pub id: String,
+    pub created: String,
+    pub updated: String,
+    pub account_id: Option<String>,
+    pub entitlement_id: Option<String>,
+    pub release_id: Option<String>,
+}
+
+impl From<keygen_rs::release::Constraint> for Constraint {
+    fn from(c: keygen_rs::release::Constraint) -> Self {
+        Constraint {
+            id: c.id,
+            created: c.created,
+            updated: c.updated,
+            account_id: c.account_id,
+            entitlement_id: c.entitlement_id,
+            release_id: c.release_id,
+        }
+    }
+}
+
+#[napi]
+pub async fn release_artifacts(
+    id: String,
+    options: Option<crate::artifact::ListArtifactsOptions>,
+) -> Result<Vec<crate::artifact::Artifact>> {
+    let rel = make_minimal_release(id);
+    let opts = options.map(|o| keygen_rs::artifact::ListArtifactsOptions {
+        limit: o.limit,
+        page_size: o.page_size,
+        page_number: o.page_number,
+        release: o.release,
+        product: o.product,
+        channel: o.channel,
+        platform: o.platform,
+        arch: o.arch,
+        filetype: o.filetype,
+        status: o.status.and_then(|s| {
+            serde_json::from_value::<keygen_rs::artifact::ArtifactStatus>(
+                serde_json::Value::String(s),
+            )
+            .ok()
+        }),
+    });
+    rel.artifacts(opts)
+        .await
+        .map(|artifacts| {
+            artifacts
+                .into_iter()
+                .map(crate::artifact::Artifact::from)
+                .collect()
+        })
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn attach_release_constraints(
+    id: String,
+    entitlement_ids: Vec<String>,
+) -> Result<Vec<Constraint>> {
+    let rel = make_minimal_release(id);
+    rel.attach_constraints(&entitlement_ids)
+        .await
+        .map(|constraints| constraints.into_iter().map(Constraint::from).collect())
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn detach_release_constraints(id: String, constraint_ids: Vec<String>) -> Result<()> {
+    let rel = make_minimal_release(id);
+    rel.detach_constraints(&constraint_ids)
+        .await
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn release_constraints(id: String) -> Result<Vec<Constraint>> {
+    let rel = make_minimal_release(id);
+    rel.constraints(None)
+        .await
+        .map(|constraints| constraints.into_iter().map(Constraint::from).collect())
         .map_err(to_napi_error)
 }

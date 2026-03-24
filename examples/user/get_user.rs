@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    user,
+    user::User,
 };
 use std::env;
 
@@ -23,7 +23,7 @@ async fn main() -> Result<(), Error> {
         .expect("Usage: cargo run --example get_user <user_id>");
 
     // Get specific user
-    match user::get(&user_id).await {
+    match User::get(&user_id).await {
         Ok(user) => {
             println!("Action completed:");
             println!("ID: {}", user.id);

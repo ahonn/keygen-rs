@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    user::{self, UpdateUserRequest, UserRole},
+    user::{UpdateUserRequest, User, UserRole},
 };
 use std::collections::HashMap;
 use std::env;
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Error> {
         metadata: Some(metadata),
     };
 
-    match user::update(&user_id, request).await {
+    match User::update(&user_id, request).await {
         Ok(user) => {
             println!("user action completed");
             println!("ID: {}", user.id);

@@ -8,6 +8,7 @@ use crate::client::{Client, ClientOptions, Response};
 use crate::config::get_config;
 use crate::config::KeygenConfig;
 use crate::errors::Error;
+use crate::insert_optional;
 use crate::machine_file::MachineFile;
 use crate::KeygenResponseData;
 use chrono::{DateTime, Utc};
@@ -318,24 +319,12 @@ impl Machine {
         let mut attributes = serde_json::Map::new();
         attributes.insert("fingerprint".to_string(), json!(request.fingerprint));
 
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), json!(name));
-        }
-        if let Some(platform) = request.platform {
-            attributes.insert("platform".to_string(), json!(platform));
-        }
-        if let Some(hostname) = request.hostname {
-            attributes.insert("hostname".to_string(), json!(hostname));
-        }
-        if let Some(ip) = request.ip {
-            attributes.insert("ip".to_string(), json!(ip));
-        }
-        if let Some(cores) = request.cores {
-            attributes.insert("cores".to_string(), json!(cores));
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), json!(metadata));
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "platform", request.platform)?;
+        insert_optional(&mut attributes, "hostname", request.hostname)?;
+        insert_optional(&mut attributes, "ip", request.ip)?;
+        insert_optional(&mut attributes, "cores", request.cores)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = json!({
             "data": {
@@ -454,24 +443,12 @@ impl Machine {
         let endpoint = format!("machines/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), json!(name));
-        }
-        if let Some(platform) = request.platform {
-            attributes.insert("platform".to_string(), json!(platform));
-        }
-        if let Some(hostname) = request.hostname {
-            attributes.insert("hostname".to_string(), json!(hostname));
-        }
-        if let Some(ip) = request.ip {
-            attributes.insert("ip".to_string(), json!(ip));
-        }
-        if let Some(cores) = request.cores {
-            attributes.insert("cores".to_string(), json!(cores));
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), json!(metadata));
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "platform", request.platform)?;
+        insert_optional(&mut attributes, "hostname", request.hostname)?;
+        insert_optional(&mut attributes, "ip", request.ip)?;
+        insert_optional(&mut attributes, "cores", request.cores)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = json!({
             "data": {

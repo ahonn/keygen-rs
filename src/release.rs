@@ -2,6 +2,7 @@ use crate::artifact::{Artifact, ListArtifactsOptions};
 use crate::client::Client;
 use crate::config::get_config;
 use crate::errors::Error;
+use crate::insert_optional;
 use crate::license::PaginationOptions;
 use crate::KeygenRelationship;
 use crate::KeygenResponseData;
@@ -252,24 +253,11 @@ impl Release {
             serde_json::to_value(&request.channel)?,
         );
 
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name));
-        }
-        if let Some(description) = request.description {
-            attributes.insert(
-                "description".to_string(),
-                serde_json::Value::String(description),
-            );
-        }
-        if let Some(status) = request.status {
-            attributes.insert("status".to_string(), serde_json::to_value(status)?);
-        }
-        if let Some(tag) = request.tag {
-            attributes.insert("tag".to_string(), serde_json::Value::String(tag));
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "description", request.description)?;
+        insert_optional(&mut attributes, "status", request.status)?;
+        insert_optional(&mut attributes, "tag", request.tag)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -327,24 +315,11 @@ impl Release {
         let endpoint = format!("releases/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name));
-        }
-        if let Some(description) = request.description {
-            attributes.insert(
-                "description".to_string(),
-                serde_json::Value::String(description),
-            );
-        }
-        if let Some(channel) = request.channel {
-            attributes.insert("channel".to_string(), serde_json::to_value(channel)?);
-        }
-        if let Some(tag) = request.tag {
-            attributes.insert("tag".to_string(), serde_json::Value::String(tag));
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "description", request.description)?;
+        insert_optional(&mut attributes, "channel", request.channel)?;
+        insert_optional(&mut attributes, "tag", request.tag)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -509,7 +484,7 @@ impl Release {
             .iter()
             .map(|id| {
                 serde_json::json!({
-                    "type": "constraint",
+                    "type": "constraints",
                     "id": id
                 })
             })

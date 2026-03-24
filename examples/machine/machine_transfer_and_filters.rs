@@ -6,7 +6,7 @@ use keygen_rs::{
     group::{CreateGroupRequest, Group},
     license::{License, LicenseCreateRequest},
     machine::{Machine, MachineCreateRequest, MachineListFilters},
-    user::{self, CreateUserRequest, UserRole},
+    user::{CreateUserRequest, User, UserRole},
 };
 
 #[tokio::main]
@@ -34,7 +34,7 @@ async fn main() -> Result<(), Error> {
         created_group = Some(group.clone());
         println!("Created temp group: {}", group.id);
 
-        let user = user::create(CreateUserRequest {
+        let user = User::create(CreateUserRequest {
             email: format!("machine-example-{suffix}@example.com"),
             first_name: Some("Machine".to_string()),
             last_name: Some("Example".to_string()),
@@ -111,7 +111,7 @@ async fn main() -> Result<(), Error> {
         }
     }
     if let Some(user_id) = created_user_id.as_ref() {
-        if let Err(err) = user::delete(user_id).await {
+        if let Err(err) = User::delete(user_id).await {
             eprintln!("Cleanup: failed to delete temp user {}: {err:?}", user_id);
         }
     }

@@ -7,7 +7,7 @@ use keygen_rs::{
     group::{CreateGroupRequest, Group},
     license::{License, LicenseCreateRequest, PaginationOptions},
     token::{CreateTokenRequest, Token},
-    user::{self, CreateUserRequest, UserRole},
+    user::{CreateUserRequest, User, UserRole},
 };
 use std::collections::HashMap;
 
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Error> {
         println!("Created temp group: {}", group.id);
         created_group = Some(group.clone());
 
-        let owner_user = user::create(CreateUserRequest {
+        let owner_user = User::create(CreateUserRequest {
             email: format!("license-owner-{suffix}@example.com"),
             first_name: Some("License".to_string()),
             last_name: Some("Example".to_string()),
@@ -49,7 +49,7 @@ async fn main() -> Result<(), Error> {
         println!("Created temp owner user: {}", owner_user.id);
         created_owner_user_id = Some(owner_user.id.clone());
 
-        let attached_user = user::create(CreateUserRequest {
+        let attached_user = User::create(CreateUserRequest {
             email: format!("license-attached-{suffix}@example.com"),
             first_name: Some("Attached".to_string()),
             last_name: Some("Example".to_string()),
@@ -137,12 +137,12 @@ async fn main() -> Result<(), Error> {
         }
     }
     if let Some(user_id) = created_attached_user_id.as_ref() {
-        if let Err(err) = user::delete(user_id).await {
+        if let Err(err) = User::delete(user_id).await {
             eprintln!("Cleanup: failed to delete temp user {}: {err:?}", user_id);
         }
     }
     if let Some(user_id) = created_owner_user_id.as_ref() {
-        if let Err(err) = user::delete(user_id).await {
+        if let Err(err) = User::delete(user_id).await {
             eprintln!("Cleanup: failed to delete temp user {}: {err:?}", user_id);
         }
     }

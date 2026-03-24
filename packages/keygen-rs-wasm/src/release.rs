@@ -7,12 +7,16 @@ use crate::to_js_error;
 #[serde(rename_all = "camelCase")]
 pub struct Release {
     pub id: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
     pub version: String,
     pub channel: Option<String>,
     pub status: String,
+    pub tag: Option<String>,
     pub metadata: Option<serde_json::Value>,
     pub created: String,
     pub updated: String,
+    pub yanked_at: Option<String>,
     pub product_id: Option<String>,
     pub package_id: Option<String>,
     pub account_id: Option<String>,
@@ -35,14 +39,18 @@ impl From<keygen_rs::release::Release> for Release {
             .unwrap_or_default();
         Release {
             id: r.id,
+            name: r.name,
+            description: r.description,
             version: r.version,
             channel,
             status,
+            tag: r.tag,
             metadata: r
                 .metadata
                 .map(|m| serde_json::to_value(m).unwrap_or_default()),
             created: r.created,
             updated: r.updated,
+            yanked_at: r.yanked_at,
             product_id: r.product_id,
             package_id: r.package_id,
             account_id: r.account_id,
@@ -83,6 +91,10 @@ pub async fn create_release(request: JsValue) -> Result<JsValue, JsError> {
         product_id: String,
         version: String,
         channel: Option<String>,
+        name: Option<String>,
+        description: Option<String>,
+        status: Option<String>,
+        tag: Option<String>,
         metadata: Option<serde_json::Value>,
     }
 
@@ -98,10 +110,19 @@ pub async fn create_release(request: JsValue) -> Result<JsValue, JsError> {
         version: req.version,
         channel,
         product_id: req.product_id,
-        name: None,
-        description: None,
-        status: None,
-        tag: None,
+        name: req.name,
+        description: req.description,
+        status: req
+            .status
+            .as_deref()
+            .map(|s| {
+                serde_json::from_value::<keygen_rs::release::ReleaseStatus>(
+                    serde_json::Value::String(s.to_string()),
+                )
+                .map_err(|e| JsError::new(&format!("Invalid release status: {e}")))
+            })
+            .transpose()?,
+        tag: req.tag,
         metadata: crate::opt_metadata(req.metadata)?,
     };
 
@@ -297,4 +318,133 @@ pub async fn change_release_package(id: String, package_id: String) -> Result<Js
         .map(Release::from)
         .map_err(to_js_error)?;
     serde_wasm_bindgen::to_value(&release).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Constraint {
+    pub id: String,
+    pub created: String,
+    pub updated: String,
+    pub account_id: Option<String>,
+    pub entitlement_id: Option<String>,
+    pub release_id: Option<String>,
+}
+
+impl From<keygen_rs::release::Constraint> for Constraint {
+    fn from(c: keygen_rs::release::Constraint) -> Self {
+        Constraint {
+            id: c.id,
+            created: c.created,
+            updated: c.updated,
+            account_id: c.account_id,
+            entitlement_id: c.entitlement_id,
+            release_id: c.release_id,
+        }
+    }
+}
+
+#[wasm_bindgen(js_name = "releaseArtifacts")]
+pub async fn release_artifacts(id: String, options: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase")]
+    struct Opts {
+        limit: Option<u32>,
+        page_size: Option<u32>,
+        page_number: Option<u32>,
+    }
+    let opts: Option<Opts> = if options.is_undefined() || options.is_null() {
+        None
+    } else {
+        Some(serde_wasm_bindgen::from_value(options).map_err(|e| JsError::new(&e.to_string()))?)
+    };
+    let list_opts = opts.map(|o| keygen_rs::artifact::ListArtifactsOptions {
+        limit: o.limit,
+        page_size: o.page_size,
+        page_number: o.page_number,
+        ..Default::default()
+    });
+
+    #[derive(Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct WasmArtifact {
+        id: String,
+        filename: String,
+        filetype: Option<String>,
+        filesize: Option<u64>,
+        platform: Option<String>,
+        arch: Option<String>,
+        signature: Option<String>,
+        checksum: Option<String>,
+        status: String,
+        created: String,
+        updated: String,
+    }
+
+    let rel = make_minimal_release(id);
+    let artifacts: Vec<WasmArtifact> = rel
+        .artifacts(list_opts)
+        .await
+        .map(|artifacts| {
+            artifacts
+                .into_iter()
+                .map(|a| {
+                    let status = serde_json::to_value(&a.status)
+                        .ok()
+                        .and_then(|v| v.as_str().map(String::from))
+                        .unwrap_or_default();
+                    WasmArtifact {
+                        id: a.id,
+                        filename: a.filename,
+                        filetype: a.filetype,
+                        filesize: a.filesize,
+                        platform: a.platform,
+                        arch: a.arch,
+                        signature: a.signature,
+                        checksum: a.checksum,
+                        status,
+                        created: a.created,
+                        updated: a.updated,
+                    }
+                })
+                .collect()
+        })
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&artifacts).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "attachReleaseConstraints")]
+pub async fn attach_release_constraints(
+    id: String,
+    entitlement_ids: Vec<String>,
+) -> Result<JsValue, JsError> {
+    let rel = make_minimal_release(id);
+    let constraints: Vec<Constraint> = rel
+        .attach_constraints(&entitlement_ids)
+        .await
+        .map(|constraints| constraints.into_iter().map(Constraint::from).collect())
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&constraints).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "detachReleaseConstraints")]
+pub async fn detach_release_constraints(
+    id: String,
+    constraint_ids: Vec<String>,
+) -> Result<(), JsError> {
+    let rel = make_minimal_release(id);
+    rel.detach_constraints(&constraint_ids)
+        .await
+        .map_err(to_js_error)
+}
+
+#[wasm_bindgen(js_name = "releaseConstraints")]
+pub async fn release_constraints(id: String) -> Result<JsValue, JsError> {
+    let rel = make_minimal_release(id);
+    let constraints: Vec<Constraint> = rel
+        .constraints(None)
+        .await
+        .map(|constraints| constraints.into_iter().map(Constraint::from).collect())
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&constraints).map_err(|e| JsError::new(&e.to_string()))
 }

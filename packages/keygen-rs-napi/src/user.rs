@@ -118,7 +118,7 @@ pub async fn create_user(request: CreateUserRequest) -> Result<User> {
         metadata: request.metadata.map(to_metadata).transpose()?,
     };
 
-    keygen_rs::user::create(req)
+    keygen_rs::user::User::create(req)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -153,7 +153,7 @@ pub async fn list_users(options: Option<ListUsersOptions>) -> Result<Vec<User>> 
         })
         .transpose()?;
 
-    keygen_rs::user::list(opts)
+    keygen_rs::user::User::list(opts)
         .await
         .map(|result| result.users.into_iter().map(User::from).collect())
         .map_err(to_napi_error)
@@ -161,7 +161,7 @@ pub async fn list_users(options: Option<ListUsersOptions>) -> Result<Vec<User>> 
 
 #[napi]
 pub async fn get_user(id: String) -> Result<User> {
-    keygen_rs::user::get(&id)
+    keygen_rs::user::User::get(&id)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -181,7 +181,7 @@ pub async fn update_user(id: String, request: UpdateUserRequest) -> Result<User>
         metadata: request.metadata.map(to_metadata).transpose()?,
     };
 
-    keygen_rs::user::update(&id, req)
+    keygen_rs::user::User::update(&id, req)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -189,12 +189,14 @@ pub async fn update_user(id: String, request: UpdateUserRequest) -> Result<User>
 
 #[napi]
 pub async fn delete_user(id: String) -> Result<()> {
-    keygen_rs::user::delete(&id).await.map_err(to_napi_error)
+    keygen_rs::user::User::delete(&id)
+        .await
+        .map_err(to_napi_error)
 }
 
 #[napi]
 pub async fn ban_user(id: String) -> Result<User> {
-    keygen_rs::user::ban(&id)
+    keygen_rs::user::User::ban(&id)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -202,7 +204,7 @@ pub async fn ban_user(id: String) -> Result<User> {
 
 #[napi]
 pub async fn unban_user(id: String) -> Result<User> {
-    keygen_rs::user::unban(&id)
+    keygen_rs::user::User::unban(&id)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -221,7 +223,7 @@ pub async fn generate_user_token(id: String, request: Option<CreateTokenRequest>
         })
         .transpose()?;
 
-    keygen_rs::user::generate_token(&id, req)
+    keygen_rs::user::User::generate_token(&id, req)
         .await
         .map(Token::from)
         .map_err(to_napi_error)
@@ -229,7 +231,7 @@ pub async fn generate_user_token(id: String, request: Option<CreateTokenRequest>
 
 #[napi]
 pub async fn change_user_group(id: String, group_id: String) -> Result<User> {
-    keygen_rs::user::change_group(&id, &group_id)
+    keygen_rs::user::User::change_group(&id, &group_id)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -242,7 +244,7 @@ pub async fn update_user_password(id: String, request: UpdatePasswordRequest) ->
         password: request.password,
     };
 
-    keygen_rs::user::update_password(&id, req)
+    keygen_rs::user::User::update_password(&id, req)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -257,7 +259,7 @@ pub async fn reset_user_password(
         email: request.email,
     });
 
-    keygen_rs::user::reset_password(&id, req)
+    keygen_rs::user::User::reset_password(&id, req)
         .await
         .map(User::from)
         .map_err(to_napi_error)

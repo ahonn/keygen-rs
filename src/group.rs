@@ -3,6 +3,8 @@ use crate::client::Client;
 #[cfg(feature = "token")]
 use crate::errors::Error;
 #[cfg(feature = "token")]
+use crate::insert_optional;
+#[cfg(feature = "token")]
 use crate::license::{License, LicenseAttributes, PaginationOptions};
 #[cfg(feature = "token")]
 use crate::machine::{Machine, MachineAttributes};
@@ -160,27 +162,10 @@ impl Group {
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
 
-        if let Some(max_users) = request.max_users {
-            attributes.insert(
-                "maxUsers".to_string(),
-                serde_json::Value::Number(max_users.into()),
-            );
-        }
-        if let Some(max_licenses) = request.max_licenses {
-            attributes.insert(
-                "maxLicenses".to_string(),
-                serde_json::Value::Number(max_licenses.into()),
-            );
-        }
-        if let Some(max_machines) = request.max_machines {
-            attributes.insert(
-                "maxMachines".to_string(),
-                serde_json::Value::Number(max_machines.into()),
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "maxUsers", request.max_users)?;
+        insert_optional(&mut attributes, "maxLicenses", request.max_licenses)?;
+        insert_optional(&mut attributes, "maxMachines", request.max_machines)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -220,30 +205,11 @@ impl Group {
         let endpoint = format!("groups/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name));
-        }
-        if let Some(max_users) = request.max_users {
-            attributes.insert(
-                "maxUsers".to_string(),
-                serde_json::Value::Number(max_users.into()),
-            );
-        }
-        if let Some(max_licenses) = request.max_licenses {
-            attributes.insert(
-                "maxLicenses".to_string(),
-                serde_json::Value::Number(max_licenses.into()),
-            );
-        }
-        if let Some(max_machines) = request.max_machines {
-            attributes.insert(
-                "maxMachines".to_string(),
-                serde_json::Value::Number(max_machines.into()),
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "maxUsers", request.max_users)?;
+        insert_optional(&mut attributes, "maxLicenses", request.max_licenses)?;
+        insert_optional(&mut attributes, "maxMachines", request.max_machines)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {

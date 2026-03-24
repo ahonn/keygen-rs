@@ -6,7 +6,7 @@ use keygen_rs::{
     group::{CreateGroupRequest, Group},
     license::{License, LicenseCreateRequest, PaginationOptions},
     machine::{Machine, MachineCreateRequest},
-    user::{self, CreateUserRequest, UserRole},
+    user::{CreateUserRequest, User, UserRole},
 };
 
 #[tokio::main]
@@ -39,7 +39,7 @@ async fn main() -> Result<(), Error> {
                 println!("Created temp group: {} ({})", group.name, group.id);
                 created_group = Some(group.clone());
 
-                let user = user::create(CreateUserRequest {
+                let user = User::create(CreateUserRequest {
                     email: format!("group-example-{suffix}@example.com"),
                     first_name: Some("Group".to_string()),
                     last_name: Some("Example".to_string()),
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Error> {
                 created_user_id = Some(user.id.clone());
                 println!("Created temp user: {}", user.id);
 
-                let user = user::change_group(&user.id, &group.id).await?;
+                let user = User::change_group(&user.id, &group.id).await?;
                 println!("Assigned temp user {} to temp group", user.id);
 
                 let license = License::create(
@@ -120,7 +120,7 @@ async fn main() -> Result<(), Error> {
         }
     }
     if let Some(user_id) = created_user_id.as_ref() {
-        if let Err(err) = user::delete(user_id).await {
+        if let Err(err) = User::delete(user_id).await {
             eprintln!("Cleanup: failed to delete temp user {}: {err:?}", user_id);
         }
     }

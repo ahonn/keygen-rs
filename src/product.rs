@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::insert_optional;
 use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
@@ -162,32 +163,20 @@ impl Product {
         let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
-        attributes.insert("name".to_string(), serde_json::Value::String(request.name));
+        attributes.insert("name".to_string(), serde_json::json!(request.name));
         if !request.code.is_empty() {
-            attributes.insert("code".to_string(), serde_json::Value::String(request.code));
+            attributes.insert("code".to_string(), serde_json::json!(request.code));
         }
 
-        if let Some(distribution_strategy) = request.distribution_strategy {
-            attributes.insert(
-                "distributionStrategy".to_string(),
-                serde_json::to_value(distribution_strategy)?,
-            );
-        }
-        if let Some(url) = request.url {
-            attributes.insert("url".to_string(), serde_json::Value::String(url));
-        }
-        if let Some(platforms) = request.platforms {
-            attributes.insert("platforms".to_string(), serde_json::to_value(platforms)?);
-        }
-        if let Some(permissions) = request.permissions {
-            attributes.insert(
-                "permissions".to_string(),
-                serde_json::to_value(permissions)?,
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(
+            &mut attributes,
+            "distributionStrategy",
+            request.distribution_strategy,
+        )?;
+        insert_optional(&mut attributes, "url", request.url)?;
+        insert_optional(&mut attributes, "platforms", request.platforms)?;
+        insert_optional(&mut attributes, "permissions", request.permissions)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -228,33 +217,17 @@ impl Product {
         let endpoint = format!("products/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name));
-        }
-        if let Some(code) = request.code {
-            attributes.insert("code".to_string(), serde_json::Value::String(code));
-        }
-        if let Some(distribution_strategy) = request.distribution_strategy {
-            attributes.insert(
-                "distributionStrategy".to_string(),
-                serde_json::to_value(distribution_strategy)?,
-            );
-        }
-        if let Some(url) = request.url {
-            attributes.insert("url".to_string(), serde_json::Value::String(url));
-        }
-        if let Some(platforms) = request.platforms {
-            attributes.insert("platforms".to_string(), serde_json::to_value(platforms)?);
-        }
-        if let Some(permissions) = request.permissions {
-            attributes.insert(
-                "permissions".to_string(),
-                serde_json::to_value(permissions)?,
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "code", request.code)?;
+        insert_optional(
+            &mut attributes,
+            "distributionStrategy",
+            request.distribution_strategy,
+        )?;
+        insert_optional(&mut attributes, "url", request.url)?;
+        insert_optional(&mut attributes, "platforms", request.platforms)?;
+        insert_optional(&mut attributes, "permissions", request.permissions)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {

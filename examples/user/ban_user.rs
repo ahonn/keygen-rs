@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    user,
+    user::User,
 };
 use std::env;
 
@@ -23,7 +23,7 @@ async fn main() -> Result<(), Error> {
         .expect("Usage: cargo run --example ban_user <user_id>");
 
     // Ban user
-    match user::ban(&user_id).await {
+    match User::ban(&user_id).await {
         Ok(user) => {
             println!("user action completed");
             println!("ID: {}", user.id);

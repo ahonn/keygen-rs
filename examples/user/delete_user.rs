@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    user,
+    user::User,
 };
 use std::env;
 
@@ -50,7 +50,7 @@ async fn main() -> Result<(), Error> {
     }
 
     // Delete user
-    match user::delete(&user_id).await {
+    match User::delete(&user_id).await {
         Ok(()) => {
             println!("user action completed");
         }
