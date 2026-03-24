@@ -300,13 +300,10 @@ pub async fn upgrade_release(id: String, request: JsValue) -> Result<JsValue, Js
 
 #[wasm_bindgen(js_name = "downloadReleaseArtifact")]
 pub async fn download_release_artifact(id: String, artifact: String) -> Result<JsValue, JsError> {
-    let download = make_minimal_release(id)
-        .download_artifact(&artifact)
-        .await
-        .map(|download| ReleaseArtifactDownload {
-            location: download.location,
-        })
+    let url = make_minimal_release(id)
+        .artifact_download_url(&artifact)
         .map_err(to_js_error)?;
+    let download = ReleaseArtifactDownload { location: url };
     serde_wasm_bindgen::to_value(&download).map_err(|e| JsError::new(&e.to_string()))
 }
 

@@ -6,7 +6,9 @@ use crate::insert_optional;
 use crate::license::PaginationOptions;
 use crate::KeygenRelationship;
 use crate::KeygenResponseData;
+#[cfg(not(target_arch = "wasm32"))]
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+#[cfg(not(target_arch = "wasm32"))]
 use reqwest::{redirect::Policy, Client as ReqwestClient};
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
@@ -158,6 +160,7 @@ pub struct ReleaseUpgradeRequest {
     pub channel: Option<ReleaseChannel>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone)]
 pub struct ReleaseArtifactDownload {
     pub location: String,
@@ -363,11 +366,12 @@ impl Release {
         Ok(Release::from(release_response.data))
     }
 
-    /// Download an artifact by ID or filename, returning the redirect URL.
-    pub async fn download_artifact(
-        &self,
-        artifact: &str,
-    ) -> Result<ReleaseArtifactDownload, Error> {
+    /// Build the download URL for an artifact by ID or filename.
+    ///
+    /// Returns the fully-qualified API URL that can be used to initiate a download.
+    /// On WASM targets, use this URL directly from JavaScript with appropriate
+    /// auth headers — the server will respond with a redirect to the actual file.
+    pub fn artifact_download_url(&self, artifact: &str) -> Result<String, Error> {
         let config = get_config()?;
         let mut url = Url::parse(&config.api_url)?;
         url.path_segments_mut()
@@ -379,6 +383,20 @@ impl Release {
             .push(self.id.as_str())
             .push("artifacts")
             .push(artifact);
+        Ok(url.to_string())
+    }
+
+    /// Download an artifact by ID or filename, returning the redirect URL.
+    ///
+    /// Not available on WASM targets — use [`artifact_download_url`](Self::artifact_download_url)
+    /// instead and handle the redirect from JavaScript.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn download_artifact(
+        &self,
+        artifact: &str,
+    ) -> Result<ReleaseArtifactDownload, Error> {
+        let url: Url = self.artifact_download_url(artifact)?.parse()?;
+        let config = get_config()?;
 
         let client = ReqwestClient::builder()
             .redirect(Policy::none())
