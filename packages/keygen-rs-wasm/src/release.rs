@@ -349,6 +349,13 @@ pub async fn release_artifacts(id: String, options: JsValue) -> Result<JsValue, 
         limit: Option<u32>,
         page_size: Option<u32>,
         page_number: Option<u32>,
+        release: Option<String>,
+        product: Option<String>,
+        channel: Option<String>,
+        platform: Option<String>,
+        arch: Option<String>,
+        filetype: Option<String>,
+        status: Option<String>,
     }
     let opts: Option<Opts> = if options.is_undefined() || options.is_null() {
         None
@@ -359,7 +366,18 @@ pub async fn release_artifacts(id: String, options: JsValue) -> Result<JsValue, 
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
-        ..Default::default()
+        release: o.release,
+        product: o.product,
+        channel: o.channel,
+        platform: o.platform,
+        arch: o.arch,
+        filetype: o.filetype,
+        status: o.status.and_then(|s| {
+            serde_json::from_value::<keygen_rs::artifact::ArtifactStatus>(
+                serde_json::Value::String(s),
+            )
+            .ok()
+        }),
     });
 
     #[derive(Clone, Serialize)]

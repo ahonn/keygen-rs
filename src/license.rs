@@ -409,23 +409,24 @@ impl LicenseCreateRequest {
     }
 
     /// Convert this request to attributes and relationships JSON maps for the API
-    pub fn to_json_body(self) -> Result<Value, Error> {
+    pub fn to_json_body(self) -> Value {
         let mut attributes = serde_json::Map::new();
         let mut relationships = serde_json::Map::new();
 
-        // Build attributes
-        insert_optional(&mut attributes, "name", self.name)?;
-        insert_optional(&mut attributes, "key", self.key)?;
-        insert_optional(&mut attributes, "expiry", self.expiry)?;
-        insert_optional(&mut attributes, "maxMachines", self.max_machines)?;
-        insert_optional(&mut attributes, "maxProcesses", self.max_processes)?;
-        insert_optional(&mut attributes, "maxUsers", self.max_users)?;
-        insert_optional(&mut attributes, "maxCores", self.max_cores)?;
-        insert_optional(&mut attributes, "maxUses", self.max_uses)?;
-        insert_optional(&mut attributes, "protected", self.protected)?;
-        insert_optional(&mut attributes, "suspended", self.suspended)?;
-        insert_optional(&mut attributes, "permissions", self.permissions)?;
-        insert_optional(&mut attributes, "metadata", self.metadata)?;
+        // Build attributes — all types here (String, i32, DateTime, bool, Vec, HashMap)
+        // are infallibly serializable, so unwrap is safe.
+        let _ = insert_optional(&mut attributes, "name", self.name);
+        let _ = insert_optional(&mut attributes, "key", self.key);
+        let _ = insert_optional(&mut attributes, "expiry", self.expiry);
+        let _ = insert_optional(&mut attributes, "maxMachines", self.max_machines);
+        let _ = insert_optional(&mut attributes, "maxProcesses", self.max_processes);
+        let _ = insert_optional(&mut attributes, "maxUsers", self.max_users);
+        let _ = insert_optional(&mut attributes, "maxCores", self.max_cores);
+        let _ = insert_optional(&mut attributes, "maxUses", self.max_uses);
+        let _ = insert_optional(&mut attributes, "protected", self.protected);
+        let _ = insert_optional(&mut attributes, "suspended", self.suspended);
+        let _ = insert_optional(&mut attributes, "permissions", self.permissions);
+        let _ = insert_optional(&mut attributes, "metadata", self.metadata);
 
         // Build relationships - policy is required
         relationships.insert(
@@ -462,13 +463,13 @@ impl LicenseCreateRequest {
             );
         }
 
-        Ok(json!({
+        json!({
             "data": {
                 "type": "licenses",
                 "attributes": attributes,
                 "relationships": relationships
             }
-        }))
+        })
     }
 }
 
@@ -575,7 +576,7 @@ impl LicenseUpdateRequest {
     }
 
     /// Convert this request to complete JSON body for the API
-    pub fn to_json_body(self) -> Result<Value, Error> {
+    pub fn to_json_body(self) -> Value {
         let mut attributes = serde_json::Map::new();
 
         if let Some(name) = self.name {
@@ -602,12 +603,12 @@ impl LicenseUpdateRequest {
             attributes.insert("metadata".to_string(), json!(metadata));
         }
 
-        Ok(json!({
+        json!({
             "data": {
                 "type": "licenses",
                 "attributes": attributes
             }
-        }))
+        })
     }
 }
 
@@ -1074,7 +1075,7 @@ impl License {
     pub async fn create(request: LicenseCreateRequest) -> Result<License, Error> {
         let config = get_config()?;
         let client = Client::new(ClientOptions::from(config))?;
-        let body = request.to_json_body()?;
+        let body = request.to_json_body();
         let response = client.post("licenses", Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
         Ok(License::from(license_response.data))
@@ -1229,7 +1230,7 @@ impl License {
     pub async fn update(&self, request: LicenseUpdateRequest) -> Result<License, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}", self.id);
-        let body = request.to_json_body()?;
+        let body = request.to_json_body();
         let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
         Ok(License::from(license_response.data))
@@ -2741,7 +2742,7 @@ mod tests {
         ));
 
         // Test JSON body conversion
-        let body = request.to_json_body().unwrap();
+        let body = request.to_json_body();
         let data = body.get("data").unwrap();
         let attributes = data.get("attributes").unwrap();
         assert_eq!(
