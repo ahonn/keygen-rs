@@ -43,7 +43,8 @@ async fn main() -> Result<(), Error> {
         metadata: Some(metadata),
     };
 
-    match User::update(&user_id, request).await {
+    let user = User::get(&user_id).await?;
+    match user.update(request).await {
         Ok(user) => {
             println!("user action completed");
             println!("ID: {}", user.id);

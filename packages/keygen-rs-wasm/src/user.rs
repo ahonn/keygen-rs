@@ -57,6 +57,24 @@ impl From<keygen_rs::user::User> for User {
     }
 }
 
+fn make_minimal_user(id: String) -> keygen_rs::user::User {
+    keygen_rs::user::User {
+        id,
+        email: String::new(),
+        first_name: None,
+        last_name: None,
+        full_name: None,
+        status: keygen_rs::user::UserStatus::Active,
+        role: keygen_rs::user::UserRole::User,
+        permissions: None,
+        metadata: None,
+        last_seen_at: None,
+        ban_reason: None,
+        created: String::new(),
+        updated: String::new(),
+    }
+}
+
 #[wasm_bindgen(js_name = "createUser")]
 pub async fn create_user(request: JsValue) -> Result<JsValue, JsError> {
     #[derive(Deserialize)]
@@ -180,7 +198,8 @@ pub async fn update_user(id: String, request: JsValue) -> Result<JsValue, JsErro
         metadata: crate::opt_metadata(req.metadata)?,
     };
 
-    let user = keygen_rs::user::User::update(&id, r)
+    let user = make_minimal_user(id)
+        .update(r)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -189,14 +208,13 @@ pub async fn update_user(id: String, request: JsValue) -> Result<JsValue, JsErro
 
 #[wasm_bindgen(js_name = "deleteUser")]
 pub async fn delete_user(id: String) -> Result<(), JsError> {
-    keygen_rs::user::User::delete(&id)
-        .await
-        .map_err(to_js_error)
+    make_minimal_user(id).delete().await.map_err(to_js_error)
 }
 
 #[wasm_bindgen(js_name = "banUser")]
 pub async fn ban_user(id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::User::ban(&id)
+    let user = make_minimal_user(id)
+        .ban()
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -205,7 +223,8 @@ pub async fn ban_user(id: String) -> Result<JsValue, JsError> {
 
 #[wasm_bindgen(js_name = "unbanUser")]
 pub async fn unban_user(id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::User::unban(&id)
+    let user = make_minimal_user(id)
+        .unban()
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -242,7 +261,8 @@ pub async fn generate_user_token(id: String, request: JsValue) -> Result<JsValue
         )
         .transpose()?;
 
-    let token = keygen_rs::user::User::generate_token(&id, req)
+    let token = make_minimal_user(id)
+        .generate_token(req)
         .await
         .map(Token::from)
         .map_err(to_js_error)?;
@@ -251,7 +271,8 @@ pub async fn generate_user_token(id: String, request: JsValue) -> Result<JsValue
 
 #[wasm_bindgen(js_name = "changeUserGroup")]
 pub async fn change_user_group(id: String, group_id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::User::change_group(&id, &group_id)
+    let user = make_minimal_user(id)
+        .change_group(&group_id)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -269,16 +290,14 @@ pub async fn update_user_password(id: String, request: JsValue) -> Result<JsValu
     let req: Req =
         serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?;
 
-    let user = keygen_rs::user::User::update_password(
-        &id,
-        keygen_rs::user::UpdatePasswordRequest {
+    let user = make_minimal_user(id)
+        .update_password(keygen_rs::user::UpdatePasswordRequest {
             current_password: req.current_password,
             password: req.password,
-        },
-    )
-    .await
-    .map(User::from)
-    .map_err(to_js_error)?;
+        })
+        .await
+        .map(User::from)
+        .map_err(to_js_error)?;
     serde_wasm_bindgen::to_value(&user).map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -298,14 +317,12 @@ pub async fn reset_user_password(id: String, request: JsValue) -> Result<JsValue
         )
     };
 
-    let user = keygen_rs::user::User::reset_password(
-        &id,
-        req.map(|request| keygen_rs::user::ResetPasswordRequest {
+    let user = make_minimal_user(id)
+        .reset_password(req.map(|request| keygen_rs::user::ResetPasswordRequest {
             email: request.email,
-        }),
-    )
-    .await
-    .map(User::from)
-    .map_err(to_js_error)?;
+        }))
+        .await
+        .map(User::from)
+        .map_err(to_js_error)?;
     serde_wasm_bindgen::to_value(&user).map_err(|e| JsError::new(&e.to_string()))
 }

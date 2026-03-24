@@ -51,7 +51,7 @@ async fn main() -> Result<(), Error> {
                 created_user_id = Some(user.id.clone());
                 println!("Created temp user: {}", user.id);
 
-                let user = User::change_group(&user.id, &group.id).await?;
+                let user = user.change_group(&group.id).await?;
                 println!("Assigned temp user {} to temp group", user.id);
 
                 let license = License::create(
@@ -120,8 +120,10 @@ async fn main() -> Result<(), Error> {
         }
     }
     if let Some(user_id) = created_user_id.as_ref() {
-        if let Err(err) = User::delete(user_id).await {
-            eprintln!("Cleanup: failed to delete temp user {}: {err:?}", user_id);
+        if let Ok(user) = User::get(user_id).await {
+            if let Err(err) = user.delete().await {
+                eprintln!("Cleanup: failed to delete temp user {}: {err:?}", user_id);
+            }
         }
     }
     if let Some(group) = created_group.as_ref() {

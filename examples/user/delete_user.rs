@@ -50,7 +50,8 @@ async fn main() -> Result<(), Error> {
     }
 
     // Delete user
-    match User::delete(&user_id).await {
+    let user = User::get(&user_id).await?;
+    match user.delete().await {
         Ok(()) => {
             println!("user action completed");
         }

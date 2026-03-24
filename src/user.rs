@@ -214,10 +214,10 @@ impl User {
         Ok(User::from(user_response.data))
     }
 
-    /// Update a user
-    pub async fn update(user_id: &str, request: UpdateUserRequest) -> Result<User, Error> {
+    /// Update this user
+    pub async fn update(&self, request: UpdateUserRequest) -> Result<User, Error> {
         let client = Client::from_global_config()?;
-        let endpoint = format!("users/{user_id}");
+        let endpoint = format!("users/{}", self.id);
         let mut attributes = serde_json::Map::new();
         insert_optional(&mut attributes, "email", request.email)?;
         insert_optional(&mut attributes, "firstName", request.first_name)?;
@@ -228,7 +228,7 @@ impl User {
         let body = serde_json::json!({
             "data": {
                 "type": "users",
-                "id": user_id,
+                "id": self.id,
                 "attributes": attributes
             }
         });
@@ -237,41 +237,41 @@ impl User {
         Ok(User::from(user_response.data))
     }
 
-    /// Delete a user
-    pub async fn delete(user_id: &str) -> Result<(), Error> {
+    /// Delete this user
+    pub async fn delete(&self) -> Result<(), Error> {
         let client = Client::from_global_config()?;
-        let endpoint = format!("users/{user_id}");
+        let endpoint = format!("users/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
 
-    /// Ban a user
-    pub async fn ban(user_id: &str) -> Result<User, Error> {
+    /// Ban this user
+    pub async fn ban(&self) -> Result<User, Error> {
         let client = Client::from_global_config()?;
-        let endpoint = format!("users/{user_id}/actions/ban");
+        let endpoint = format!("users/{}/actions/ban", self.id);
         let body = serde_json::json!({ "meta": {} });
         let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
         let user_response: UserResponse = serde_json::from_value(response.body)?;
         Ok(User::from(user_response.data))
     }
 
-    /// Unban a user
-    pub async fn unban(user_id: &str) -> Result<User, Error> {
+    /// Unban this user
+    pub async fn unban(&self) -> Result<User, Error> {
         let client = Client::from_global_config()?;
-        let endpoint = format!("users/{user_id}/actions/unban");
+        let endpoint = format!("users/{}/actions/unban", self.id);
         let body = serde_json::json!({ "meta": {} });
         let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
         let user_response: UserResponse = serde_json::from_value(response.body)?;
         Ok(User::from(user_response.data))
     }
 
-    /// Generate a token for a user.
+    /// Generate a token for this user.
     pub async fn generate_token(
-        user_id: &str,
+        &self,
         request: Option<CreateTokenRequest>,
     ) -> Result<Token, Error> {
         let client = Client::from_global_config()?;
-        let endpoint = format!("users/{user_id}/tokens");
+        let endpoint = format!("users/{}/tokens", self.id);
         let attributes = token_request_attributes(request.as_ref())?;
         let body = serde_json::json!({
             "data": {
@@ -284,10 +284,10 @@ impl User {
         Ok(Token::from(token_response.data))
     }
 
-    /// Change or assign a user's group.
-    pub async fn change_group(user_id: &str, group_id: &str) -> Result<User, Error> {
+    /// Change or assign this user's group.
+    pub async fn change_group(&self, group_id: &str) -> Result<User, Error> {
         let client = Client::from_global_config()?;
-        let endpoint = format!("users/{user_id}/group");
+        let endpoint = format!("users/{}/group", self.id);
         let body = serde_json::json!({
             "data": {
                 "type": "groups",
@@ -299,13 +299,10 @@ impl User {
         Ok(User::from(user_response.data))
     }
 
-    /// Update a user's password.
-    pub async fn update_password(
-        user_id: &str,
-        request: UpdatePasswordRequest,
-    ) -> Result<User, Error> {
+    /// Update this user's password.
+    pub async fn update_password(&self, request: UpdatePasswordRequest) -> Result<User, Error> {
         let client = Client::from_global_config()?;
-        let endpoint = format!("users/{user_id}/actions/update-password");
+        let endpoint = format!("users/{}/actions/update-password", self.id);
         let mut meta = serde_json::Map::new();
         insert_optional(&mut meta, "currentPassword", request.current_password)?;
         meta.insert(
@@ -318,13 +315,13 @@ impl User {
         Ok(User::from(user_response.data))
     }
 
-    /// Trigger a reset-password email for a user.
+    /// Trigger a reset-password email for this user.
     pub async fn reset_password(
-        user_id: &str,
+        &self,
         request: Option<ResetPasswordRequest>,
     ) -> Result<User, Error> {
         let client = Client::from_global_config()?;
-        let endpoint = format!("users/{user_id}/actions/reset-password");
+        let endpoint = format!("users/{}/actions/reset-password", self.id);
         let mut meta = serde_json::Map::new();
         if let Some(request) = request {
             insert_optional(&mut meta, "email", request.email)?;

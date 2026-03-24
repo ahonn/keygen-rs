@@ -105,6 +105,24 @@ pub struct ResetPasswordRequest {
 
 use crate::{parse_enum, to_metadata};
 
+fn make_minimal_user(id: String) -> keygen_rs::user::User {
+    keygen_rs::user::User {
+        id,
+        email: String::new(),
+        first_name: None,
+        last_name: None,
+        full_name: None,
+        status: keygen_rs::user::UserStatus::Active,
+        role: keygen_rs::user::UserRole::User,
+        permissions: None,
+        metadata: None,
+        last_seen_at: None,
+        ban_reason: None,
+        created: String::new(),
+        updated: String::new(),
+    }
+}
+
 #[napi]
 pub async fn create_user(request: CreateUserRequest) -> Result<User> {
     let role: keygen_rs::user::UserRole = parse_enum(&request.role, "user role")?;
@@ -181,7 +199,8 @@ pub async fn update_user(id: String, request: UpdateUserRequest) -> Result<User>
         metadata: request.metadata.map(to_metadata).transpose()?,
     };
 
-    keygen_rs::user::User::update(&id, req)
+    make_minimal_user(id)
+        .update(req)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -189,14 +208,13 @@ pub async fn update_user(id: String, request: UpdateUserRequest) -> Result<User>
 
 #[napi]
 pub async fn delete_user(id: String) -> Result<()> {
-    keygen_rs::user::User::delete(&id)
-        .await
-        .map_err(to_napi_error)
+    make_minimal_user(id).delete().await.map_err(to_napi_error)
 }
 
 #[napi]
 pub async fn ban_user(id: String) -> Result<User> {
-    keygen_rs::user::User::ban(&id)
+    make_minimal_user(id)
+        .ban()
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -204,7 +222,8 @@ pub async fn ban_user(id: String) -> Result<User> {
 
 #[napi]
 pub async fn unban_user(id: String) -> Result<User> {
-    keygen_rs::user::User::unban(&id)
+    make_minimal_user(id)
+        .unban()
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -223,7 +242,8 @@ pub async fn generate_user_token(id: String, request: Option<CreateTokenRequest>
         })
         .transpose()?;
 
-    keygen_rs::user::User::generate_token(&id, req)
+    make_minimal_user(id)
+        .generate_token(req)
         .await
         .map(Token::from)
         .map_err(to_napi_error)
@@ -231,7 +251,8 @@ pub async fn generate_user_token(id: String, request: Option<CreateTokenRequest>
 
 #[napi]
 pub async fn change_user_group(id: String, group_id: String) -> Result<User> {
-    keygen_rs::user::User::change_group(&id, &group_id)
+    make_minimal_user(id)
+        .change_group(&group_id)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -244,7 +265,8 @@ pub async fn update_user_password(id: String, request: UpdatePasswordRequest) ->
         password: request.password,
     };
 
-    keygen_rs::user::User::update_password(&id, req)
+    make_minimal_user(id)
+        .update_password(req)
         .await
         .map(User::from)
         .map_err(to_napi_error)
@@ -259,7 +281,8 @@ pub async fn reset_user_password(
         email: request.email,
     });
 
-    keygen_rs::user::User::reset_password(&id, req)
+    make_minimal_user(id)
+        .reset_password(req)
         .await
         .map(User::from)
         .map_err(to_napi_error)

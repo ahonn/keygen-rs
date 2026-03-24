@@ -111,8 +111,10 @@ async fn main() -> Result<(), Error> {
         }
     }
     if let Some(user_id) = created_user_id.as_ref() {
-        if let Err(err) = User::delete(user_id).await {
-            eprintln!("Cleanup: failed to delete temp user {}: {err:?}", user_id);
+        if let Ok(user) = User::get(user_id).await {
+            if let Err(err) = user.delete().await {
+                eprintln!("Cleanup: failed to delete temp user {}: {err:?}", user_id);
+            }
         }
     }
     if let Some(group) = created_group.as_ref() {

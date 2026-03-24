@@ -23,7 +23,8 @@ async fn main() -> Result<(), Error> {
         .expect("Usage: cargo run --example ban_user <user_id>");
 
     // Ban user
-    match User::ban(&user_id).await {
+    let user = User::get(&user_id).await?;
+    match user.ban().await {
         Ok(user) => {
             println!("user action completed");
             println!("ID: {}", user.id);
