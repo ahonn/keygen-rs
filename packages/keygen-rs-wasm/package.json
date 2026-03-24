@@ -12,7 +12,11 @@
   ],
   "scripts": {
     "build": "wasm-pack build --target bundler --release",
-    "build:dev": "wasm-pack build --target bundler --dev"
+    "build:dev": "wasm-pack build --target bundler --dev",
+    "build:node": "wasm-pack build --target nodejs --dev --out-dir pkg-node",
+    "test": "node --test __test__/index.test.mjs",
+    "test:api": "node --test __test__/api.test.mjs",
+    "test:all": "node --test __test__/index.test.mjs __test__/api.test.mjs"
   },
   "license": "MIT",
   "repository": {
