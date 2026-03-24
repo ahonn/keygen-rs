@@ -1,18 +1,16 @@
 use crate::artifact::{Artifact, ListArtifactsOptions};
 use crate::client::Client;
-use crate::config::get_config;
 use crate::errors::Error;
 use crate::insert_optional;
 use crate::license::PaginationOptions;
 use crate::KeygenRelationship;
 use crate::KeygenResponseData;
 #[cfg(not(target_arch = "wasm32"))]
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use reqwest::header::HeaderMap;
 #[cfg(not(target_arch = "wasm32"))]
 use reqwest::{redirect::Policy, Client as ReqwestClient};
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
-use url::Url;
 
 fn serialize_string_vec<S>(value: &Option<Vec<String>>, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -372,17 +370,9 @@ impl Release {
     /// On WASM targets, use this URL directly from JavaScript with appropriate
     /// auth headers — the server will respond with a redirect to the actual file.
     pub fn artifact_download_url(&self, artifact: &str) -> Result<String, Error> {
-        let config = get_config()?;
-        let mut url = Url::parse(&config.api_url)?;
-        url.path_segments_mut()
-            .map_err(|_| Error::InvalidUrl)?
-            .push(config.api_prefix.as_str())
-            .push("accounts")
-            .push(config.account.as_str())
-            .push("releases")
-            .push(self.id.as_str())
-            .push("artifacts")
-            .push(artifact);
+        let client = Client::from_global_config()?;
+        let path = format!("releases/{}/artifacts/{}", self.id, artifact);
+        let url = client.build_url(&path)?;
         Ok(url.to_string())
     }
 
@@ -395,43 +385,17 @@ impl Release {
         &self,
         artifact: &str,
     ) -> Result<ReleaseArtifactDownload, Error> {
-        let url: Url = self.artifact_download_url(artifact)?.parse()?;
-        let config = get_config()?;
+        let client = Client::from_global_config()?;
+        let path = format!("releases/{}/artifacts/{}", self.id, artifact);
+        let request = client.build_request(reqwest::Method::GET, &path, None::<&()>, true)?;
 
-        let client = ReqwestClient::builder()
+        let no_redirect = ReqwestClient::builder()
             .redirect(Policy::none())
             .build()
             .map_err(|e| Error::UnexpectedError(format!("Failed to build HTTP client: {e}")))?;
 
-        let mut headers = HeaderMap::new();
-        headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.api+json"));
-        headers.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_static("application/vnd.api+json"),
-        );
-        headers.insert(
-            "Keygen-Version",
-            HeaderValue::from_str(&config.api_version)?,
-        );
-        if let Some(environment) = &config.environment {
-            headers.insert("Keygen-Environment", HeaderValue::from_str(environment)?);
-        }
-        if let Some(user_agent) = &config.user_agent {
-            headers.insert(USER_AGENT, HeaderValue::from_str(user_agent)?);
-        }
-        if let Some(token) = &config.token {
-            headers.insert(
-                AUTHORIZATION,
-                HeaderValue::from_str(&format!("Bearer {token}"))?,
-            );
-        } else if let Some(license_key) = &config.license_key {
-            headers.insert(
-                AUTHORIZATION,
-                HeaderValue::from_str(&format!("License {license_key}"))?,
-            );
-        }
+        let response = no_redirect.execute(request).await?;
 
-        let response = client.get(url).headers(headers).send().await?;
         if response.status().is_client_error() || response.status().is_server_error() {
             let body = response.json().await?;
             return Err(Error::KeygenApiError {
