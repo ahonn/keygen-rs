@@ -1,7 +1,10 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
+use crate::license::License;
+use crate::machine::Machine;
 use crate::to_napi_error;
+use crate::user::User;
 
 #[napi(object)]
 #[derive(Clone)]
@@ -127,4 +130,52 @@ pub async fn delete_group(id: String) -> Result<()> {
         ..Default::default()
     };
     grp.delete().await.map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn list_group_owners(id: String) -> Result<Vec<User>> {
+    let grp = keygen_rs::group::Group {
+        id,
+        ..Default::default()
+    };
+    grp.owners(None)
+        .await
+        .map(|items| items.into_iter().map(User::from).collect())
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn list_group_users(id: String) -> Result<Vec<User>> {
+    let grp = keygen_rs::group::Group {
+        id,
+        ..Default::default()
+    };
+    grp.users(None)
+        .await
+        .map(|items| items.into_iter().map(User::from).collect())
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn list_group_licenses(id: String) -> Result<Vec<License>> {
+    let grp = keygen_rs::group::Group {
+        id,
+        ..Default::default()
+    };
+    grp.licenses(None)
+        .await
+        .map(|items| items.into_iter().map(License::from).collect())
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn list_group_machines(id: String) -> Result<Vec<Machine>> {
+    let grp = keygen_rs::group::Group {
+        id,
+        ..Default::default()
+    };
+    grp.machines(None)
+        .await
+        .map(|items| items.into_iter().map(Machine::from).collect())
+        .map_err(to_napi_error)
 }

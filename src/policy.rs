@@ -1,5 +1,8 @@
 use crate::client::Client;
+use crate::entitlement::{Entitlement, EntitlementsResponse};
 use crate::errors::Error;
+use crate::insert_optional;
+use crate::license::PaginationOptions;
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -168,7 +171,7 @@ pub(crate) struct PoliciesResponse {
     pub data: Vec<KeygenResponseData<PolicyAttributes>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CreatePolicyRequest {
     pub name: String,
     pub duration: Option<i64>,
@@ -234,50 +237,6 @@ pub struct CreatePolicyRequest {
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     // Relationship to product
     pub product_id: String,
-}
-
-#[allow(clippy::derivable_impls)]
-impl Default for CreatePolicyRequest {
-    fn default() -> Self {
-        Self {
-            name: String::new(),
-            duration: None,
-            strict: None,
-            floating: None,
-            require_heartbeat: None,
-            heartbeat_duration: None,
-            heartbeat_cull_strategy: None,
-            heartbeat_resurrection_strategy: None,
-            heartbeat_basis: None,
-            machine_uniqueness_strategy: None,
-            component_uniqueness_strategy: None,
-            machine_matching_strategy: None,
-            component_matching_strategy: None,
-            expiration_strategy: None,
-            expiration_basis: None,
-            renewal_basis: None,
-            authentication_strategy: None,
-            machine_leasing_strategy: None,
-            process_leasing_strategy: None,
-            overage_strategy: None,
-            transfer_strategy: None,
-            max_machines: None,
-            max_processes: None,
-            max_cores: None,
-            max_uses: None,
-            encrypted: None,
-            protected: None,
-            require_check_in: None,
-            check_in_interval: None,
-            check_in_interval_count: None,
-            use_pool: None,
-            max_licenses: None,
-            max_users: None,
-            scheme: None,
-            metadata: None,
-            product_id: String::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -459,189 +418,100 @@ impl Policy {
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
 
-        if let Some(duration) = request.duration {
-            attributes.insert(
-                "duration".to_string(),
-                serde_json::Value::Number(duration.into()),
-            );
-        }
-        if let Some(strict) = request.strict {
-            attributes.insert("strict".to_string(), serde_json::Value::Bool(strict));
-        }
-        if let Some(floating) = request.floating {
-            attributes.insert("floating".to_string(), serde_json::Value::Bool(floating));
-        }
-        if let Some(require_heartbeat) = request.require_heartbeat {
-            attributes.insert(
-                "requireHeartbeat".to_string(),
-                serde_json::Value::Bool(require_heartbeat),
-            );
-        }
-        if let Some(heartbeat_duration) = request.heartbeat_duration {
-            attributes.insert(
-                "heartbeatDuration".to_string(),
-                serde_json::Value::Number(heartbeat_duration.into()),
-            );
-        }
-        if let Some(ref heartbeat_cull_strategy) = request.heartbeat_cull_strategy {
-            attributes.insert(
-                "heartbeatCullStrategy".to_string(),
-                serde_json::Value::String(heartbeat_cull_strategy.clone()),
-            );
-        }
-        if let Some(ref heartbeat_resurrection_strategy) = request.heartbeat_resurrection_strategy {
-            attributes.insert(
-                "heartbeatResurrectionStrategy".to_string(),
-                serde_json::Value::String(heartbeat_resurrection_strategy.clone()),
-            );
-        }
-        if let Some(ref heartbeat_basis) = request.heartbeat_basis {
-            attributes.insert(
-                "heartbeatBasis".to_string(),
-                serde_json::Value::String(heartbeat_basis.clone()),
-            );
-        }
-        if let Some(machine_uniqueness_strategy) = request.machine_uniqueness_strategy {
-            attributes.insert(
-                "machineUniquenessStrategy".to_string(),
-                serde_json::to_value(machine_uniqueness_strategy)?,
-            );
-        }
-        if let Some(component_uniqueness_strategy) = request.component_uniqueness_strategy {
-            attributes.insert(
-                "componentUniquenessStrategy".to_string(),
-                serde_json::to_value(component_uniqueness_strategy)?,
-            );
-        }
-        if let Some(machine_matching_strategy) = request.machine_matching_strategy {
-            attributes.insert(
-                "machineMatchingStrategy".to_string(),
-                serde_json::to_value(machine_matching_strategy)?,
-            );
-        }
-        if let Some(component_matching_strategy) = request.component_matching_strategy {
-            attributes.insert(
-                "componentMatchingStrategy".to_string(),
-                serde_json::to_value(component_matching_strategy)?,
-            );
-        }
-        if let Some(expiration_strategy) = request.expiration_strategy {
-            attributes.insert(
-                "expirationStrategy".to_string(),
-                serde_json::to_value(expiration_strategy)?,
-            );
-        }
-        if let Some(ref expiration_basis) = request.expiration_basis {
-            attributes.insert(
-                "expirationBasis".to_string(),
-                serde_json::Value::String(expiration_basis.clone()),
-            );
-        }
-        if let Some(ref renewal_basis) = request.renewal_basis {
-            attributes.insert(
-                "renewalBasis".to_string(),
-                serde_json::Value::String(renewal_basis.clone()),
-            );
-        }
-        if let Some(authentication_strategy) = request.authentication_strategy {
-            attributes.insert(
-                "authenticationStrategy".to_string(),
-                serde_json::to_value(authentication_strategy)?,
-            );
-        }
-        if let Some(machine_leasing_strategy) = request.machine_leasing_strategy {
-            attributes.insert(
-                "machineLeasingStrategy".to_string(),
-                serde_json::to_value(machine_leasing_strategy)?,
-            );
-        }
-        if let Some(process_leasing_strategy) = request.process_leasing_strategy {
-            attributes.insert(
-                "processLeasingStrategy".to_string(),
-                serde_json::to_value(process_leasing_strategy)?,
-            );
-        }
-        if let Some(overage_strategy) = request.overage_strategy {
-            attributes.insert(
-                "overageStrategy".to_string(),
-                serde_json::to_value(overage_strategy)?,
-            );
-        }
-        if let Some(transfer_strategy) = request.transfer_strategy {
-            attributes.insert(
-                "transferStrategy".to_string(),
-                serde_json::to_value(transfer_strategy)?,
-            );
-        }
-        if let Some(max_machines) = request.max_machines {
-            attributes.insert(
-                "maxMachines".to_string(),
-                serde_json::Value::Number(max_machines.into()),
-            );
-        }
-        if let Some(max_processes) = request.max_processes {
-            attributes.insert(
-                "maxProcesses".to_string(),
-                serde_json::Value::Number(max_processes.into()),
-            );
-        }
-        if let Some(max_cores) = request.max_cores {
-            attributes.insert(
-                "maxCores".to_string(),
-                serde_json::Value::Number(max_cores.into()),
-            );
-        }
-        if let Some(max_uses) = request.max_uses {
-            attributes.insert(
-                "maxUses".to_string(),
-                serde_json::Value::Number(max_uses.into()),
-            );
-        }
-        if let Some(encrypted) = request.encrypted {
-            attributes.insert("encrypted".to_string(), serde_json::Value::Bool(encrypted));
-        }
-        if let Some(protected) = request.protected {
-            attributes.insert("protected".to_string(), serde_json::Value::Bool(protected));
-        }
-        if let Some(require_check_in) = request.require_check_in {
-            attributes.insert(
-                "requireCheckIn".to_string(),
-                serde_json::Value::Bool(require_check_in),
-            );
-        }
-        if let Some(ref check_in_interval) = request.check_in_interval {
-            attributes.insert(
-                "checkInInterval".to_string(),
-                serde_json::Value::String(check_in_interval.clone()),
-            );
-        }
-        if let Some(check_in_interval_count) = request.check_in_interval_count {
-            attributes.insert(
-                "checkInIntervalCount".to_string(),
-                serde_json::Value::Number(check_in_interval_count.into()),
-            );
-        }
-        if let Some(use_pool) = request.use_pool {
-            attributes.insert("usePool".to_string(), serde_json::Value::Bool(use_pool));
-        }
-        if let Some(max_licenses) = request.max_licenses {
-            attributes.insert(
-                "maxLicenses".to_string(),
-                serde_json::Value::Number(max_licenses.into()),
-            );
-        }
-        if let Some(max_users) = request.max_users {
-            attributes.insert(
-                "maxUsers".to_string(),
-                serde_json::Value::Number(max_users.into()),
-            );
-        }
-        if let Some(scheme) = request.scheme {
-            attributes.insert("scheme".to_string(), serde_json::to_value(scheme)?);
-        }
-        if let Some(ref metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "duration", request.duration)?;
+        insert_optional(&mut attributes, "strict", request.strict)?;
+        insert_optional(&mut attributes, "floating", request.floating)?;
+        insert_optional(
+            &mut attributes,
+            "requireHeartbeat",
+            request.require_heartbeat,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "heartbeatDuration",
+            request.heartbeat_duration,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "heartbeatCullStrategy",
+            request.heartbeat_cull_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "heartbeatResurrectionStrategy",
+            request.heartbeat_resurrection_strategy,
+        )?;
+        insert_optional(&mut attributes, "heartbeatBasis", request.heartbeat_basis)?;
+        insert_optional(
+            &mut attributes,
+            "machineUniquenessStrategy",
+            request.machine_uniqueness_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "componentUniquenessStrategy",
+            request.component_uniqueness_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "machineMatchingStrategy",
+            request.machine_matching_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "componentMatchingStrategy",
+            request.component_matching_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "expirationStrategy",
+            request.expiration_strategy,
+        )?;
+        insert_optional(&mut attributes, "expirationBasis", request.expiration_basis)?;
+        insert_optional(&mut attributes, "renewalBasis", request.renewal_basis)?;
+        insert_optional(
+            &mut attributes,
+            "authenticationStrategy",
+            request.authentication_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "machineLeasingStrategy",
+            request.machine_leasing_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "processLeasingStrategy",
+            request.process_leasing_strategy,
+        )?;
+        insert_optional(&mut attributes, "overageStrategy", request.overage_strategy)?;
+        insert_optional(
+            &mut attributes,
+            "transferStrategy",
+            request.transfer_strategy,
+        )?;
+        insert_optional(&mut attributes, "maxMachines", request.max_machines)?;
+        insert_optional(&mut attributes, "maxProcesses", request.max_processes)?;
+        insert_optional(&mut attributes, "maxCores", request.max_cores)?;
+        insert_optional(&mut attributes, "maxUses", request.max_uses)?;
+        insert_optional(&mut attributes, "encrypted", request.encrypted)?;
+        insert_optional(&mut attributes, "protected", request.protected)?;
+        insert_optional(&mut attributes, "requireCheckIn", request.require_check_in)?;
+        insert_optional(
+            &mut attributes,
+            "checkInInterval",
+            request.check_in_interval,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "checkInIntervalCount",
+            request.check_in_interval_count,
+        )?;
+        insert_optional(&mut attributes, "usePool", request.use_pool)?;
+        insert_optional(&mut attributes, "maxLicenses", request.max_licenses)?;
+        insert_optional(&mut attributes, "maxUsers", request.max_users)?;
+        insert_optional(&mut attributes, "scheme", request.scheme)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -690,126 +560,98 @@ impl Policy {
         let endpoint = format!("policies/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name));
-        }
-        if let Some(duration) = request.duration {
-            attributes.insert(
-                "duration".to_string(),
-                serde_json::Value::Number(duration.into()),
-            );
-        }
-        if let Some(strict) = request.strict {
-            attributes.insert("strict".to_string(), serde_json::Value::Bool(strict));
-        }
-        if let Some(floating) = request.floating {
-            attributes.insert("floating".to_string(), serde_json::Value::Bool(floating));
-        }
-        if let Some(require_heartbeat) = request.require_heartbeat {
-            attributes.insert(
-                "requireHeartbeat".to_string(),
-                serde_json::Value::Bool(require_heartbeat),
-            );
-        }
-        if let Some(heartbeat_duration) = request.heartbeat_duration {
-            attributes.insert(
-                "heartbeatDuration".to_string(),
-                serde_json::Value::Number(heartbeat_duration.into()),
-            );
-        }
-        if let Some(expiration_strategy) = request.expiration_strategy {
-            attributes.insert(
-                "expirationStrategy".to_string(),
-                serde_json::to_value(expiration_strategy)?,
-            );
-        }
-        if let Some(authentication_strategy) = request.authentication_strategy {
-            attributes.insert(
-                "authenticationStrategy".to_string(),
-                serde_json::to_value(authentication_strategy)?,
-            );
-        }
-        if let Some(machine_leasing_strategy) = request.machine_leasing_strategy {
-            attributes.insert(
-                "machineLeasingStrategy".to_string(),
-                serde_json::to_value(machine_leasing_strategy)?,
-            );
-        }
-        if let Some(process_leasing_strategy) = request.process_leasing_strategy {
-            attributes.insert(
-                "processLeasingStrategy".to_string(),
-                serde_json::to_value(process_leasing_strategy)?,
-            );
-        }
-        if let Some(overage_strategy) = request.overage_strategy {
-            attributes.insert(
-                "overageStrategy".to_string(),
-                serde_json::to_value(overage_strategy)?,
-            );
-        }
-        if let Some(transfer_strategy) = request.transfer_strategy {
-            attributes.insert(
-                "transferStrategy".to_string(),
-                serde_json::to_value(transfer_strategy)?,
-            );
-        }
-        if let Some(max_machines) = request.max_machines {
-            attributes.insert(
-                "maxMachines".to_string(),
-                serde_json::Value::Number(max_machines.into()),
-            );
-        }
-        if let Some(max_processes) = request.max_processes {
-            attributes.insert(
-                "maxProcesses".to_string(),
-                serde_json::Value::Number(max_processes.into()),
-            );
-        }
-        if let Some(max_cores) = request.max_cores {
-            attributes.insert(
-                "maxCores".to_string(),
-                serde_json::Value::Number(max_cores.into()),
-            );
-        }
-        if let Some(max_uses) = request.max_uses {
-            attributes.insert(
-                "maxUses".to_string(),
-                serde_json::Value::Number(max_uses.into()),
-            );
-        }
-        if let Some(protected) = request.protected {
-            attributes.insert("protected".to_string(), serde_json::Value::Bool(protected));
-        }
-        if let Some(require_check_in) = request.require_check_in {
-            attributes.insert(
-                "requireCheckIn".to_string(),
-                serde_json::Value::Bool(require_check_in),
-            );
-        }
-        if let Some(check_in_interval) = request.check_in_interval {
-            attributes.insert(
-                "checkInInterval".to_string(),
-                serde_json::Value::String(check_in_interval),
-            );
-        }
-        if let Some(check_in_interval_count) = request.check_in_interval_count {
-            attributes.insert(
-                "checkInIntervalCount".to_string(),
-                serde_json::Value::Number(check_in_interval_count.into()),
-            );
-        }
-        if let Some(max_users) = request.max_users {
-            attributes.insert(
-                "maxUsers".to_string(),
-                serde_json::Value::Number(max_users.into()),
-            );
-        }
-        if let Some(scheme) = request.scheme {
-            attributes.insert("scheme".to_string(), serde_json::to_value(scheme)?);
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "duration", request.duration)?;
+        insert_optional(&mut attributes, "strict", request.strict)?;
+        insert_optional(&mut attributes, "floating", request.floating)?;
+        insert_optional(
+            &mut attributes,
+            "requireHeartbeat",
+            request.require_heartbeat,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "heartbeatDuration",
+            request.heartbeat_duration,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "heartbeatCullStrategy",
+            request.heartbeat_cull_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "heartbeatResurrectionStrategy",
+            request.heartbeat_resurrection_strategy,
+        )?;
+        insert_optional(&mut attributes, "heartbeatBasis", request.heartbeat_basis)?;
+        insert_optional(
+            &mut attributes,
+            "machineUniquenessStrategy",
+            request.machine_uniqueness_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "componentUniquenessStrategy",
+            request.component_uniqueness_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "machineMatchingStrategy",
+            request.machine_matching_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "componentMatchingStrategy",
+            request.component_matching_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "expirationStrategy",
+            request.expiration_strategy,
+        )?;
+        insert_optional(&mut attributes, "expirationBasis", request.expiration_basis)?;
+        insert_optional(&mut attributes, "renewalBasis", request.renewal_basis)?;
+        insert_optional(
+            &mut attributes,
+            "authenticationStrategy",
+            request.authentication_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "machineLeasingStrategy",
+            request.machine_leasing_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "processLeasingStrategy",
+            request.process_leasing_strategy,
+        )?;
+        insert_optional(&mut attributes, "overageStrategy", request.overage_strategy)?;
+        insert_optional(
+            &mut attributes,
+            "transferStrategy",
+            request.transfer_strategy,
+        )?;
+        insert_optional(&mut attributes, "maxMachines", request.max_machines)?;
+        insert_optional(&mut attributes, "maxProcesses", request.max_processes)?;
+        insert_optional(&mut attributes, "maxCores", request.max_cores)?;
+        insert_optional(&mut attributes, "maxUses", request.max_uses)?;
+        insert_optional(&mut attributes, "protected", request.protected)?;
+        insert_optional(&mut attributes, "requireCheckIn", request.require_check_in)?;
+        insert_optional(
+            &mut attributes,
+            "checkInInterval",
+            request.check_in_interval,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "checkInIntervalCount",
+            request.check_in_interval_count,
+        )?;
+        insert_optional(&mut attributes, "maxUsers", request.max_users)?;
+        // Note: scheme is omitted — it is create-only
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -829,6 +671,62 @@ impl Policy {
         let endpoint = format!("policies/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
+    }
+
+    /// Attach entitlements to a policy.
+    pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("policies/{}/entitlements", self.id);
+        let data: Vec<serde_json::Value> = entitlement_ids
+            .iter()
+            .map(|id| {
+                serde_json::json!({
+                    "type": "entitlements",
+                    "id": id
+                })
+            })
+            .collect();
+        let body = serde_json::json!({ "data": data });
+        client
+            .post::<serde_json::Value, serde_json::Value, ()>(&endpoint, Some(&body), None::<&()>)
+            .await?;
+        Ok(())
+    }
+
+    /// Detach entitlements from a policy.
+    pub async fn detach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("policies/{}/entitlements", self.id);
+        let data: Vec<serde_json::Value> = entitlement_ids
+            .iter()
+            .map(|id| {
+                serde_json::json!({
+                    "type": "entitlements",
+                    "id": id
+                })
+            })
+            .collect();
+        let body = serde_json::json!({ "data": data });
+        client
+            .delete::<serde_json::Value, serde_json::Value>(&endpoint, Some(&body))
+            .await?;
+        Ok(())
+    }
+
+    /// List entitlements attached to a policy.
+    pub async fn entitlements(
+        &self,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<Entitlement>, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("policies/{}/entitlements", self.id);
+        let response = client.get(&endpoint, options).await?;
+        let entitlements_response: EntitlementsResponse = serde_json::from_value(response.body)?;
+        Ok(entitlements_response
+            .data
+            .into_iter()
+            .map(Entitlement::from)
+            .collect())
     }
 
     /// Pop a key from policy pool

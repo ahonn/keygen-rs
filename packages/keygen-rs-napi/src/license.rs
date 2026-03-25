@@ -5,6 +5,8 @@ use napi_derive::napi;
 
 use crate::license_file::LicenseFile;
 use crate::to_napi_error;
+use crate::token_module::Token;
+use crate::user::User;
 
 #[napi(object)]
 #[derive(Clone)]
@@ -106,6 +108,21 @@ pub struct ListLicensesOptions {
     pub policy: Option<String>,
     pub owner: Option<String>,
     pub user: Option<String>,
+    pub group: Option<String>,
+    pub machine: Option<String>,
+    pub assigned: Option<bool>,
+    pub unassigned: Option<bool>,
+    pub activated: Option<bool>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[napi(object)]
+#[derive(Clone)]
+pub struct CreateTokenRequest {
+    pub name: Option<String>,
+    pub expiry: Option<String>,
+    pub permissions: Option<Vec<String>>,
+    pub metadata: Option<serde_json::Value>,
 }
 
 fn make_license(id: String) -> keygen_rs::license::License {
@@ -206,6 +223,15 @@ pub async fn list_licenses(options: Option<ListLicensesOptions>) -> Result<Vec<L
         policy: o.policy,
         owner: o.owner,
         user: o.user,
+        group: o.group,
+        machine: o.machine,
+        assigned: o.assigned,
+        unassigned: o.unassigned,
+        activated: o.activated,
+        metadata: o
+            .metadata
+            .and_then(|meta| serde_json::from_value(meta).ok()),
+        ..Default::default()
     });
 
     keygen_rs::license::License::list(opts.as_ref())
@@ -403,5 +429,84 @@ pub async fn detach_license_entitlements(id: String, entitlement_ids: Vec<String
     let lic = make_license(id);
     lic.detach_entitlements(&entitlement_ids)
         .await
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn check_in_license(id: String) -> Result<License> {
+    let lic = make_license(id);
+    lic.check_in()
+        .await
+        .map(License::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn generate_license_token(
+    id: String,
+    request: Option<CreateTokenRequest>,
+) -> Result<Token> {
+    let lic = make_license(id);
+    let req = request
+        .map(|request| -> Result<keygen_rs::token::CreateTokenRequest> {
+            Ok(keygen_rs::token::CreateTokenRequest {
+                name: request.name,
+                expiry: request.expiry,
+                permissions: request.permissions,
+                metadata: request.metadata.map(crate::to_metadata).transpose()?,
+            })
+        })
+        .transpose()?;
+    lic.generate_token(req)
+        .await
+        .map(Token::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn attach_license_users(id: String, user_ids: Vec<String>) -> Result<()> {
+    let lic = make_license(id);
+    lic.attach_users(&user_ids).await.map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn detach_license_users(id: String, user_ids: Vec<String>) -> Result<()> {
+    let lic = make_license(id);
+    lic.detach_users(&user_ids).await.map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn list_license_users(id: String) -> Result<Vec<User>> {
+    let lic = make_license(id);
+    lic.users(None)
+        .await
+        .map(|users| users.into_iter().map(User::from).collect())
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn change_license_policy(id: String, policy_id: String) -> Result<License> {
+    let lic = make_license(id);
+    lic.change_policy(&policy_id)
+        .await
+        .map(License::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn change_license_owner(id: String, owner_id: String) -> Result<License> {
+    let lic = make_license(id);
+    lic.change_owner(&owner_id)
+        .await
+        .map(License::from)
+        .map_err(to_napi_error)
+}
+
+#[napi]
+pub async fn change_license_group(id: String, group_id: String) -> Result<License> {
+    let lic = make_license(id);
+    lic.change_group(&group_id)
+        .await
+        .map(License::from)
         .map_err(to_napi_error)
 }

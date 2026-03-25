@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use crate::to_js_error;
+use crate::token_module::Token;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -198,4 +199,42 @@ pub async fn update_product(id: String, request: JsValue) -> Result<JsValue, JsE
 pub async fn delete_product(id: String) -> Result<(), JsError> {
     let product = make_product(id);
     product.delete().await.map_err(to_js_error)
+}
+
+#[wasm_bindgen(js_name = "generateProductToken")]
+pub async fn generate_product_token(id: String, request: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase")]
+    struct Req {
+        name: Option<String>,
+        expiry: Option<String>,
+        permissions: Option<Vec<String>>,
+        metadata: Option<serde_json::Value>,
+    }
+
+    let req: Option<Req> = if request.is_undefined() || request.is_null() {
+        None
+    } else {
+        Some(serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?)
+    };
+
+    let req = req
+        .map(
+            |request| -> Result<keygen_rs::token::CreateTokenRequest, JsError> {
+                Ok(keygen_rs::token::CreateTokenRequest {
+                    name: request.name,
+                    expiry: request.expiry,
+                    permissions: request.permissions,
+                    metadata: crate::opt_metadata(request.metadata)?,
+                })
+            },
+        )
+        .transpose()?;
+
+    let token = make_product(id)
+        .generate_token_with_options(req)
+        .await
+        .map(Token::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&token).map_err(|e| JsError::new(&e.to_string()))
 }

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use crate::to_js_error;
+use crate::token_module::Token;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -56,6 +57,24 @@ impl From<keygen_rs::user::User> for User {
     }
 }
 
+fn make_minimal_user(id: String) -> keygen_rs::user::User {
+    keygen_rs::user::User {
+        id,
+        email: String::new(),
+        first_name: None,
+        last_name: None,
+        full_name: None,
+        status: keygen_rs::user::UserStatus::Active,
+        role: keygen_rs::user::UserRole::User,
+        permissions: None,
+        metadata: None,
+        last_seen_at: None,
+        ban_reason: None,
+        created: String::new(),
+        updated: String::new(),
+    }
+}
+
 #[wasm_bindgen(js_name = "createUser")]
 pub async fn create_user(request: JsValue) -> Result<JsValue, JsError> {
     #[derive(Deserialize)]
@@ -82,7 +101,7 @@ pub async fn create_user(request: JsValue) -> Result<JsValue, JsError> {
         metadata: crate::opt_metadata(req.metadata)?,
     };
 
-    let user = keygen_rs::user::create(r)
+    let user = keygen_rs::user::User::create(r)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -99,6 +118,10 @@ pub async fn list_users(options: JsValue) -> Result<JsValue, JsError> {
         page_number: Option<u32>,
         role: Option<String>,
         status: Option<String>,
+        assigned: Option<bool>,
+        product: Option<String>,
+        group: Option<String>,
+        metadata: Option<serde_json::Value>,
     }
     let opts: Option<Opts> = if options.is_undefined() || options.is_null() {
         None
@@ -117,6 +140,9 @@ pub async fn list_users(options: JsValue) -> Result<JsValue, JsError> {
                     .as_deref()
                     .map(|s| parse_enum(s, "user status"))
                     .transpose()?,
+                assigned: o.assigned,
+                product: o.product,
+                group: o.group,
                 roles: o
                     .role
                     .as_deref()
@@ -124,12 +150,13 @@ pub async fn list_users(options: JsValue) -> Result<JsValue, JsError> {
                         parse_enum::<keygen_rs::user::UserRole>(s, "user role").map(|r| vec![r])
                     })
                     .transpose()?,
+                metadata: o.metadata.map(crate::to_metadata).transpose()?,
                 ..Default::default()
             })
         })
         .transpose()?;
 
-    let users: Vec<User> = keygen_rs::user::list(list_opts)
+    let users: Vec<User> = keygen_rs::user::User::list(list_opts)
         .await
         .map(|result| result.users.into_iter().map(User::from).collect())
         .map_err(to_js_error)?;
@@ -138,7 +165,7 @@ pub async fn list_users(options: JsValue) -> Result<JsValue, JsError> {
 
 #[wasm_bindgen(js_name = "getUser")]
 pub async fn get_user(id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::get(&id)
+    let user = keygen_rs::user::User::get(&id)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -171,7 +198,8 @@ pub async fn update_user(id: String, request: JsValue) -> Result<JsValue, JsErro
         metadata: crate::opt_metadata(req.metadata)?,
     };
 
-    let user = keygen_rs::user::update(&id, r)
+    let user = make_minimal_user(id)
+        .update(r)
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -180,12 +208,13 @@ pub async fn update_user(id: String, request: JsValue) -> Result<JsValue, JsErro
 
 #[wasm_bindgen(js_name = "deleteUser")]
 pub async fn delete_user(id: String) -> Result<(), JsError> {
-    keygen_rs::user::delete(&id).await.map_err(to_js_error)
+    make_minimal_user(id).delete().await.map_err(to_js_error)
 }
 
 #[wasm_bindgen(js_name = "banUser")]
 pub async fn ban_user(id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::ban(&id)
+    let user = make_minimal_user(id)
+        .ban()
         .await
         .map(User::from)
         .map_err(to_js_error)?;
@@ -194,7 +223,100 @@ pub async fn ban_user(id: String) -> Result<JsValue, JsError> {
 
 #[wasm_bindgen(js_name = "unbanUser")]
 pub async fn unban_user(id: String) -> Result<JsValue, JsError> {
-    let user = keygen_rs::user::unban(&id)
+    let user = make_minimal_user(id)
+        .unban()
+        .await
+        .map(User::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&user).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "generateUserToken")]
+pub async fn generate_user_token(id: String, request: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase")]
+    struct Req {
+        name: Option<String>,
+        expiry: Option<String>,
+        permissions: Option<Vec<String>>,
+        metadata: Option<serde_json::Value>,
+    }
+
+    let req: Option<Req> = if request.is_undefined() || request.is_null() {
+        None
+    } else {
+        Some(serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?)
+    };
+
+    let req = req
+        .map(
+            |request| -> Result<keygen_rs::token::CreateTokenRequest, JsError> {
+                Ok(keygen_rs::token::CreateTokenRequest {
+                    name: request.name,
+                    expiry: request.expiry,
+                    permissions: request.permissions,
+                    metadata: crate::opt_metadata(request.metadata)?,
+                })
+            },
+        )
+        .transpose()?;
+
+    let token = make_minimal_user(id)
+        .generate_token(req)
+        .await
+        .map(Token::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&token).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "changeUserGroup")]
+pub async fn change_user_group(id: String, group_id: String) -> Result<JsValue, JsError> {
+    let user = make_minimal_user(id)
+        .change_group(&group_id)
+        .await
+        .map(User::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&user).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "updateUserPassword")]
+pub async fn update_user_password(id: String, request: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Req {
+        old_password: Option<String>,
+        new_password: String,
+    }
+    let req: Req =
+        serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?;
+
+    let user = make_minimal_user(id)
+        .update_password(keygen_rs::user::UpdatePasswordRequest {
+            old_password: req.old_password,
+            new_password: req.new_password,
+        })
+        .await
+        .map(User::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&user).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "resetUserPassword")]
+pub async fn reset_user_password(id: String, request: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Req {
+        password_reset_token: String,
+        new_password: String,
+    }
+    let req: Req =
+        serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?;
+
+    let user = make_minimal_user(id)
+        .reset_password(keygen_rs::user::ResetPasswordRequest {
+            password_reset_token: req.password_reset_token,
+            new_password: req.new_password,
+        })
         .await
         .map(User::from)
         .map_err(to_js_error)?;

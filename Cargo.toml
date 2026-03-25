@@ -164,6 +164,10 @@ name = "create_license"
 path = "examples/license/create_license.rs"
 
 [[example]]
+name = "license_relationship_lifecycle"
+path = "examples/license/license_relationship_lifecycle.rs"
+
+[[example]]
 name = "list_licenses"
 path = "examples/license/list_licenses.rs"
 
@@ -261,6 +265,10 @@ path = "examples/machine/start_heartbeat.rs"
 [[example]]
 name = "create_machine"
 path = "examples/machine/create_machine.rs"
+
+[[example]]
+name = "machine_transfer_and_filters"
+path = "examples/machine/machine_transfer_and_filters.rs"
 
 [[example]]
 name = "get_machine"
@@ -374,6 +382,10 @@ name = "list_groups"
 path = "examples/group/list_groups.rs"
 
 [[example]]
+name = "list_group_relationships"
+path = "examples/group/list_group_relationships.rs"
+
+[[example]]
 name = "update_group"
 path = "examples/group/update_group.rs"
 
@@ -418,6 +430,10 @@ name = "list_releases"
 path = "examples/release/list_releases.rs"
 
 [[example]]
+name = "inspect_release_distribution"
+path = "examples/release/inspect_release_distribution.rs"
+
+[[example]]
 name = "get_release"
 path = "examples/release/get_release.rs"
 
@@ -448,6 +464,10 @@ path = "examples/package/create_package.rs"
 [[example]]
 name = "list_packages"
 path = "examples/package/list_packages.rs"
+
+[[example]]
+name = "generate_product_token_with_options"
+path = "examples/product/generate_product_token_with_options.rs"
 
 [[example]]
 name = "get_artifact"

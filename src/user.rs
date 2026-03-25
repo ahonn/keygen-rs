@@ -1,8 +1,30 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::insert_optional;
+use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
 use crate::KeygenResponseData;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
+
+fn serialize_metadata_filter<S>(
+    metadata: &Option<HashMap<String, serde_json::Value>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    use serde::ser::SerializeMap;
+    match metadata {
+        Some(map) => {
+            let mut ser_map = serializer.serialize_map(Some(map.len()))?;
+            for (key, value) in map {
+                ser_map.serialize_entry(&format!("metadata[{key}]"), value)?;
+            }
+            ser_map.end()
+        }
+        None => serializer.serialize_none(),
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -109,75 +131,20 @@ pub struct UpdateUserRequest {
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
-impl User {
-    pub(crate) fn from(data: KeygenResponseData<UserAttributes>) -> User {
-        User {
-            id: data.id,
-            email: data.attributes.email,
-            first_name: data.attributes.first_name,
-            last_name: data.attributes.last_name,
-            full_name: data.attributes.full_name,
-            status: data.attributes.status,
-            role: data.attributes.role,
-            permissions: data.attributes.permissions,
-            metadata: data.attributes.metadata,
-            last_seen_at: data.attributes.last_seen_at,
-            ban_reason: data.attributes.ban_reason,
-            created: data.attributes.created,
-            updated: data.attributes.updated,
-        }
-    }
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UpdatePasswordRequest {
+    #[serde(rename = "oldPassword")]
+    pub old_password: Option<String>,
+    #[serde(rename = "newPassword")]
+    pub new_password: String,
 }
 
-/// Create a new user
-pub async fn create(request: CreateUserRequest) -> Result<User, Error> {
-    let client = Client::from_global_config()?;
-
-    let mut attributes = serde_json::Map::new();
-    attributes.insert(
-        "email".to_string(),
-        serde_json::Value::String(request.email),
-    );
-
-    if let Some(first_name) = request.first_name {
-        attributes.insert(
-            "firstName".to_string(),
-            serde_json::Value::String(first_name),
-        );
-    }
-    if let Some(last_name) = request.last_name {
-        attributes.insert("lastName".to_string(), serde_json::Value::String(last_name));
-    }
-    if let Some(role) = request.role {
-        attributes.insert("role".to_string(), serde_json::to_value(role)?);
-    }
-    if let Some(permissions) = request.permissions {
-        attributes.insert(
-            "permissions".to_string(),
-            serde_json::to_value(permissions)?,
-        );
-    }
-    if let Some(metadata) = request.metadata {
-        attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-    }
-
-    let mut data = serde_json::Map::new();
-    data.insert(
-        "type".to_string(),
-        serde_json::Value::String("users".to_string()),
-    );
-    data.insert(
-        "attributes".to_string(),
-        serde_json::Value::Object(attributes),
-    );
-
-    let body = serde_json::json!({
-        "data": data
-    });
-
-    let response = client.post("users", Some(&body), None::<&()>).await?;
-    let user_response: UserResponse = serde_json::from_value(response.body)?;
-    Ok(User::from(user_response.data))
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ResetPasswordRequest {
+    #[serde(rename = "passwordResetToken")]
+    pub password_reset_token: String,
+    #[serde(rename = "newPassword")]
+    pub new_password: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -202,96 +169,191 @@ pub struct ListUsersOptions {
     pub sort: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub include: Option<String>,
-    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        flatten,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_metadata_filter"
+    )]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
-/// List users with optional filtering and pagination, returning pagination metadata
-pub async fn list(options: Option<ListUsersOptions>) -> Result<UsersListResult, Error> {
-    let client = Client::from_global_config()?;
-    let response = client.get("users", options.as_ref()).await?;
-    let users_response: UsersResponse = serde_json::from_value(response.body)?;
-    Ok(UsersListResult {
-        users: users_response.data.into_iter().map(User::from).collect(),
-        meta: users_response.meta,
-        links: users_response.links,
-    })
-}
-
-/// Get a specific user by ID
-pub async fn get(user_id: &str) -> Result<User, Error> {
-    let client = Client::from_global_config()?;
-    let endpoint = format!("users/{user_id}");
-    let response = client.get(&endpoint, None::<&()>).await?;
-    let user_response: UserResponse = serde_json::from_value(response.body)?;
-    Ok(User::from(user_response.data))
-}
-
-/// Update a user
-pub async fn update(user_id: &str, request: UpdateUserRequest) -> Result<User, Error> {
-    let client = Client::from_global_config()?;
-    let endpoint = format!("users/{user_id}");
-    let mut attributes = serde_json::Map::new();
-
-    if let Some(email) = request.email {
-        attributes.insert("email".to_string(), serde_json::Value::String(email));
-    }
-    if let Some(first_name) = request.first_name {
-        attributes.insert(
-            "firstName".to_string(),
-            serde_json::Value::String(first_name),
-        );
-    }
-    if let Some(last_name) = request.last_name {
-        attributes.insert("lastName".to_string(), serde_json::Value::String(last_name));
-    }
-    if let Some(role) = request.role {
-        attributes.insert("role".to_string(), serde_json::to_value(role)?);
-    }
-    if let Some(metadata) = request.metadata {
-        attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-    }
-
-    let body = serde_json::json!({
-        "data": {
-            "type": "users",
-            "id": user_id,
-            "attributes": attributes
+impl User {
+    pub(crate) fn from(data: KeygenResponseData<UserAttributes>) -> User {
+        User {
+            id: data.id,
+            email: data.attributes.email,
+            first_name: data.attributes.first_name,
+            last_name: data.attributes.last_name,
+            full_name: data.attributes.full_name,
+            status: data.attributes.status,
+            role: data.attributes.role,
+            permissions: data.attributes.permissions,
+            metadata: data.attributes.metadata,
+            last_seen_at: data.attributes.last_seen_at,
+            ban_reason: data.attributes.ban_reason,
+            created: data.attributes.created,
+            updated: data.attributes.updated,
         }
-    });
-    let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
-    let user_response: UserResponse = serde_json::from_value(response.body)?;
-    Ok(User::from(user_response.data))
-}
+    }
 
-/// Delete a user
-pub async fn delete(user_id: &str) -> Result<(), Error> {
-    let client = Client::from_global_config()?;
-    let endpoint = format!("users/{user_id}");
-    client.delete::<(), ()>(&endpoint, None::<&()>).await?;
-    Ok(())
-}
+    /// Create a new user
+    pub async fn create(request: CreateUserRequest) -> Result<User, Error> {
+        let client = Client::from_global_config()?;
 
-/// Ban a user
-pub async fn ban(user_id: &str) -> Result<User, Error> {
-    let client = Client::from_global_config()?;
-    let endpoint = format!("users/{user_id}/actions/ban");
-    let body = serde_json::json!({
-        "meta": {}
-    });
-    let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
-    let user_response: UserResponse = serde_json::from_value(response.body)?;
-    Ok(User::from(user_response.data))
-}
+        let mut attributes = serde_json::Map::new();
+        attributes.insert("email".to_string(), serde_json::json!(request.email));
+        insert_optional(&mut attributes, "firstName", request.first_name)?;
+        insert_optional(&mut attributes, "lastName", request.last_name)?;
+        insert_optional(&mut attributes, "role", request.role)?;
+        insert_optional(&mut attributes, "permissions", request.permissions)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
-/// Unban a user
-pub async fn unban(user_id: &str) -> Result<User, Error> {
-    let client = Client::from_global_config()?;
-    let endpoint = format!("users/{user_id}/actions/unban");
-    let body = serde_json::json!({
-        "meta": {}
-    });
-    let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
-    let user_response: UserResponse = serde_json::from_value(response.body)?;
-    Ok(User::from(user_response.data))
+        let body = serde_json::json!({
+            "data": {
+                "type": "users",
+                "attributes": attributes
+            }
+        });
+
+        let response = client.post("users", Some(&body), None::<&()>).await?;
+        let user_response: UserResponse = serde_json::from_value(response.body)?;
+        Ok(User::from(user_response.data))
+    }
+
+    /// List users with optional filtering and pagination, returning pagination metadata
+    pub async fn list(options: Option<ListUsersOptions>) -> Result<UsersListResult, Error> {
+        let client = Client::from_global_config()?;
+        let response = client.get("users", options.as_ref()).await?;
+        let users_response: UsersResponse = serde_json::from_value(response.body)?;
+        Ok(UsersListResult {
+            users: users_response.data.into_iter().map(User::from).collect(),
+            meta: users_response.meta,
+            links: users_response.links,
+        })
+    }
+
+    /// Get a specific user by ID
+    pub async fn get(user_id: &str) -> Result<User, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("users/{user_id}");
+        let response = client.get(&endpoint, None::<&()>).await?;
+        let user_response: UserResponse = serde_json::from_value(response.body)?;
+        Ok(User::from(user_response.data))
+    }
+
+    /// Update this user
+    pub async fn update(&self, request: UpdateUserRequest) -> Result<User, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("users/{}", self.id);
+        let mut attributes = serde_json::Map::new();
+        insert_optional(&mut attributes, "email", request.email)?;
+        insert_optional(&mut attributes, "firstName", request.first_name)?;
+        insert_optional(&mut attributes, "lastName", request.last_name)?;
+        insert_optional(&mut attributes, "role", request.role)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
+
+        let body = serde_json::json!({
+            "data": {
+                "type": "users",
+                "id": self.id,
+                "attributes": attributes
+            }
+        });
+        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let user_response: UserResponse = serde_json::from_value(response.body)?;
+        Ok(User::from(user_response.data))
+    }
+
+    /// Delete this user
+    pub async fn delete(&self) -> Result<(), Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("users/{}", self.id);
+        client.delete::<(), ()>(&endpoint, None::<&()>).await?;
+        Ok(())
+    }
+
+    /// Ban this user
+    pub async fn ban(&self) -> Result<User, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("users/{}/actions/ban", self.id);
+        let body = serde_json::json!({ "meta": {} });
+        let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+        let user_response: UserResponse = serde_json::from_value(response.body)?;
+        Ok(User::from(user_response.data))
+    }
+
+    /// Unban this user
+    pub async fn unban(&self) -> Result<User, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("users/{}/actions/unban", self.id);
+        let body = serde_json::json!({ "meta": {} });
+        let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+        let user_response: UserResponse = serde_json::from_value(response.body)?;
+        Ok(User::from(user_response.data))
+    }
+
+    /// Generate a token for this user.
+    pub async fn generate_token(
+        &self,
+        request: Option<CreateTokenRequest>,
+    ) -> Result<Token, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("users/{}/tokens", self.id);
+        let attributes = token_request_attributes(request.as_ref())?;
+        let body = serde_json::json!({
+            "data": {
+                "type": "tokens",
+                "attributes": attributes
+            }
+        });
+        let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+        let token_response: TokenResponse = serde_json::from_value(response.body)?;
+        Ok(Token::from(token_response.data))
+    }
+
+    /// Change or assign this user's group.
+    pub async fn change_group(&self, group_id: &str) -> Result<User, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("users/{}/group", self.id);
+        let body = serde_json::json!({
+            "data": {
+                "type": "groups",
+                "id": group_id
+            }
+        });
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
+        let user_response: UserResponse = serde_json::from_value(response.body)?;
+        Ok(User::from(user_response.data))
+    }
+
+    /// Update this user's password.
+    pub async fn update_password(&self, request: UpdatePasswordRequest) -> Result<User, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("users/{}/actions/update-password", self.id);
+        let mut meta = serde_json::Map::new();
+        insert_optional(&mut meta, "oldPassword", request.old_password)?;
+        meta.insert(
+            "newPassword".to_string(),
+            serde_json::Value::String(request.new_password),
+        );
+        let body = serde_json::json!({ "meta": meta });
+        let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+        let user_response: UserResponse = serde_json::from_value(response.body)?;
+        Ok(User::from(user_response.data))
+    }
+
+    /// Reset this user's password using a reset token.
+    pub async fn reset_password(&self, request: ResetPasswordRequest) -> Result<User, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("users/{}/actions/reset-password", self.id);
+        let body = serde_json::json!({
+            "meta": {
+                "passwordResetToken": request.password_reset_token,
+                "newPassword": request.new_password
+            }
+        });
+        let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+        let user_response: UserResponse = serde_json::from_value(response.body)?;
+        Ok(User::from(user_response.data))
+    }
 }

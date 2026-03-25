@@ -5,6 +5,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::license_file::LicenseFile;
 use crate::to_js_error;
+use crate::token_module::Token;
+use crate::user::User;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -184,6 +186,12 @@ pub async fn list_licenses(options: JsValue) -> Result<JsValue, JsError> {
         policy: Option<String>,
         owner: Option<String>,
         user: Option<String>,
+        group: Option<String>,
+        machine: Option<String>,
+        assigned: Option<bool>,
+        unassigned: Option<bool>,
+        activated: Option<bool>,
+        metadata: Option<serde_json::Value>,
     }
     let opts: Option<Opts> = if options.is_undefined() || options.is_null() {
         None
@@ -199,6 +207,15 @@ pub async fn list_licenses(options: JsValue) -> Result<JsValue, JsError> {
         policy: o.policy,
         owner: o.owner,
         user: o.user,
+        group: o.group,
+        machine: o.machine,
+        assigned: o.assigned,
+        unassigned: o.unassigned,
+        activated: o.activated,
+        metadata: o
+            .metadata
+            .and_then(|meta| serde_json::from_value(meta).ok()),
+        ..Default::default()
     });
     let licenses: Vec<License> = keygen_rs::license::License::list(list_opts.as_ref())
         .await
@@ -420,4 +437,112 @@ pub async fn detach_license_entitlements(
         .map_err(|e| JsError::new(&e.to_string()))?;
     let lic = make_license(id);
     lic.detach_entitlements(&ids).await.map_err(to_js_error)
+}
+
+#[wasm_bindgen(js_name = "checkInLicense")]
+pub async fn check_in_license(id: String) -> Result<JsValue, JsError> {
+    let license = make_license(id)
+        .check_in()
+        .await
+        .map(License::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&license).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "generateLicenseToken")]
+pub async fn generate_license_token(id: String, request: JsValue) -> Result<JsValue, JsError> {
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase")]
+    struct Req {
+        name: Option<String>,
+        expiry: Option<String>,
+        permissions: Option<Vec<String>>,
+        metadata: Option<serde_json::Value>,
+    }
+
+    let req: Option<Req> = if request.is_undefined() || request.is_null() {
+        None
+    } else {
+        Some(serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?)
+    };
+
+    let req = req
+        .map(
+            |request| -> Result<keygen_rs::token::CreateTokenRequest, JsError> {
+                Ok(keygen_rs::token::CreateTokenRequest {
+                    name: request.name,
+                    expiry: request.expiry,
+                    permissions: request.permissions,
+                    metadata: crate::opt_metadata(request.metadata)?,
+                })
+            },
+        )
+        .transpose()?;
+
+    let token = make_license(id)
+        .generate_token(req)
+        .await
+        .map(Token::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&token).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "attachLicenseUsers")]
+pub async fn attach_license_users(id: String, user_ids: JsValue) -> Result<(), JsError> {
+    let ids: Vec<String> =
+        serde_wasm_bindgen::from_value(user_ids).map_err(|e| JsError::new(&e.to_string()))?;
+    make_license(id)
+        .attach_users(&ids)
+        .await
+        .map_err(to_js_error)
+}
+
+#[wasm_bindgen(js_name = "detachLicenseUsers")]
+pub async fn detach_license_users(id: String, user_ids: JsValue) -> Result<(), JsError> {
+    let ids: Vec<String> =
+        serde_wasm_bindgen::from_value(user_ids).map_err(|e| JsError::new(&e.to_string()))?;
+    make_license(id)
+        .detach_users(&ids)
+        .await
+        .map_err(to_js_error)
+}
+
+#[wasm_bindgen(js_name = "listLicenseUsers")]
+pub async fn list_license_users(id: String) -> Result<JsValue, JsError> {
+    let users: Vec<User> = make_license(id)
+        .users(None)
+        .await
+        .map(|users| users.into_iter().map(User::from).collect())
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&users).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "changeLicensePolicy")]
+pub async fn change_license_policy(id: String, policy_id: String) -> Result<JsValue, JsError> {
+    let license = make_license(id)
+        .change_policy(&policy_id)
+        .await
+        .map(License::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&license).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "changeLicenseOwner")]
+pub async fn change_license_owner(id: String, owner_id: String) -> Result<JsValue, JsError> {
+    let license = make_license(id)
+        .change_owner(&owner_id)
+        .await
+        .map(License::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&license).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "changeLicenseGroup")]
+pub async fn change_license_group(id: String, group_id: String) -> Result<JsValue, JsError> {
+    let license = make_license(id)
+        .change_group(&group_id)
+        .await
+        .map(License::from)
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&license).map_err(|e| JsError::new(&e.to_string()))
 }

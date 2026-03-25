@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+use crate::license::License;
+use crate::machine::Machine;
 use crate::to_js_error;
+use crate::user::User;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -141,4 +144,60 @@ pub async fn delete_group(id: String) -> Result<(), JsError> {
         ..Default::default()
     };
     grp.delete().await.map_err(to_js_error)
+}
+
+#[wasm_bindgen(js_name = "listGroupOwners")]
+pub async fn list_group_owners(id: String) -> Result<JsValue, JsError> {
+    let grp = keygen_rs::group::Group {
+        id,
+        ..Default::default()
+    };
+    let items: Vec<User> = grp
+        .owners(None)
+        .await
+        .map(|items| items.into_iter().map(User::from).collect())
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&items).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "listGroupUsers")]
+pub async fn list_group_users(id: String) -> Result<JsValue, JsError> {
+    let grp = keygen_rs::group::Group {
+        id,
+        ..Default::default()
+    };
+    let items: Vec<User> = grp
+        .users(None)
+        .await
+        .map(|items| items.into_iter().map(User::from).collect())
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&items).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "listGroupLicenses")]
+pub async fn list_group_licenses(id: String) -> Result<JsValue, JsError> {
+    let grp = keygen_rs::group::Group {
+        id,
+        ..Default::default()
+    };
+    let items: Vec<License> = grp
+        .licenses(None)
+        .await
+        .map(|items| items.into_iter().map(License::from).collect())
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&items).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "listGroupMachines")]
+pub async fn list_group_machines(id: String) -> Result<JsValue, JsError> {
+    let grp = keygen_rs::group::Group {
+        id,
+        ..Default::default()
+    };
+    let items: Vec<Machine> = grp
+        .machines(None)
+        .await
+        .map(|items| items.into_iter().map(Machine::from).collect())
+        .map_err(to_js_error)?;
+    serde_wasm_bindgen::to_value(&items).map_err(|e| JsError::new(&e.to_string()))
 }

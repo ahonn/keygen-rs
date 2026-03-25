@@ -1,5 +1,7 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::insert_optional;
+use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -161,32 +163,20 @@ impl Product {
         let client = Client::from_global_config()?;
 
         let mut attributes = serde_json::Map::new();
-        attributes.insert("name".to_string(), serde_json::Value::String(request.name));
+        attributes.insert("name".to_string(), serde_json::json!(request.name));
         if !request.code.is_empty() {
-            attributes.insert("code".to_string(), serde_json::Value::String(request.code));
+            attributes.insert("code".to_string(), serde_json::json!(request.code));
         }
 
-        if let Some(distribution_strategy) = request.distribution_strategy {
-            attributes.insert(
-                "distributionStrategy".to_string(),
-                serde_json::to_value(distribution_strategy)?,
-            );
-        }
-        if let Some(url) = request.url {
-            attributes.insert("url".to_string(), serde_json::Value::String(url));
-        }
-        if let Some(platforms) = request.platforms {
-            attributes.insert("platforms".to_string(), serde_json::to_value(platforms)?);
-        }
-        if let Some(permissions) = request.permissions {
-            attributes.insert(
-                "permissions".to_string(),
-                serde_json::to_value(permissions)?,
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(
+            &mut attributes,
+            "distributionStrategy",
+            request.distribution_strategy,
+        )?;
+        insert_optional(&mut attributes, "url", request.url)?;
+        insert_optional(&mut attributes, "platforms", request.platforms)?;
+        insert_optional(&mut attributes, "permissions", request.permissions)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -227,33 +217,17 @@ impl Product {
         let endpoint = format!("products/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name));
-        }
-        if let Some(code) = request.code {
-            attributes.insert("code".to_string(), serde_json::Value::String(code));
-        }
-        if let Some(distribution_strategy) = request.distribution_strategy {
-            attributes.insert(
-                "distributionStrategy".to_string(),
-                serde_json::to_value(distribution_strategy)?,
-            );
-        }
-        if let Some(url) = request.url {
-            attributes.insert("url".to_string(), serde_json::Value::String(url));
-        }
-        if let Some(platforms) = request.platforms {
-            attributes.insert("platforms".to_string(), serde_json::to_value(platforms)?);
-        }
-        if let Some(permissions) = request.permissions {
-            attributes.insert(
-                "permissions".to_string(),
-                serde_json::to_value(permissions)?,
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "code", request.code)?;
+        insert_optional(
+            &mut attributes,
+            "distributionStrategy",
+            request.distribution_strategy,
+        )?;
+        insert_optional(&mut attributes, "url", request.url)?;
+        insert_optional(&mut attributes, "platforms", request.platforms)?;
+        insert_optional(&mut attributes, "permissions", request.permissions)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -275,23 +249,34 @@ impl Product {
         Ok(())
     }
 
-    /// Generate a product token
+    /// Generate a product token, returning the token value for backward compatibility.
     pub async fn generate_token(&self) -> Result<String, Error> {
+        let token = self.generate_token_with_options(None).await?;
+        token.token.ok_or_else(|| Error::KeygenApiError {
+            code: "INVALID_RESPONSE".to_string(),
+            detail: "Token response did not include a token value".to_string(),
+            body: serde_json::json!({ "id": token.id }),
+        })
+    }
+
+    /// Generate a product token with optional attributes.
+    pub async fn generate_token_with_options(
+        &self,
+        request: Option<CreateTokenRequest>,
+    ) -> Result<Token, Error> {
         let client = Client::from_global_config()?;
         let endpoint = format!("products/{}/tokens", self.id);
-        let response: crate::client::Response<serde_json::Value> =
-            client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let attributes = token_request_attributes(request.as_ref())?;
+        let body = serde_json::json!({
+            "data": {
+                "type": "tokens",
+                "attributes": attributes
+            }
+        });
 
-        // Extract token from response
-        let token_data = response.body["data"]["attributes"]["token"]
-            .as_str()
-            .ok_or_else(|| Error::KeygenApiError {
-                code: "INVALID_RESPONSE".to_string(),
-                detail: "Invalid token response format".to_string(),
-                body: response.body.clone(),
-            })?;
-
-        Ok(token_data.to_string())
+        let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
+        let token_response: TokenResponse = serde_json::from_value(response.body)?;
+        Ok(Token::from(token_response.data))
     }
 }
 

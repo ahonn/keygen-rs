@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::insert_optional;
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -53,10 +54,22 @@ pub struct ListTokensOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    #[serde(rename = "bearer[type]", skip_serializing_if = "Option::is_none")]
+    pub bearer_type: Option<String>,
+    #[serde(rename = "bearer[id]", skip_serializing_if = "Option::is_none")]
+    pub bearer_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegenerateTokenRequest {
+    pub name: Option<String>,
+    pub expiry: Option<String>,
+    pub permissions: Option<Vec<String>>,
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CreateTokenRequest {
     pub name: Option<String>,
     pub expiry: Option<String>,
     pub permissions: Option<Vec<String>>,
@@ -114,21 +127,10 @@ impl Token {
         let endpoint = format!("tokens/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name));
-        }
-        if let Some(expiry) = request.expiry {
-            attributes.insert("expiry".to_string(), serde_json::Value::String(expiry));
-        }
-        if let Some(permissions) = request.permissions {
-            attributes.insert(
-                "permissions".to_string(),
-                serde_json::to_value(permissions)?,
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "expiry", request.expiry)?;
+        insert_optional(&mut attributes, "permissions", request.permissions)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -173,4 +175,19 @@ impl Token {
     pub fn get_token(&self) -> Option<&str> {
         self.token.as_deref()
     }
+}
+
+pub(crate) fn token_request_attributes(
+    request: Option<&CreateTokenRequest>,
+) -> Result<serde_json::Map<String, serde_json::Value>, Error> {
+    let mut attributes = serde_json::Map::new();
+
+    if let Some(request) = request {
+        insert_optional(&mut attributes, "name", request.name.clone())?;
+        insert_optional(&mut attributes, "expiry", request.expiry.clone())?;
+        insert_optional(&mut attributes, "permissions", request.permissions.clone())?;
+        insert_optional(&mut attributes, "metadata", request.metadata.clone())?;
+    }
+
+    Ok(attributes)
 }

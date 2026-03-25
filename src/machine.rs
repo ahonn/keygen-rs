@@ -8,6 +8,7 @@ use crate::client::{Client, ClientOptions, Response};
 use crate::config::get_config;
 use crate::config::KeygenConfig;
 use crate::errors::Error;
+use crate::insert_optional;
 use crate::machine_file::MachineFile;
 use crate::KeygenResponseData;
 use chrono::{DateTime, Utc};
@@ -140,6 +141,8 @@ pub struct MachineListFilters {
     pub product: Option<String>,
     pub owner: Option<String>,
     pub group: Option<String>,
+    pub policy: Option<String>,
+    pub key: Option<String>,
     pub metadata: Option<HashMap<String, Value>>,
     pub page_number: Option<i32>,
     pub page_size: Option<i32>,
@@ -316,24 +319,12 @@ impl Machine {
         let mut attributes = serde_json::Map::new();
         attributes.insert("fingerprint".to_string(), json!(request.fingerprint));
 
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), json!(name));
-        }
-        if let Some(platform) = request.platform {
-            attributes.insert("platform".to_string(), json!(platform));
-        }
-        if let Some(hostname) = request.hostname {
-            attributes.insert("hostname".to_string(), json!(hostname));
-        }
-        if let Some(ip) = request.ip {
-            attributes.insert("ip".to_string(), json!(ip));
-        }
-        if let Some(cores) = request.cores {
-            attributes.insert("cores".to_string(), json!(cores));
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), json!(metadata));
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "platform", request.platform)?;
+        insert_optional(&mut attributes, "hostname", request.hostname)?;
+        insert_optional(&mut attributes, "ip", request.ip)?;
+        insert_optional(&mut attributes, "cores", request.cores)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = json!({
             "data": {
@@ -392,6 +383,12 @@ impl Machine {
             if let Some(group) = filters.group {
                 query_params.push(("group".to_string(), group));
             }
+            if let Some(policy) = filters.policy {
+                query_params.push(("policy".to_string(), policy));
+            }
+            if let Some(key) = filters.key {
+                query_params.push(("key".to_string(), key));
+            }
             if let Some(metadata) = filters.metadata {
                 for (key, value) in metadata {
                     query_params.push((format!("metadata[{key}]"), value.to_string()));
@@ -446,24 +443,12 @@ impl Machine {
         let endpoint = format!("machines/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), json!(name));
-        }
-        if let Some(platform) = request.platform {
-            attributes.insert("platform".to_string(), json!(platform));
-        }
-        if let Some(hostname) = request.hostname {
-            attributes.insert("hostname".to_string(), json!(hostname));
-        }
-        if let Some(ip) = request.ip {
-            attributes.insert("ip".to_string(), json!(ip));
-        }
-        if let Some(cores) = request.cores {
-            attributes.insert("cores".to_string(), json!(cores));
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), json!(metadata));
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "platform", request.platform)?;
+        insert_optional(&mut attributes, "hostname", request.hostname)?;
+        insert_optional(&mut attributes, "ip", request.ip)?;
+        insert_optional(&mut attributes, "cores", request.cores)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = json!({
             "data": {
@@ -483,6 +468,38 @@ impl Machine {
         let client = self.get_client()?;
         let endpoint = format!("machines/{}/actions/reset", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        Ok(Machine::from(machine_response.data))
+    }
+
+    /// Change the machine owner.
+    #[cfg(feature = "token")]
+    pub async fn change_owner(&self, owner_id: &str) -> Result<Machine, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("machines/{}/owner", self.id);
+        let body = json!({
+            "data": {
+                "type": "users",
+                "id": owner_id
+            }
+        });
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
+        let machine_response: MachineResponse = serde_json::from_value(response.body)?;
+        Ok(Machine::from(machine_response.data))
+    }
+
+    /// Change the machine group.
+    #[cfg(feature = "token")]
+    pub async fn change_group(&self, group_id: &str) -> Result<Machine, Error> {
+        let client = self.get_client()?;
+        let endpoint = format!("machines/{}/group", self.id);
+        let body = json!({
+            "data": {
+                "type": "groups",
+                "id": group_id
+            }
+        });
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))
     }

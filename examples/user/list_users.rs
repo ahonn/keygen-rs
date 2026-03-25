@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    user,
+    user::User,
 };
 use std::env;
 
@@ -18,7 +18,7 @@ async fn main() -> Result<(), Error> {
     })?;
 
     // List all users
-    match user::list(None).await {
+    match User::list(None).await {
         Ok(result) => {
             println!("Action completed: {} users found", result.users.len());
 

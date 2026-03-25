@@ -218,13 +218,7 @@ impl Client {
         self.build_request(method, path, params, false)
     }
 
-    fn build_request<T: Serialize + ?Sized>(
-        &self,
-        method: reqwest::Method,
-        path: &str,
-        params: Option<&T>,
-        include_version: bool,
-    ) -> Result<Request, Error> {
+    pub(crate) fn build_url(&self, path: &str) -> Result<Url, Error> {
         let mut url = Url::parse(&self.options.api_url)?;
 
         if self.options.api_url == "https://api.keygen.sh" {
@@ -240,6 +234,18 @@ impl Client {
                 .push(self.options.api_prefix.as_str())
                 .extend(path.split('/'));
         }
+
+        Ok(url)
+    }
+
+    pub(crate) fn build_request<T: Serialize + ?Sized>(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        params: Option<&T>,
+        include_version: bool,
+    ) -> Result<Request, Error> {
+        let mut url = self.build_url(path)?;
 
         if method == reqwest::Method::GET {
             if let Some(params) = params {

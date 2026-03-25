@@ -1,7 +1,7 @@
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    user::{self, CreateUserRequest, UserRole},
+    user::{CreateUserRequest, User, UserRole},
 };
 use std::collections::HashMap;
 use std::env;
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Error> {
         metadata: Some(metadata),
     };
 
-    match user::create(request).await {
+    match User::create(request).await {
         Ok(user) => {
             println!("User created: {}", user.id);
             println!("ID: {}", user.id);

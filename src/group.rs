@@ -2,6 +2,14 @@
 use crate::client::Client;
 #[cfg(feature = "token")]
 use crate::errors::Error;
+#[cfg(feature = "token")]
+use crate::insert_optional;
+#[cfg(feature = "token")]
+use crate::license::{License, LicenseAttributes, PaginationOptions};
+#[cfg(feature = "token")]
+use crate::machine::{Machine, MachineAttributes};
+#[cfg(feature = "token")]
+use crate::user::{User, UserAttributes};
 use crate::KeygenResponseData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -31,6 +39,24 @@ pub(crate) struct GroupResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct GroupsResponse {
     pub data: Vec<KeygenResponseData<GroupAttributes>>,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct GroupUsersResponse {
+    data: Vec<KeygenResponseData<UserAttributes>>,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct GroupLicensesResponse {
+    data: Vec<KeygenResponseData<LicenseAttributes>>,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct GroupMachinesResponse {
+    data: Vec<KeygenResponseData<MachineAttributes>>,
 }
 
 #[cfg(feature = "token")]
@@ -136,27 +162,10 @@ impl Group {
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
 
-        if let Some(max_users) = request.max_users {
-            attributes.insert(
-                "maxUsers".to_string(),
-                serde_json::Value::Number(max_users.into()),
-            );
-        }
-        if let Some(max_licenses) = request.max_licenses {
-            attributes.insert(
-                "maxLicenses".to_string(),
-                serde_json::Value::Number(max_licenses.into()),
-            );
-        }
-        if let Some(max_machines) = request.max_machines {
-            attributes.insert(
-                "maxMachines".to_string(),
-                serde_json::Value::Number(max_machines.into()),
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "maxUsers", request.max_users)?;
+        insert_optional(&mut attributes, "maxLicenses", request.max_licenses)?;
+        insert_optional(&mut attributes, "maxMachines", request.max_machines)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -196,30 +205,11 @@ impl Group {
         let endpoint = format!("groups/{}", self.id);
 
         let mut attributes = serde_json::Map::new();
-        if let Some(name) = request.name {
-            attributes.insert("name".to_string(), serde_json::Value::String(name));
-        }
-        if let Some(max_users) = request.max_users {
-            attributes.insert(
-                "maxUsers".to_string(),
-                serde_json::Value::Number(max_users.into()),
-            );
-        }
-        if let Some(max_licenses) = request.max_licenses {
-            attributes.insert(
-                "maxLicenses".to_string(),
-                serde_json::Value::Number(max_licenses.into()),
-            );
-        }
-        if let Some(max_machines) = request.max_machines {
-            attributes.insert(
-                "maxMachines".to_string(),
-                serde_json::Value::Number(max_machines.into()),
-            );
-        }
-        if let Some(metadata) = request.metadata {
-            attributes.insert("metadata".to_string(), serde_json::to_value(metadata)?);
-        }
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "maxUsers", request.max_users)?;
+        insert_optional(&mut attributes, "maxLicenses", request.max_licenses)?;
+        insert_optional(&mut attributes, "maxMachines", request.max_machines)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
             "data": {
@@ -240,6 +230,84 @@ impl Group {
         let endpoint = format!("groups/{}", self.id);
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
+    }
+
+    #[cfg(feature = "token")]
+    async fn list_related_users(
+        &self,
+        path: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<User>, Error> {
+        let client = Client::from_global_config()?;
+        let response = client.get(path, options).await?;
+        let users_response: GroupUsersResponse = serde_json::from_value(response.body)?;
+        Ok(users_response.data.into_iter().map(User::from).collect())
+    }
+
+    #[cfg(feature = "token")]
+    async fn list_related_licenses(
+        &self,
+        path: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<License>, Error> {
+        let client = Client::from_global_config()?;
+        let response = client.get(path, options).await?;
+        let licenses_response: GroupLicensesResponse = serde_json::from_value(response.body)?;
+        Ok(licenses_response
+            .data
+            .into_iter()
+            .map(License::from)
+            .collect())
+    }
+
+    #[cfg(feature = "token")]
+    async fn list_related_machines(
+        &self,
+        path: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<Machine>, Error> {
+        let client = Client::from_global_config()?;
+        let response = client.get(path, options).await?;
+        let machines_response: GroupMachinesResponse = serde_json::from_value(response.body)?;
+        Ok(machines_response
+            .data
+            .into_iter()
+            .map(Machine::from)
+            .collect())
+    }
+
+    /// List group owners.
+    #[cfg(feature = "token")]
+    pub async fn owners(&self, options: Option<&PaginationOptions>) -> Result<Vec<User>, Error> {
+        self.list_related_users(&format!("groups/{}/owners", self.id), options)
+            .await
+    }
+
+    /// List group users.
+    #[cfg(feature = "token")]
+    pub async fn users(&self, options: Option<&PaginationOptions>) -> Result<Vec<User>, Error> {
+        self.list_related_users(&format!("groups/{}/users", self.id), options)
+            .await
+    }
+
+    /// List group licenses.
+    #[cfg(feature = "token")]
+    pub async fn licenses(
+        &self,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<License>, Error> {
+        self.list_related_licenses(&format!("groups/{}/licenses", self.id), options)
+            .await
+    }
+
+    /// List group machines.
+    #[cfg(feature = "token")]
+    pub async fn machines(
+        &self,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<Machine>, Error> {
+        self.list_related_machines(&format!("groups/{}/machines", self.id), options)
+            .await
     }
 }
 

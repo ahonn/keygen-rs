@@ -38,3 +38,8 @@ fn opt_metadata(
 ) -> Result<Option<std::collections::HashMap<String, serde_json::Value>>, JsError> {
     v.map(to_metadata).transpose()
 }
+
+fn parse_enum<T: serde::de::DeserializeOwned>(s: &str, label: &str) -> Result<T, JsError> {
+    serde_json::from_value(serde_json::Value::String(s.to_string()))
+        .map_err(|e| JsError::new(&format!("Invalid {label}: {e}")))
+}
