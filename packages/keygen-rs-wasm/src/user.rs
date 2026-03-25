@@ -284,16 +284,16 @@ pub async fn update_user_password(id: String, request: JsValue) -> Result<JsValu
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Req {
-        current_password: Option<String>,
-        password: String,
+        old_password: Option<String>,
+        new_password: String,
     }
     let req: Req =
         serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?;
 
     let user = make_minimal_user(id)
         .update_password(keygen_rs::user::UpdatePasswordRequest {
-            current_password: req.current_password,
-            password: req.password,
+            old_password: req.old_password,
+            new_password: req.new_password,
         })
         .await
         .map(User::from)
@@ -303,24 +303,20 @@ pub async fn update_user_password(id: String, request: JsValue) -> Result<JsValu
 
 #[wasm_bindgen(js_name = "resetUserPassword")]
 pub async fn reset_user_password(id: String, request: JsValue) -> Result<JsValue, JsError> {
-    #[derive(Deserialize, Default)]
+    #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Req {
-        email: Option<String>,
+        password_reset_token: String,
+        new_password: String,
     }
-    let req = if request.is_undefined() || request.is_null() {
-        None
-    } else {
-        Some(
-            serde_wasm_bindgen::from_value::<Req>(request)
-                .map_err(|e| JsError::new(&e.to_string()))?,
-        )
-    };
+    let req: Req =
+        serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&e.to_string()))?;
 
     let user = make_minimal_user(id)
-        .reset_password(req.map(|request| keygen_rs::user::ResetPasswordRequest {
-            email: request.email,
-        }))
+        .reset_password(keygen_rs::user::ResetPasswordRequest {
+            password_reset_token: req.password_reset_token,
+            new_password: req.new_password,
+        })
         .await
         .map(User::from)
         .map_err(to_js_error)?;

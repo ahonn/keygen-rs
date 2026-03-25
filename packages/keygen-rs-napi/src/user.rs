@@ -93,14 +93,15 @@ pub struct CreateTokenRequest {
 #[napi(object)]
 #[derive(Clone)]
 pub struct UpdatePasswordRequest {
-    pub current_password: Option<String>,
-    pub password: String,
+    pub old_password: Option<String>,
+    pub new_password: String,
 }
 
 #[napi(object)]
 #[derive(Clone)]
 pub struct ResetPasswordRequest {
-    pub email: Option<String>,
+    pub password_reset_token: String,
+    pub new_password: String,
 }
 
 use crate::{parse_enum, to_metadata};
@@ -261,8 +262,8 @@ pub async fn change_user_group(id: String, group_id: String) -> Result<User> {
 #[napi]
 pub async fn update_user_password(id: String, request: UpdatePasswordRequest) -> Result<User> {
     let req = keygen_rs::user::UpdatePasswordRequest {
-        current_password: request.current_password,
-        password: request.password,
+        old_password: request.old_password,
+        new_password: request.new_password,
     };
 
     make_minimal_user(id)
@@ -273,13 +274,11 @@ pub async fn update_user_password(id: String, request: UpdatePasswordRequest) ->
 }
 
 #[napi]
-pub async fn reset_user_password(
-    id: String,
-    request: Option<ResetPasswordRequest>,
-) -> Result<User> {
-    let req = request.map(|request| keygen_rs::user::ResetPasswordRequest {
-        email: request.email,
-    });
+pub async fn reset_user_password(id: String, request: ResetPasswordRequest) -> Result<User> {
+    let req = keygen_rs::user::ResetPasswordRequest {
+        password_reset_token: request.password_reset_token,
+        new_password: request.new_password,
+    };
 
     make_minimal_user(id)
         .reset_password(req)

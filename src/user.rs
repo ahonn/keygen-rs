@@ -113,15 +113,18 @@ pub struct UpdateUserRequest {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UpdatePasswordRequest {
-    #[serde(rename = "currentPassword")]
-    pub current_password: Option<String>,
-    #[serde(rename = "password")]
-    pub password: String,
+    #[serde(rename = "oldPassword")]
+    pub old_password: Option<String>,
+    #[serde(rename = "newPassword")]
+    pub new_password: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ResetPasswordRequest {
-    pub email: Option<String>,
+    #[serde(rename = "passwordResetToken")]
+    pub password_reset_token: String,
+    #[serde(rename = "newPassword")]
+    pub new_password: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -304,10 +307,10 @@ impl User {
         let client = Client::from_global_config()?;
         let endpoint = format!("users/{}/actions/update-password", self.id);
         let mut meta = serde_json::Map::new();
-        insert_optional(&mut meta, "currentPassword", request.current_password)?;
+        insert_optional(&mut meta, "oldPassword", request.old_password)?;
         meta.insert(
-            "password".to_string(),
-            serde_json::Value::String(request.password),
+            "newPassword".to_string(),
+            serde_json::Value::String(request.new_password),
         );
         let body = serde_json::json!({ "meta": meta });
         let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
@@ -315,18 +318,16 @@ impl User {
         Ok(User::from(user_response.data))
     }
 
-    /// Trigger a reset-password email for this user.
-    pub async fn reset_password(
-        &self,
-        request: Option<ResetPasswordRequest>,
-    ) -> Result<User, Error> {
+    /// Reset this user's password using a reset token.
+    pub async fn reset_password(&self, request: ResetPasswordRequest) -> Result<User, Error> {
         let client = Client::from_global_config()?;
         let endpoint = format!("users/{}/actions/reset-password", self.id);
-        let mut meta = serde_json::Map::new();
-        if let Some(request) = request {
-            insert_optional(&mut meta, "email", request.email)?;
-        }
-        let body = serde_json::json!({ "meta": meta });
+        let body = serde_json::json!({
+            "meta": {
+                "passwordResetToken": request.password_reset_token,
+                "newPassword": request.new_password
+            }
+        });
         let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
         let user_response: UserResponse = serde_json::from_value(response.body)?;
         Ok(User::from(user_response.data))
