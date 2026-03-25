@@ -1032,7 +1032,6 @@ impl License {
     }
 
     /// Check a license back in, invalidating any offline license file.
-    #[cfg(feature = "token")]
     pub async fn check_in(&self) -> Result<License, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/check-in", self.id);
