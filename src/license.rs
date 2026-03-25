@@ -217,9 +217,12 @@ impl LicenseCheckoutOpts {
 
 #[derive(Debug, Default, Serialize)]
 pub struct PaginationOptions {
-    pub limit: Option<i32>, // Number of resources to return (1-100, default 10)
-    pub page_number: Option<i32>, // Page number to retrieve
-    pub page_size: Option<i32>, // Number of resources per page (1-100)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i32>,
+    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
+    pub page_number: Option<i32>,
+    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
+    pub page_size: Option<i32>,
 }
 
 #[derive(Debug, Clone, Default)]

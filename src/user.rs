@@ -3,8 +3,28 @@ use crate::errors::Error;
 use crate::insert_optional;
 use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
 use crate::KeygenResponseData;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
+
+fn serialize_metadata_filter<S>(
+    metadata: &Option<HashMap<String, serde_json::Value>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    use serde::ser::SerializeMap;
+    match metadata {
+        Some(map) => {
+            let mut ser_map = serializer.serialize_map(Some(map.len()))?;
+            for (key, value) in map {
+                ser_map.serialize_entry(&format!("metadata[{key}]"), value)?;
+            }
+            ser_map.end()
+        }
+        None => serializer.serialize_none(),
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -149,7 +169,11 @@ pub struct ListUsersOptions {
     pub sort: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub include: Option<String>,
-    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        flatten,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_metadata_filter"
+    )]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
