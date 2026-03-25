@@ -3,6 +3,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.11.0] - 2026-03-25
+
+### Added
+
+- Complete keygen api coverage for existing modules ([41ebb5e](https://github.com/ahonn/keygen-rs/commit/41ebb5efed9327d5b0e197378ff754f46569a5e4))
+
+### Fixed
+
+- Remove scheme from update attributes (create-only) ([9cbc9c5](https://github.com/ahonn/keygen-rs/commit/9cbc9c5a0318514fe6f4698b44ec1921bd8badf5))
+- Use PUT for relationship change operations per Keygen API ([401fe1e](https://github.com/ahonn/keygen-rs/commit/401fe1eb47a963338d46418af257e23d3e16781a))
+- Remove token feature gate from check_in method ([566f9c8](https://github.com/ahonn/keygen-rs/commit/566f9c8d6a9f2563196040e9ed07fa0827f8803f))
+- Correct query param serialization for pagination and metadata ([1119486](https://github.com/ahonn/keygen-rs/commit/1119486dcd268b65cdba1ddef9f7b4f15f6f6d06))
+- Add 9 missing fields to Policy::update attribute builder ([336ea51](https://github.com/ahonn/keygen-rs/commit/336ea51b27ffffc30edde010f2cefc926be9dbfd))
+- Correct password API field names per Keygen docs ([29db092](https://github.com/ahonn/keygen-rs/commit/29db092131a2dfcfbf17062b9779479ccd204208))
+- Address codex peer review findings ([2a19ec6](https://github.com/ahonn/keygen-rs/commit/2a19ec6e99950e8866a77aac85f0af0f493e6a49))
+- Gate download_artifact for non-wasm targets ([fa00e32](https://github.com/ahonn/keygen-rs/commit/fa00e32f2f89ec2d969aa40a4ce05eff782af6df))
+- Add repository field to wasm package for npm provenance ([1c72c95](https://github.com/ahonn/keygen-rs/commit/1c72c95322f8c3fa41b62b827632df0232726e1a))
+- Set correct npm package name @keygen-rs/wasm before publish ([821803f](https://github.com/ahonn/keygen-rs/commit/821803f635609dae481847160353ec034ddeb30b))
+
+### Other
+
+- Reuse Client for artifact URL and request building ([497454e](https://github.com/ahonn/keygen-rs/commit/497454e8b90717d03078b9a8c289a835d80449e3))
+- Change instance methods to take &self ([3604c36](https://github.com/ahonn/keygen-rs/commit/3604c369a617974822018c8cf9d9d80d1a4d0acd))
+- [**breaking**] Improve code quality across SDK modules ([312fe6e](https://github.com/ahonn/keygen-rs/commit/312fe6ef1a2e36d7420e71f7ebe5e36c01dba761))
+- Add examples for new api coverage ([835b41c](https://github.com/ahonn/keygen-rs/commit/835b41c15cd3d130c306fcfa2ff4137291f0b38e))
+
+
 ## [0.10.3] - 2026-03-23
 
 ### Added
