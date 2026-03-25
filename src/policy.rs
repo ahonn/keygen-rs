@@ -650,7 +650,7 @@ impl Policy {
             request.check_in_interval_count,
         )?;
         insert_optional(&mut attributes, "maxUsers", request.max_users)?;
-        insert_optional(&mut attributes, "scheme", request.scheme)?;
+        // Note: scheme is omitted — it is create-only
         insert_optional(&mut attributes, "metadata", request.metadata)?;
 
         let body = serde_json::json!({
