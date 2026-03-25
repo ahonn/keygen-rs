@@ -483,7 +483,7 @@ impl Machine {
                 "id": owner_id
             }
         });
-        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))
     }
@@ -499,7 +499,7 @@ impl Machine {
                 "id": group_id
             }
         });
-        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))
     }

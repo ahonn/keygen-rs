@@ -1459,7 +1459,7 @@ impl License {
                 "id": policy_id
             }
         });
-        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
         Ok(License::from(license_response.data))
     }
@@ -1475,7 +1475,7 @@ impl License {
                 "id": owner_id
             }
         });
-        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
         Ok(License::from(license_response.data))
     }
@@ -1491,7 +1491,7 @@ impl License {
                 "id": group_id
             }
         });
-        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
         Ok(License::from(license_response.data))
     }
