@@ -576,9 +576,42 @@ impl Policy {
         )?;
         insert_optional(
             &mut attributes,
+            "heartbeatCullStrategy",
+            request.heartbeat_cull_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "heartbeatResurrectionStrategy",
+            request.heartbeat_resurrection_strategy,
+        )?;
+        insert_optional(&mut attributes, "heartbeatBasis", request.heartbeat_basis)?;
+        insert_optional(
+            &mut attributes,
+            "machineUniquenessStrategy",
+            request.machine_uniqueness_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "componentUniquenessStrategy",
+            request.component_uniqueness_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "machineMatchingStrategy",
+            request.machine_matching_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
+            "componentMatchingStrategy",
+            request.component_matching_strategy,
+        )?;
+        insert_optional(
+            &mut attributes,
             "expirationStrategy",
             request.expiration_strategy,
         )?;
+        insert_optional(&mut attributes, "expirationBasis", request.expiration_basis)?;
+        insert_optional(&mut attributes, "renewalBasis", request.renewal_basis)?;
         insert_optional(
             &mut attributes,
             "authenticationStrategy",
