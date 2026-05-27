@@ -91,7 +91,8 @@ pub(crate) struct ProductsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateProductRequest {
     pub name: String,
-    pub code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
     #[serde(rename = "distributionStrategy")]
     pub distribution_strategy: Option<DistributionStrategy>,
     pub url: Option<String>,
@@ -164,8 +165,10 @@ impl Product {
 
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::json!(request.name));
-        if !request.code.is_empty() {
-            attributes.insert("code".to_string(), serde_json::json!(request.code));
+        if let Some(code) = &request.code {
+            if !code.is_empty() {
+                attributes.insert("code".to_string(), serde_json::json!(code));
+            }
         }
 
         insert_optional(

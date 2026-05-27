@@ -91,7 +91,7 @@ pub async fn create_product(request: JsValue) -> Result<JsValue, JsError> {
     #[serde(rename_all = "camelCase")]
     struct Req {
         name: String,
-        code: String,
+        code: Option<String>,
         distribution_strategy: Option<String>,
         url: Option<String>,
         platforms: Option<Vec<String>>,

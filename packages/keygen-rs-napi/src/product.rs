@@ -57,7 +57,7 @@ impl From<keygen_rs::product::Product> for Product {
 #[derive(Clone)]
 pub struct CreateProductRequest {
     pub name: String,
-    pub code: String,
+    pub code: Option<String>,
     pub distribution_strategy: Option<String>,
     pub url: Option<String>,
     pub platforms: Option<Vec<String>>,

@@ -20,7 +20,7 @@ async fn main() -> Result<(), Error> {
     // Create a new product
     let request = CreateProductRequest {
         name: "My Software Product".to_string(),
-        code: format!("my-software-v1-{}", chrono::Utc::now().timestamp()),
+        code: Some(format!("my-software-v1-{}", chrono::Utc::now().timestamp())),
         url: Some("https://example.com".to_string()),
         distribution_strategy: Some(DistributionStrategy::Licensed),
         platforms: Some(vec![Platform::Windows, Platform::MacOs, Platform::Linux]),
