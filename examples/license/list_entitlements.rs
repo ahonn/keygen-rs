@@ -2,7 +2,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    license::PaginationOptions,
+    license::{LicenseValidationRequest, PaginationOptions},
 };
 use std::env;
 
@@ -21,43 +21,20 @@ async fn main() -> Result<(), Error> {
     .expect("Failed to set config");
 
     // First validate to get the license
-    let license = match keygen_rs::validate(&[], &[]).await {
-        Ok(license) => license,
-        Err(Error::LicenseNotActivated { license, .. }) => *license,
-        Err(Error::ValidationFingerprintMissing { .. }) => keygen_rs::validate(&[], &[]).await?,
-        Err(e) => return Err(e),
-    };
+    let license = keygen_rs::validate(&LicenseValidationRequest::default())
+        .await?
+        .into_license()?;
 
     println!("License: {} ({})", license.id, license.key);
 
     // List all entitlements with pagination
-    let mut all_entitlements = Vec::new();
-    let mut page = 1;
     let limit = 50;
-
-    loop {
-        let pagination = PaginationOptions {
-            limit: Some(limit),
-            page_number: Some(page),
-            page_size: Some(limit),
-        };
-
-        let entitlements = license.entitlements(Some(&pagination)).await?;
-
-        if entitlements.is_empty() {
-            break;
-        }
-
-        let entitlements_len = entitlements.len();
-        all_entitlements.extend(entitlements);
-
-        // If we got less than the limit, we've reached the last page
-        if (entitlements_len as i32) < limit {
-            break;
-        }
-
-        page += 1;
-    }
+    let pagination = PaginationOptions {
+        limit: Some(limit),
+        page_size: Some(limit),
+        page_cursor: None,
+    };
+    let all_entitlements = license.entitlements(Some(&pagination)).await?.data;
 
     if all_entitlements.is_empty() {
         println!("No entitlements found");

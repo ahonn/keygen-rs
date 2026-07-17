@@ -194,6 +194,15 @@ impl Client {
         self.send_text(request).await
     }
 
+    pub async fn get_text_with_params<T: Serialize + ?Sized>(
+        &self,
+        path: &str,
+        params: Option<&T>,
+    ) -> Result<Response<String>, Error> {
+        let request = self.new_request(reqwest::Method::GET, path, params)?;
+        self.send_text(request).await
+    }
+
     fn new_request<T: Serialize + ?Sized>(
         &self,
         method: reqwest::Method,

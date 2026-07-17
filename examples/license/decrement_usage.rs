@@ -31,7 +31,7 @@ async fn main() -> Result<(), Error> {
     println!("  Uses: {:?}", license.uses);
     println!("  Max Uses: {:?}", license.max_uses);
 
-    let updated_license = license.decrement_usage().await?;
+    let updated_license = license.decrement_usage(Some(1)).await?;
 
     println!("Usage decremented: {}", updated_license.id);
     println!("  Previous Uses: {:?}", license.uses);

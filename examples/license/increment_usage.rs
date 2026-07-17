@@ -25,7 +25,7 @@ async fn main() -> Result<(), Error> {
 
     let license = License::from_id(&license_id);
 
-    match license.increment_usage().await {
+    match license.increment_usage(Some(1)).await {
         Ok(updated_license) => {
             println!("Usage incremented: {}", updated_license.id);
             println!("  Uses: {:?}", updated_license.uses);

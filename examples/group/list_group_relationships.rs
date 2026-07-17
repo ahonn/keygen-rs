@@ -84,8 +84,8 @@ async fn main() -> Result<(), Error> {
 
         let page = PaginationOptions {
             limit: Some(5),
-            page_number: None,
             page_size: None,
+            page_cursor: None,
         };
 
         let owners = group.owners(Some(&page)).await?;

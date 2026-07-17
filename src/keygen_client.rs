@@ -2,9 +2,9 @@ use crate::api_version::ApiContractVersion;
 use crate::client::{Client, ClientOptions};
 use crate::config::{get_config, KeygenConfig};
 use crate::errors::Error;
-#[cfg(feature = "license-key")]
-use crate::license::License;
 use crate::license::LicenseService;
+#[cfg(feature = "license-key")]
+use crate::license::{LicenseValidationRequest, LicenseValidationResult};
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -53,17 +53,19 @@ impl KeygenClient {
     #[cfg(feature = "license-key")]
     pub async fn validate(
         &self,
-        fingerprints: &[String],
-        entitlements: &[String],
-    ) -> Result<License, Error> {
+        request: &LicenseValidationRequest,
+    ) -> Result<LicenseValidationResult, Error> {
+        let mut request = request.clone();
+        if request.scope.product.is_none() {
+            request.scope.product = Some(self.config.product.clone());
+        }
         self.licenses()
             .validate_key(
                 self.config
                     .license_key
                     .as_deref()
                     .ok_or(Error::LicenseKeyMissing)?,
-                fingerprints,
-                entitlements,
+                &request,
             )
             .await
     }

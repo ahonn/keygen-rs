@@ -1,7 +1,6 @@
-use client::{Client, ClientOptions};
 use config::get_config;
 use errors::Error;
-use license::{License, SchemeCode};
+use license::{License, LicenseValidationRequest, LicenseValidationResult, SchemeCode};
 use serde::{Deserialize, Serialize};
 
 use crate::config::KeygenConfig;
@@ -170,27 +169,31 @@ pub(crate) struct KeygenResponseData<T> {
 ///     });
 ///
 ///     let fingerprint = machine_uid::get().unwrap_or("".into());
-///     let license = keygen_rs::validate(&[fingerprint]).await?;
-///     println!("License validated successfully: {:?}", license);
+///     let request = keygen_rs::license::LicenseValidationRequest::for_fingerprint(fingerprint);
+///     let result = keygen_rs::validate(&request).await?;
+///     println!("License validation result: {:?}", result);
 ///     Ok(())
 /// }
 /// ```
-pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Result<License, Error> {
+pub async fn validate(
+    request: &LicenseValidationRequest,
+) -> Result<LicenseValidationResult, Error> {
     let config = get_config()?;
-    validate_with_config(config, fingerprints, entitlements).await
+    validate_with_config(config, request).await
 }
 
 pub async fn validate_with_config(
     config: KeygenConfig,
-    fingerprints: &[String],
-    entitlements: &[String],
-) -> Result<License, Error> {
-    let client = Client::new(ClientOptions::from(config.clone()))?;
-    let response = client.get("me", None::<&()>).await?;
-    let profile: license::LicenseResponse<()> = serde_json::from_value(response.body)?;
-    License::from(profile.data)
+    request: &LicenseValidationRequest,
+) -> Result<LicenseValidationResult, Error> {
+    let key = config.license_key.clone().ok_or(Error::LicenseKeyMissing)?;
+    let mut request = request.clone();
+    if request.scope.product.is_none() {
+        request.scope.product = Some(config.product.clone());
+    }
+    License::from_key(&key)
         .with_config(config)
-        .validate_key(fingerprints, entitlements)
+        .validate_key(&request)
         .await
 }
 

@@ -96,7 +96,8 @@ describe("license validation", () => {
   after(() => wasm.resetConfig());
 
   it("validate returns a license", async () => {
-    const license = await wasm.validate([], []);
+    const validation = await wasm.validate({ scope: {} });
+    const license = validation.license;
     assert.ok(license.id);
     assert.ok(license.key);
     assert.equal(typeof license.id, "string");
@@ -104,21 +105,19 @@ describe("license validation", () => {
     console.log(`    License: ${license.id} (${license.status})`);
   });
 
-  it("validate with unregistered fingerprint rejects as not activated", async () => {
-    await assert.rejects(
-      () => wasm.validate(["unregistered-wasm-fp"], []),
-      (err) => {
-        assert.match(
-          err.message,
-          /NO_MACHINE|NO_MACHINES|FINGERPRINT_SCOPE_MISMATCH/,
-        );
-        return true;
-      },
+  it("validate with unregistered fingerprint returns an invalid result", async () => {
+    const validation = await wasm.validate({
+      scope: { fingerprint: "unregistered-wasm-fp" },
+    });
+    assert.equal(validation.meta.valid, false);
+    assert.match(
+      validation.meta.code,
+      /NO_MACHINE|NO_MACHINES|FINGERPRINT_SCOPE_MISMATCH/,
     );
   });
 
   it("license has expected fields", async () => {
-    const license = await wasm.validate([], []);
+    const license = (await wasm.validate({ scope: {} })).license;
     assert.equal(typeof license.id, "string");
     assert.equal(typeof license.key, "string");
     assert.ok(license.metadata !== undefined);
@@ -155,10 +154,10 @@ describe("license CRUD", () => {
   });
 
   it("listLicenses", async () => {
-    const licenses = await wasm.listLicenses({ limit: 5 });
-    assert.ok(Array.isArray(licenses));
-    assert.ok(licenses.length > 0);
-    assert.ok(licenses[0].id);
+    const page = await wasm.listLicenses({ limit: 5 });
+    assert.ok(Array.isArray(page.data));
+    assert.ok(page.data.length > 0);
+    assert.ok(page.data[0].id);
   });
 
   it("updateLicense", async () => {

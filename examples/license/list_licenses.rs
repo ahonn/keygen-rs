@@ -22,8 +22,8 @@ async fn main() -> Result<(), Error> {
     // List all licenses (basic usage)
     match License::list(None).await {
         Ok(licenses) => {
-            println!("Found {} licenses:", licenses.len());
-            for license in licenses {
+            println!("Found {} licenses:", licenses.data.len());
+            for license in licenses.data {
                 println!("  ID: {}", license.id);
                 println!("  Key: {}", license.key);
                 println!("  Status: {:?}", license.status);

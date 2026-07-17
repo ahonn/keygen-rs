@@ -332,7 +332,7 @@ impl LicenseFileDataset {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::license::LicenseCheckoutOpts;
+    use crate::license::{LicenseCheckoutOpts, UpdateField};
     use serde_json::json;
 
     #[test]
@@ -434,7 +434,7 @@ mod tests {
     fn test_license_checkout_opts_with_ttl() {
         let opts = LicenseCheckoutOpts::with_ttl(7200);
 
-        assert_eq!(opts.ttl, Some(7200));
+        assert_eq!(opts.ttl, UpdateField::Set(7200));
         assert!(opts.include.is_none());
     }
 
@@ -453,14 +453,14 @@ mod tests {
         assert!(includes.contains(&"machines".to_string()));
         assert!(includes.contains(&"components".to_string()));
         assert_eq!(includes.len(), 3);
-        assert!(opts.ttl.is_none());
+        assert_eq!(opts.ttl, UpdateField::Keep);
     }
 
     #[test]
     fn test_license_checkout_opts_new() {
         let opts = LicenseCheckoutOpts::new();
 
-        assert!(opts.ttl.is_none());
+        assert_eq!(opts.ttl, UpdateField::Keep);
         assert!(opts.include.is_none());
     }
 }

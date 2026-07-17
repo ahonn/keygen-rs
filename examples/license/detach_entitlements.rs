@@ -47,15 +47,19 @@ async fn main() -> Result<(), Error> {
 
     // Display current entitlements before detaching
     let current_entitlements = license.entitlements(None).await?;
-    if current_entitlements.is_empty() {
+    if current_entitlements.data.is_empty() {
         println!("No entitlements currently attached");
         return Ok(());
     }
 
-    println!("Current entitlements: {}", current_entitlements.len());
+    println!("Current entitlements: {}", current_entitlements.data.len());
 
     // Check if the entitlements to detach actually exist
-    let existing_ids: Vec<String> = current_entitlements.iter().map(|e| e.id.clone()).collect();
+    let existing_ids: Vec<String> = current_entitlements
+        .data
+        .iter()
+        .map(|e| e.id.clone())
+        .collect();
     let ids_to_detach: Vec<String> = entitlement_ids
         .iter()
         .filter(|id| existing_ids.contains(id))
@@ -88,8 +92,11 @@ async fn main() -> Result<(), Error> {
     // Verify the entitlements were detached
     let updated_entitlements = license.entitlements(None).await?;
 
-    println!("Remaining entitlements: {}", updated_entitlements.len());
-    for entitlement in &updated_entitlements {
+    println!(
+        "Remaining entitlements: {}",
+        updated_entitlements.data.len()
+    );
+    for entitlement in &updated_entitlements.data {
         println!("  {} ({})", entitlement.code, entitlement.id);
     }
 

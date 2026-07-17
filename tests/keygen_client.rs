@@ -43,8 +43,16 @@ async fn clients_keep_api_contract_versions_isolated() {
         .build()
         .unwrap();
 
-    let license_17 = v1_7.licenses().increment_usage("lic-17").await.unwrap();
-    let license_18 = v1_8.licenses().increment_usage("lic-18").await.unwrap();
+    let license_17 = v1_7
+        .licenses()
+        .increment_usage("lic-17", None)
+        .await
+        .unwrap();
+    let license_18 = v1_8
+        .licenses()
+        .increment_usage("lic-18", None)
+        .await
+        .unwrap();
 
     assert_eq!(license_17.id, "lic-17");
     assert_eq!(license_18.id, "lic-18");

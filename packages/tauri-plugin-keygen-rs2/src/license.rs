@@ -52,21 +52,31 @@ impl LicenseState {
         let mut config = config_state.lock().await;
         config.license_key = Some(key.to_string());
 
-        let license =
-            keygen_rs::validate_with_config(config.clone(), fingerprints, entitlements).await;
-        if let Ok(license) = license {
+        let request = keygen_rs::license::LicenseValidationRequest::new(
+            keygen_rs::license::LicenseValidationScope {
+                fingerprint: fingerprints.first().cloned(),
+                components: (fingerprints.len() > 1).then(|| fingerprints[1..].to_vec()),
+                entitlements: (!entitlements.is_empty()).then(|| entitlements.to_vec()),
+                ..Default::default()
+            },
+        );
+        let validation = keygen_rs::validate_with_config(config.clone(), &request).await?;
+        if validation.meta.valid {
+            let license = validation.into_license()?;
             self.license = Some(license.clone());
             Self::save_license_key_cache(app_handle, &license)?;
             self.set_valid(true).await;
             Ok(license)
         } else {
-            let error = license.unwrap_err();
             self.set_valid(false).await;
-            if let KeygenError::LicenseNotActivated { ref license, .. } = error {
-                self.license = Some((**license).clone());
-                return Err(error.into());
+            if let Some(license) = validation.license {
+                self.license = Some(license);
             }
-            Err(error.into())
+            Err(KeygenError::LicenseKeyInvalid {
+                code: validation.meta.code,
+                detail: validation.meta.detail,
+            }
+            .into())
         }
     }
 

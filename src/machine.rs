@@ -74,6 +74,8 @@ pub(crate) struct MachineResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct MachinesResponse {
     pub data: Vec<KeygenResponseData<MachineAttributes>>,
+    pub meta: Option<Value>,
+    pub links: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -33,8 +33,10 @@ describe("exports", () => {
     "decrementLicenseUsage",
     "resetLicenseUsage",
     "checkoutLicense",
+    "checkoutLicenseCertificate",
     "attachLicenseEntitlements",
     "detachLicenseEntitlements",
+    "listLicenseEntitlements",
     // Machine
     "createMachine",
     "listMachines",
@@ -315,7 +317,7 @@ describe("validate", () => {
       publicKey: "test-pk",
     });
 
-    const result = keygen.validate(["fp1"]);
+    const result = keygen.validate({ scope: { fingerprint: "fp1" } });
     assert.ok(result instanceof Promise);
     // will reject because API is not reachable, but it IS a promise
     result.catch(() => {});
@@ -327,13 +329,13 @@ describe("validate", () => {
       product: "test-product",
     });
 
-    await assert.rejects(() => keygen.validate(["fp1"]), (err) => {
+    await assert.rejects(() => keygen.validate({ scope: { fingerprint: "fp1" } }), (err) => {
       assert.ok(err instanceof Error);
       return true;
     });
   });
 
-  it("accepts optional entitlements parameter", () => {
+  it("accepts the complete validation scope", () => {
     keygen.setConfig({
       account: "a",
       product: "p",
@@ -341,14 +343,17 @@ describe("validate", () => {
       publicKey: "pk",
     });
 
-    // Both forms should be valid
-    const p1 = keygen.validate(["fp1"]);
-    const p2 = keygen.validate(["fp1"], ["ent1", "ent2"]);
-    const p3 = keygen.validate(["fp1"], null);
-
-    p1.catch(() => {});
-    p2.catch(() => {});
-    p3.catch(() => {});
+    const result = keygen.validate({
+      nonce: 42,
+      scope: {
+        fingerprints: ["fp1", "fp2"],
+        components: ["component-1"],
+        entitlements: ["ent1", "ent2"],
+        version: "1.2.3",
+        checksum: "checksum",
+      },
+    });
+    result.catch(() => {});
   });
 });
 
@@ -577,6 +582,28 @@ describe("type safety", () => {
     assert.equal(typeof cfg.token, "string");
 
     keygen.resetConfig();
+  });
+
+  it("rejects license integers outside the core API range", async () => {
+    await assert.rejects(
+      () => keygen.listLicenses({ limit: 4_294_967_295 }),
+      /limit exceeds i32/,
+    );
+    await assert.rejects(
+      () => keygen.updateLicense("lic-1", { maxMachines: 2_147_483_648 }),
+      /maxMachines exceeds i32/,
+    );
+  });
+
+  it("rejects malformed license metadata and checkout options", async () => {
+    await assert.rejects(
+      () => keygen.createLicense({ policyId: "pol-1", metadata: [] }),
+      /Invalid metadata/,
+    );
+    await assert.rejects(
+      () => keygen.checkoutLicense("lic-1", { encrypt: "yes" }),
+      /encrypt must be a boolean/,
+    );
   });
 });
 

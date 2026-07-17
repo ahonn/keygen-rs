@@ -39,12 +39,12 @@ async fn main() -> Result<(), Error> {
     // Example 1: List all licenses with default pagination
     match License::list(None).await {
         Ok(licenses) => {
-            println!("Found {} licenses", licenses.len());
-            for license in &licenses[..3.min(licenses.len())] {
+            println!("Found {} licenses", licenses.data.len());
+            for license in &licenses.data[..3.min(licenses.data.len())] {
                 println!("  {} ({})", license.id, license.key);
             }
-            if licenses.len() > 3 {
-                println!("  ... and {} more", licenses.len() - 3);
+            if licenses.data.len() > 3 {
+                println!("  ... and {} more", licenses.data.len() - 3);
             }
         }
         Err(e) => {
@@ -59,8 +59,8 @@ async fn main() -> Result<(), Error> {
     };
     match License::list(Some(&options_with_limit)).await {
         Ok(licenses) => {
-            println!("Found {} licenses (limited to 5)", licenses.len());
-            for license in licenses {
+            println!("Found {} licenses (limited to 5)", licenses.data.len());
+            for license in licenses.data {
                 println!("  {} ({})", license.id, license.key);
             }
         }
@@ -69,16 +69,16 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    // Example 3: List licenses with page-based pagination
+    // Example 3: Continue listing from a cursor returned by the API
     let options_with_page = LicenseListOptions {
-        page_number: Some(1),
+        page_cursor: env::var("KEYGEN_PAGE_CURSOR").ok(),
         page_size: Some(3),
         ..Default::default()
     };
     match License::list(Some(&options_with_page)).await {
         Ok(licenses) => {
-            println!("Found {} licenses on page 1:", licenses.len());
-            for license in licenses {
+            println!("Found {} licenses:", licenses.data.len());
+            for license in licenses.data {
                 println!("  {} ({})", license.id, license.key);
             }
         }

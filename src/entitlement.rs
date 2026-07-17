@@ -25,6 +25,8 @@ pub(crate) struct EntitlementResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct EntitlementsResponse {
     pub data: Vec<KeygenResponseData<EntitlementAttributes>>,
+    pub meta: Option<serde_json::Value>,
+    pub links: Option<serde_json::Value>,
 }
 
 #[cfg(feature = "token")]

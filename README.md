@@ -115,7 +115,11 @@ config::set_config(KeygenConfig {
 To validate a license, configure `KeygenConfig` with your Keygen account details. Then call the `validate` function with a device fingerprint:
 
 ```rust
-use keygen_rs::{config::{self, KeygenConfig}, errors::Error};
+use keygen_rs::{
+    config::{self, KeygenConfig},
+    errors::Error,
+    license::LicenseValidationRequest,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -127,8 +131,9 @@ async fn main() -> Result<(), Error> {
     ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    let license = keygen_rs::validate(&[fingerprint], &[]).await?;
-    println!("License validated successfully: {:?}", license);
+    let request = LicenseValidationRequest::for_fingerprint(fingerprint);
+    let validation = keygen_rs::validate(&request).await?;
+    println!("License validation: {} ({})", validation.meta.valid, validation.meta.code);
 
     Ok(())
 }
@@ -142,6 +147,7 @@ To activate a machine for a license:
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
+    license::LicenseValidationRequest,
 };
 
 #[tokio::main]
@@ -154,18 +160,19 @@ async fn main() -> Result<(), Error> {
     ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Err(err) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
-        match err {
-            Error::LicenseNotActivated { license, .. } => {
-                let machine = license.activate(&fingerprint, &[]).await?;
-                println!("License activated successfully: {:?}", machine);
-            }
-            _ => {
-                println!("License validation failed: {:?}", err);
-            }
-        }
-    } else {
+    let request = LicenseValidationRequest::for_fingerprint(fingerprint.clone());
+    let validation = keygen_rs::validate(&request).await?;
+    if validation.meta.valid {
         println!("License validated successfully");
+    } else if matches!(
+        validation.meta.code.as_str(),
+        "NO_MACHINE" | "NO_MACHINES" | "FINGERPRINT_SCOPE_MISMATCH"
+    ) && validation.license.is_some() {
+        let license = validation.license.unwrap();
+        let machine = license.activate(&fingerprint, &[]).await?;
+        println!("License activated successfully: {:?}", machine);
+    } else {
+        println!("License validation failed: {}", validation.meta.detail);
     }
 
     Ok(())
@@ -198,10 +205,14 @@ fn main() {
 
 ## Error Handling
 
-The SDK returns meaningful errors which can be handled in your integration. Here's an example of handling a `LicenseNotActivated` error:
+Transport and API failures return `Error`; invalid licenses are returned as validation metadata:
 
 ```rust
-use keygen_rs::{config::{self, KeygenConfig}, errors::Error};
+use keygen_rs::{
+    config::{self, KeygenConfig},
+    errors::Error,
+    license::LicenseValidationRequest,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -213,14 +224,16 @@ async fn main() -> Result<(), Error> {
     ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    match keygen_rs::validate(&[fingerprint.clone()], &[]).await {
-        Ok(license) => println!("License is valid: {:?}", license),
-        Err(Error::LicenseNotActivated { license, .. }) => {
-            println!("License is not activated. Activating...");
+    let request = LicenseValidationRequest::for_fingerprint(fingerprint.clone());
+    let validation = keygen_rs::validate(&request).await?;
+    match (validation.meta.valid, validation.license) {
+        (true, Some(license)) => println!("License is valid: {:?}", license),
+        (false, Some(license)) => {
+            println!("License is invalid: {}", validation.meta.code);
             let machine = license.activate(&fingerprint, &[]).await?;
             println!("Machine activated: {:?}", machine);
-        },
-        Err(e) => println!("Error: {:?}", e),
+        }
+        (_, None) => println!("License not found"),
     }
 
     Ok(())
