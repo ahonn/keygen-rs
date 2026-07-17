@@ -485,7 +485,6 @@ pub async fn list_licenses(options: Option<ListLicensesOptions>) -> Result<Licen
                         before: filter.before,
                         after: filter.after,
                     }),
-                ..Default::default()
             })
         })
         .transpose()?;

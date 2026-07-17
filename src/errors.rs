@@ -21,6 +21,32 @@ pub enum ApiErrorKind {
     SsoRequired,
     OtpRequired,
     OtpInvalid,
+    TokenNotAllowed,
+    TokenFormatInvalid,
+    TokenInvalid,
+    TokenExpired,
+    LicenseSuspended,
+    LicenseExpired,
+    LicenseNotAllowed,
+    LicenseNotActivated,
+    LicenseKeyInvalid,
+    LicenseTokenInvalid,
+    LicenseTooManyMachines,
+    LicenseTooManyCores,
+    LicenseTooManyProcesses,
+    MachineAlreadyActivated,
+    MachineLimitExceeded,
+    ProcessLimitExceeded,
+    ComponentConflict,
+    ComponentAlreadyActivated,
+    ComponentNotActivated,
+    HeartbeatDead,
+    HeartbeatPingFailed,
+    HeartbeatRequired,
+    ValidationFingerprintMissing,
+    ValidationComponentsMissing,
+    ValidationProductMissing,
+    NotFound,
     Unknown,
 }
 
@@ -110,6 +136,36 @@ impl ApiErrorObject {
             Some("SSO_REQUIRED") => ApiErrorKind::SsoRequired,
             Some("OTP_REQUIRED") => ApiErrorKind::OtpRequired,
             Some("OTP_INVALID") => ApiErrorKind::OtpInvalid,
+            Some("TOKEN_NOT_ALLOWED") => ApiErrorKind::TokenNotAllowed,
+            Some("TOKEN_FORMAT_INVALID") => ApiErrorKind::TokenFormatInvalid,
+            Some("TOKEN_INVALID") => ApiErrorKind::TokenInvalid,
+            Some("TOKEN_EXPIRED") => ApiErrorKind::TokenExpired,
+            Some("LICENSE_SUSPENDED") => ApiErrorKind::LicenseSuspended,
+            Some("LICENSE_EXPIRED") => ApiErrorKind::LicenseExpired,
+            Some("LICENSE_NOT_ALLOWED") => ApiErrorKind::LicenseNotAllowed,
+            Some("LICENSE_NOT_ACTIVATED") => ApiErrorKind::LicenseNotActivated,
+            Some("LICENSE_KEY_INVALID") => ApiErrorKind::LicenseKeyInvalid,
+            Some("LICENSE_TOKEN_INVALID") => ApiErrorKind::LicenseTokenInvalid,
+            Some("LICENSE_TOO_MANY_MACHINES") => ApiErrorKind::LicenseTooManyMachines,
+            Some("LICENSE_TOO_MANY_CORES") => ApiErrorKind::LicenseTooManyCores,
+            Some("LICENSE_TOO_MANY_PROCESSES") => ApiErrorKind::LicenseTooManyProcesses,
+            Some("MACHINE_ALREADY_ACTIVATED") => ApiErrorKind::MachineAlreadyActivated,
+            Some("MACHINE_LIMIT_EXCEEDED") => ApiErrorKind::MachineLimitExceeded,
+            Some("PROCESS_LIMIT_EXCEEDED") => ApiErrorKind::ProcessLimitExceeded,
+            Some("COMPONENT_CONFLICT") => ApiErrorKind::ComponentConflict,
+            Some("COMPONENT_ALREADY_ACTIVATED") => ApiErrorKind::ComponentAlreadyActivated,
+            Some("COMPONENT_NOT_ACTIVATED") => ApiErrorKind::ComponentNotActivated,
+            Some("HEARTBEAT_DEAD") => ApiErrorKind::HeartbeatDead,
+            Some("HEARTBEAT_PING_FAILED") => ApiErrorKind::HeartbeatPingFailed,
+            Some("HEARTBEAT_REQUIRED") => ApiErrorKind::HeartbeatRequired,
+            Some("VALIDATION_FINGERPRINT_SCOPE_MISSING") => {
+                ApiErrorKind::ValidationFingerprintMissing
+            }
+            Some("VALIDATION_COMPONENTS_SCOPE_MISSING") => {
+                ApiErrorKind::ValidationComponentsMissing
+            }
+            Some("VALIDATION_PRODUCT_SCOPE_MISSING") => ApiErrorKind::ValidationProductMissing,
+            Some("NOT_FOUND") => ApiErrorKind::NotFound,
             _ => ApiErrorKind::Unknown,
         }
     }
@@ -158,6 +214,16 @@ impl ApiErrorDocument {
         self.primary()
             .map(ApiErrorObject::kind)
             .unwrap_or(ApiErrorKind::Unknown)
+    }
+
+    pub fn contains_kind(&self, expected: ApiErrorKind) -> bool {
+        self.errors.iter().any(|error| error.kind() == expected)
+    }
+
+    pub fn has_code(&self, expected: &str) -> bool {
+        self.errors
+            .iter()
+            .any(|error| error.code() == Some(expected))
     }
 
     pub fn body(&self) -> &Value {
@@ -267,6 +333,9 @@ pub enum Error {
 
     #[error("License file not supported: {0}")]
     LicenseFileNotSupported(String),
+
+    #[error("License file algorithm mismatch: expected {expected}, got {actual}")]
+    LicenseFileAlgorithmMismatch { expected: String, actual: String },
 
     #[error("License file not encrypted")]
     LicenseFileNotEncrypted,
@@ -404,9 +473,42 @@ impl Error {
 
     pub fn is_api_code(&self, expected: &str) -> bool {
         self.api_error()
-            .and_then(ApiErrorDocument::primary)
-            .and_then(ApiErrorObject::code)
-            == Some(expected)
+            .is_some_and(|document| document.has_code(expected))
+    }
+
+    pub fn api_error_kind(&self) -> ApiErrorKind {
+        match self {
+            Self::Api(document) => document.kind(),
+            Self::TokenNotAllowed { .. } => ApiErrorKind::TokenNotAllowed,
+            Self::TokenFormatInvalid { .. } => ApiErrorKind::TokenFormatInvalid,
+            Self::TokenInvalid { .. } => ApiErrorKind::TokenInvalid,
+            Self::TokenExpired { .. } => ApiErrorKind::TokenExpired,
+            Self::LicenseSuspended { .. } => ApiErrorKind::LicenseSuspended,
+            Self::LicenseExpired { .. } => ApiErrorKind::LicenseExpired,
+            Self::LicenseNotAllowed { .. } => ApiErrorKind::LicenseNotAllowed,
+            Self::LicenseNotActivated { .. } => ApiErrorKind::LicenseNotActivated,
+            Self::LicenseKeyInvalid { .. } => ApiErrorKind::LicenseKeyInvalid,
+            Self::LicenseTokenInvalid { .. } => ApiErrorKind::LicenseTokenInvalid,
+            Self::LicenseTooManyMachines { .. } => ApiErrorKind::LicenseTooManyMachines,
+            Self::LicenseTooManyCores { .. } => ApiErrorKind::LicenseTooManyCores,
+            Self::LicenseTooManyProcesses { .. } => ApiErrorKind::LicenseTooManyProcesses,
+            Self::MachineAlreadyActivated { .. } => ApiErrorKind::MachineAlreadyActivated,
+            Self::MachineLimitExceeded { .. } => ApiErrorKind::MachineLimitExceeded,
+            Self::ProcessLimitExceeded { .. } => ApiErrorKind::ProcessLimitExceeded,
+            Self::ComponentConflict { .. } => ApiErrorKind::ComponentConflict,
+            Self::ComponentAlreadyActivated { .. } => ApiErrorKind::ComponentAlreadyActivated,
+            Self::ComponentNotActivated { .. } => ApiErrorKind::ComponentNotActivated,
+            Self::HeartbeatDead { .. } => ApiErrorKind::HeartbeatDead,
+            Self::HeartbeatPingFailed { .. } => ApiErrorKind::HeartbeatPingFailed,
+            Self::HeartbeatRequired { .. } => ApiErrorKind::HeartbeatRequired,
+            Self::ValidationFingerprintMissing { .. } => ApiErrorKind::ValidationFingerprintMissing,
+            Self::ValidationComponentsMissing { .. } => ApiErrorKind::ValidationComponentsMissing,
+            Self::ValidationProductMissing { .. } => ApiErrorKind::ValidationProductMissing,
+            Self::NotFound { .. } | Self::MachineNotFound | Self::ProcessNotFound => {
+                ApiErrorKind::NotFound
+            }
+            _ => ApiErrorKind::Unknown,
+        }
     }
 }
 
@@ -553,5 +655,46 @@ mod api_error_tests {
         assert_eq!(document.kind(), ApiErrorKind::Unknown);
         assert_eq!(document.errors().len(), 2);
         assert_eq!(document.body()["meta"]["requestId"], "req-1");
+    }
+
+    #[test]
+    fn classifies_license_errors_and_searches_all_error_objects() {
+        let document = ApiErrorDocument::from_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({
+                "errors": [
+                    { "code": "FUTURE_ERROR", "detail": "first" },
+                    { "code": "LICENSE_SUSPENDED", "detail": "second" }
+                ]
+            }),
+        );
+
+        assert_eq!(document.kind(), ApiErrorKind::Unknown);
+        assert!(document.contains_kind(ApiErrorKind::LicenseSuspended));
+        assert!(document.has_code("LICENSE_SUSPENDED"));
+        assert!(!document.has_code("LICENSE_EXPIRED"));
+    }
+
+    #[test]
+    fn legacy_and_json_api_license_errors_share_semantic_kinds() {
+        let legacy = Error::LicenseExpired {
+            code: "LICENSE_EXPIRED".into(),
+            detail: "expired".into(),
+        };
+        let document = ApiErrorDocument::from_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({
+                "errors": [{
+                    "code": "LICENSE_EXPIRED",
+                    "detail": "expired"
+                }]
+            }),
+        );
+
+        assert_eq!(legacy.api_error_kind(), ApiErrorKind::LicenseExpired);
+        assert_eq!(
+            Error::Api(document).api_error_kind(),
+            ApiErrorKind::LicenseExpired
+        );
     }
 }

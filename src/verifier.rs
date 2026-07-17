@@ -1,11 +1,16 @@
 //! Cryptographic verification for licenses and API responses.
 //!
-//! This module provides Ed25519 signature verification for license keys,
-//! license files, machine files, and Keygen API response signatures.
+//! This module verifies signed license keys, license and machine files, and
+//! Keygen API response signatures.
 
 use base64::{engine::general_purpose, Engine};
 use ed25519_dalek::{Signature, Verifier as Ed25519Verifier, VerifyingKey};
+use p256::ecdsa::Signature as P256Signature;
+use p256::ecdsa::VerifyingKey as P256VerifyingKey;
+use p256::pkcs8::DecodePublicKey;
 use reqwest::header::HeaderMap;
+use rsa::traits::PublicKeyParts;
+use rsa::{Pkcs1v15Sign, Pss, RsaPublicKey};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -239,24 +244,62 @@ impl Verifier {
     }
 
     fn verify_certificate(&self, cert: &Certificate, prefix: &str) -> Result<(), Error> {
+        if self.public_key.is_empty() {
+            return Err(Error::PublicKeyMissing);
+        }
+
+        let msg = format!("{}/{}", prefix, cert.enc);
+        let sig = general_purpose::STANDARD
+            .decode(&cert.sig)
+            .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
+
         match cert.alg.as_str() {
             "aes-256-gcm+ed25519" | "base64+ed25519" => {
                 let public_key = self.public_key_bytes()?;
-
-                let msg = format!("{}/{}", prefix, cert.enc).into_bytes();
-                let sig = general_purpose::STANDARD
-                    .decode(&cert.sig)
-                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
-
                 let public_key = VerifyingKey::from_bytes(&public_key)
                     .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
                 let signature = Signature::try_from(&sig[..])
                     .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
-
-                if let Err(e) = public_key.verify(&msg, &signature) {
-                    return Err(Error::CertificateFileNotGenuine(e.to_string()));
-                };
-                Ok(())
+                public_key
+                    .verify(msg.as_bytes(), &signature)
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))
+            }
+            "aes-256-gcm+ecdsa-p256" | "base64+ecdsa-p256" => {
+                let public_key = P256VerifyingKey::from_public_key_pem(&self.public_key)
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
+                let signature = P256Signature::from_der(&sig)
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
+                public_key
+                    .verify(msg.as_bytes(), &signature)
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))
+            }
+            "aes-256-gcm+rsa-pss-sha256" | "base64+rsa-pss-sha256" => {
+                let public_key = RsaPublicKey::from_public_key_pem(&self.public_key)
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
+                let max_salt_len = public_key
+                    .size()
+                    .checked_sub(Sha256::output_size() + 2)
+                    .ok_or_else(|| {
+                        Error::CertificateFileNotGenuine("RSA public key is too small".to_string())
+                    })?;
+                public_key
+                    .verify(
+                        Pss::new_with_salt::<Sha256>(max_salt_len),
+                        &Sha256::digest(msg.as_bytes()),
+                        &sig,
+                    )
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))
+            }
+            "aes-256-gcm+rsa-sha256" | "base64+rsa-sha256" => {
+                let public_key = RsaPublicKey::from_public_key_pem(&self.public_key)
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
+                public_key
+                    .verify(
+                        Pkcs1v15Sign::new::<Sha256>(),
+                        &Sha256::digest(msg.as_bytes()),
+                        &sig,
+                    )
+                    .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))
             }
             _ => Err(Error::CertificateFileNotSupported(cert.alg.clone())),
         }
@@ -323,8 +366,12 @@ mod tests {
     use crate::license::SchemeCode;
     use base64::engine::general_purpose;
     use ed25519_dalek::{Signer, SigningKey};
+    use p256::ecdsa::{Signature as P256Signature, SigningKey as P256SigningKey};
+    use p256::pkcs8::{EncodePublicKey, LineEnding};
     use rand::rngs::OsRng;
     use reqwest::header::{HeaderMap, HeaderValue};
+    use rsa::traits::PublicKeyParts;
+    use rsa::{Pss, RsaPrivateKey};
     use serde_json::json;
 
     fn generate_valid_keys() -> (String, String) {
@@ -357,6 +404,76 @@ mod tests {
         let mut license = License::from_signed_key(SchemeCode::Ed25519Sign, key);
         license.name = Some("Test License".to_string());
         license
+    }
+
+    fn certificate(algorithm: &str, signature: &[u8]) -> Certificate {
+        Certificate {
+            enc: "dataset".to_string(),
+            sig: general_purpose::STANDARD.encode(signature),
+            alg: algorithm.to_string(),
+        }
+    }
+
+    #[test]
+    fn verifies_every_license_file_signature_algorithm() {
+        let message = b"license/dataset";
+        let mut rng = OsRng;
+
+        let ed25519_key = SigningKey::generate(&mut rng);
+        let ed25519_public_key = hex::encode(ed25519_key.verifying_key().as_bytes());
+        let ed25519_signature = ed25519_key.sign(message);
+        for algorithm in ["aes-256-gcm+ed25519", "base64+ed25519"] {
+            Verifier::new(ed25519_public_key.clone())
+                .verify_certificate(
+                    &certificate(algorithm, &ed25519_signature.to_bytes()),
+                    "license",
+                )
+                .unwrap();
+        }
+
+        let p256_key = P256SigningKey::random(&mut rng);
+        let p256_public_key = p256_key
+            .verifying_key()
+            .to_public_key_pem(LineEnding::LF)
+            .unwrap();
+        let p256_signature: P256Signature = p256_key.sign(message);
+        for algorithm in ["aes-256-gcm+ecdsa-p256", "base64+ecdsa-p256"] {
+            Verifier::new(p256_public_key.clone())
+                .verify_certificate(
+                    &certificate(algorithm, p256_signature.to_der().as_bytes()),
+                    "license",
+                )
+                .unwrap();
+        }
+
+        let rsa_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let rsa_public_key = rsa_key
+            .to_public_key()
+            .to_public_key_pem(LineEnding::LF)
+            .unwrap();
+        let digest = Sha256::digest(message);
+        let max_salt_len = rsa_key.size() - Sha256::output_size() - 2;
+        let pss_signature = rsa_key
+            .sign_with_rng(
+                &mut rng,
+                Pss::new_with_salt::<Sha256>(max_salt_len),
+                &digest,
+            )
+            .unwrap();
+        for algorithm in ["aes-256-gcm+rsa-pss-sha256", "base64+rsa-pss-sha256"] {
+            Verifier::new(rsa_public_key.clone())
+                .verify_certificate(&certificate(algorithm, &pss_signature), "license")
+                .unwrap();
+        }
+
+        let pkcs1_signature = rsa_key
+            .sign(rsa::Pkcs1v15Sign::new::<Sha256>(), &digest)
+            .unwrap();
+        for algorithm in ["aes-256-gcm+rsa-sha256", "base64+rsa-sha256"] {
+            Verifier::new(rsa_public_key.clone())
+                .verify_certificate(&certificate(algorithm, &pkcs1_signature), "license")
+                .unwrap();
+        }
     }
 
     #[test]

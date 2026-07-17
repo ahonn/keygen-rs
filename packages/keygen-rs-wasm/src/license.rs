@@ -361,7 +361,6 @@ pub async fn list_licenses(options: JsValue) -> Result<JsValue, JsError> {
                             before: filter.before,
                             after: filter.after,
                         }),
-                    ..Default::default()
                 })
             },
         )

@@ -12,28 +12,53 @@ use crate::{
     entitlement::Entitlement,
     errors::Error,
     group::Group,
-    license::{License, LicenseAttributes},
+    license::{License, LicenseAttributes, LicenseFileAlgorithm},
     verifier::Verifier,
     KeygenResponseData,
 };
 
-/// Container for included relationship data from license/machine checkout
-/// For License Checkout: entitlements, group
-/// For Machine Checkout: license.entitlements, components, group
+/// Included JSON:API resources from license and machine checkouts.
+///
+/// `resources` preserves every resource losslessly. The typed collections are
+/// compatibility views for resource types supported by earlier SDK versions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IncludedResources {
     #[serde(default)]
+    pub resources: Vec<IncludedResource>,
+    #[serde(default)]
     pub entitlements: Vec<Entitlement>,
     #[serde(default)]
-    pub components: Vec<Component>, // Only for machine checkout
+    pub components: Vec<Component>,
     #[serde(default)]
     pub groups: Vec<Group>,
 }
 
+/// A lossless JSON:API resource included in an offline license dataset.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct IncludedResource {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    #[serde(default)]
+    pub attributes: Value,
+    #[serde(default)]
+    pub relationships: Value,
+    #[serde(default)]
+    pub links: Value,
+}
+
 impl IncludedResources {
-    /// Parse included relationships from JSON API format
+    pub fn resources_by_type(&self, resource_type: &str) -> Vec<&IncludedResource> {
+        self.resources
+            .iter()
+            .filter(|resource| resource.resource_type == resource_type)
+            .collect()
+    }
+
+    /// Parse included resources from a JSON:API `included` array.
     pub fn parse_from_json(included_value: &Value) -> Result<Self, Error> {
         let mut included = Self {
+            resources: Vec::new(),
             entitlements: Vec::new(),
             components: Vec::new(),
             groups: Vec::new(),
@@ -41,6 +66,10 @@ impl IncludedResources {
 
         if let Some(included_array) = included_value.as_array() {
             for item in included_array {
+                let resource: IncludedResource = serde_json::from_value(item.clone())
+                    .map_err(|error| Error::LicenseFileInvalid(error.to_string()))?;
+                included.resources.push(resource);
+
                 if let Some(item_type) = item.get("type").and_then(|t| t.as_str()) {
                     match item_type {
                         "entitlements" => {
@@ -54,7 +83,6 @@ impl IncludedResources {
                             }
                         }
                         "components" => {
-                            // Components might be in a different format, let's try to parse them properly
                             if let Some(id) = item.get("id").and_then(|i| i.as_str()) {
                                 if let Some(attrs) = item.get("attributes") {
                                     if let (Some(fingerprint), Some(name), metadata) = (
@@ -76,7 +104,6 @@ impl IncludedResources {
                             }
                         }
                         "groups" => {
-                            // Parse group data - simplified structure
                             if let Some(id) = item.get("id").and_then(|i| i.as_str()) {
                                 if let Some(attrs) = item.get("attributes") {
                                     included.groups.push(Group {
@@ -121,12 +148,7 @@ impl IncludedResources {
                                 }
                             }
                         }
-                        "licenses" => {
-                            // Skip licenses as they are handled separately in machine files
-                        }
-                        _ => {
-                            // Ignore other types (users, owner, product, policy, environment need special permissions)
-                        }
+                        _ => {}
                     }
                 }
             }
@@ -198,6 +220,10 @@ impl LicenseFile {
         }
     }
 
+    /// Verify using the globally configured public key and certificate algorithm.
+    ///
+    /// Prefer [`Self::verify_with_key_and_algorithm`] for untrusted input so the
+    /// certificate cannot select an unexpected algorithm.
     pub fn verify(&self) -> Result<(), Error> {
         let config = crate::config::get_config()?;
 
@@ -209,8 +235,69 @@ impl LicenseFile {
         }
     }
 
+    /// Decrypt without verifying the certificate signature.
+    ///
+    /// Prefer [`Self::verify_and_decrypt`] when consuming untrusted input.
     pub fn decrypt(&self, key: &str) -> Result<LicenseFileDataset, Error> {
         Self::_decrypt(key, &self.certificate)
+    }
+
+    /// Decode an unencrypted base64 license file without verifying its signature.
+    ///
+    /// Prefer [`Self::verify_and_decode`] when consuming untrusted input.
+    pub fn decode(&self) -> Result<LicenseFileDataset, Error> {
+        Self::_decode(&self.certificate)
+    }
+
+    /// Verify with an explicit public key and the certificate's declared algorithm.
+    ///
+    /// Prefer [`Self::verify_with_key_and_algorithm`] for untrusted input.
+    pub fn verify_with_key(&self, public_key: &str) -> Result<(), Error> {
+        Verifier::new(public_key.to_string()).verify_license_file(self)
+    }
+
+    /// Verify only when the certificate uses the caller's expected algorithm.
+    pub fn verify_with_key_and_algorithm(
+        &self,
+        public_key: &str,
+        expected_algorithm: LicenseFileAlgorithm,
+    ) -> Result<(), Error> {
+        let actual_algorithm = self.algorithm()?;
+        if actual_algorithm != expected_algorithm {
+            return Err(Error::LicenseFileAlgorithmMismatch {
+                expected: expected_algorithm.as_str().to_string(),
+                actual: actual_algorithm.as_str().to_string(),
+            });
+        }
+        self.verify_with_key(public_key)
+    }
+
+    /// Return the algorithm declared by this license file.
+    pub fn algorithm(&self) -> Result<LicenseFileAlgorithm, Error> {
+        let certificate = self.certificate()?;
+        LicenseFileAlgorithm::from_code(&certificate.alg)
+            .ok_or(Error::LicenseFileNotSupported(certificate.alg))
+    }
+
+    /// Verify and decode an unencrypted license file in one operation.
+    pub fn verify_and_decode(
+        &self,
+        public_key: &str,
+        expected_algorithm: LicenseFileAlgorithm,
+    ) -> Result<LicenseFileDataset, Error> {
+        self.verify_with_key_and_algorithm(public_key, expected_algorithm)?;
+        self.decode()
+    }
+
+    /// Verify and decrypt an encrypted license file in one operation.
+    pub fn verify_and_decrypt(
+        &self,
+        public_key: &str,
+        decryption_key: &str,
+        expected_algorithm: LicenseFileAlgorithm,
+    ) -> Result<LicenseFileDataset, Error> {
+        self.verify_with_key_and_algorithm(public_key, expected_algorithm)?;
+        self.decrypt(decryption_key)
     }
 
     pub fn certificate(&self) -> Result<Certificate, Error> {
@@ -221,37 +308,53 @@ impl LicenseFile {
     /// Requires the decryption key and the license file to include entitlements
     pub fn entitlements(&self, key: &str) -> Result<Vec<Entitlement>, Error> {
         let dataset = self.decrypt(key)?;
-        Ok(dataset.offline_entitlements().unwrap_or(&vec![]).clone())
+        Ok(dataset.offline_entitlements().cloned().unwrap_or_default())
     }
 
     /// Get components from the license file without making an API call
     /// Requires the decryption key and the license file to include components
     pub fn components(&self, key: &str) -> Result<Vec<Component>, Error> {
         let dataset = self.decrypt(key)?;
-        Ok(dataset.offline_components().unwrap_or(&vec![]).clone())
+        Ok(dataset.offline_components().cloned().unwrap_or_default())
     }
 
     /// Get groups from the license file without making an API call
     /// Requires the decryption key and the license file to include groups
     pub fn groups(&self, key: &str) -> Result<Vec<Group>, Error> {
         let dataset = self.decrypt(key)?;
-        Ok(dataset.offline_groups().unwrap_or(&vec![]).clone())
+        Ok(dataset.offline_groups().cloned().unwrap_or_default())
     }
 
     fn _decrypt(key: &str, content: &str) -> Result<LicenseFileDataset, Error> {
         let cert = Self::_certificate(content.to_string())?;
-        match cert.alg.as_str() {
-            "aes-256-gcm+rsa-pss-sha256" | "aes-256-gcm+rsa-sha256" => {
-                return Err(Error::LicenseFileNotSupported(cert.alg.clone()));
-            }
-            "aes-256-gcm+ed25519" => {}
-            _ => return Err(Error::LicenseFileNotEncrypted),
+        let algorithm = LicenseFileAlgorithm::from_code(&cert.alg)
+            .ok_or_else(|| Error::LicenseFileNotSupported(cert.alg.clone()))?;
+        if !algorithm.is_encrypted() {
+            return Err(Error::LicenseFileNotEncrypted);
         }
 
         let decryptor = Decryptor::new(key.to_string());
         let data = decryptor.decrypt_certificate(&cert)?;
+        Self::_parse_dataset(&data)
+    }
+
+    fn _decode(content: &str) -> Result<LicenseFileDataset, Error> {
+        let cert = Self::_certificate(content.to_string())?;
+        let algorithm = LicenseFileAlgorithm::from_code(&cert.alg)
+            .ok_or_else(|| Error::LicenseFileNotSupported(cert.alg.clone()))?;
+        if algorithm.is_encrypted() {
+            return Err(Error::LicenseFileNotSupported(cert.alg));
+        }
+
+        let data = general_purpose::STANDARD
+            .decode(&cert.enc)
+            .map_err(|error| Error::LicenseFileInvalid(error.to_string()))?;
+        Self::_parse_dataset(&data)
+    }
+
+    fn _parse_dataset(data: &[u8]) -> Result<LicenseFileDataset, Error> {
         let dataset: Value =
-            serde_json::from_slice(&data).map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
+            serde_json::from_slice(data).map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
 
         let meta: CertificateFileMeta = serde_json::from_value(dataset["meta"].clone())
             .map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
@@ -261,7 +364,6 @@ impl LicenseFile {
                 .map_err(|e| Error::LicenseFileInvalid(e.to_string()))?;
         let license = License::from(data);
 
-        // Parse included relationships if present
         let included = if let Some(included_value) = dataset.get("included") {
             if included_value.is_array() && !included_value.as_array().unwrap().is_empty() {
                 Some(IncludedResources::parse_from_json(included_value)?)
@@ -367,6 +469,7 @@ mod tests {
         assert!(result.is_ok());
 
         let included = result.unwrap();
+        assert_eq!(included.resources.len(), 2);
         assert_eq!(included.entitlements.len(), 1);
         assert_eq!(included.entitlements[0].code, "feature-a");
         assert_eq!(included.entitlements[0].name, Some("Feature A".to_string()));
@@ -396,6 +499,7 @@ mod tests {
                 ..Default::default()
             }],
             groups: vec![],
+            resources: vec![],
         };
 
         let dataset = LicenseFileDataset {
@@ -462,5 +566,170 @@ mod tests {
 
         assert_eq!(opts.ttl, UpdateField::Keep);
         assert!(opts.include.is_none());
+    }
+
+    #[test]
+    fn decodes_base64_license_files_and_preserves_all_included_resources() {
+        let dataset = json!({
+            "meta": {
+                "issued": "2026-01-01T00:00:00Z",
+                "expiry": "2026-01-01T00:00:00Z",
+                "ttl": 0
+            },
+            "data": {
+                "type": "licenses",
+                "id": "license-1",
+                "attributes": {
+                    "key": "TEST-LICENSE-KEY"
+                },
+                "relationships": {}
+            },
+            "included": [
+                {
+                    "type": "products",
+                    "id": "product-1",
+                    "attributes": {
+                        "name": "Desktop"
+                    },
+                    "relationships": {
+                        "account": {
+                            "data": { "type": "accounts", "id": "account-1" }
+                        }
+                    },
+                    "links": {
+                        "self": "/v1/products/product-1"
+                    }
+                }
+            ]
+        });
+        let encoded_dataset =
+            general_purpose::STANDARD.encode(serde_json::to_vec(&dataset).unwrap());
+        for algorithm in [
+            "base64+ed25519",
+            "base64+ecdsa-p256",
+            "base64+rsa-pss-sha256",
+            "base64+rsa-sha256",
+        ] {
+            let certificate = Certificate {
+                enc: encoded_dataset.clone(),
+                sig: String::new(),
+                alg: algorithm.to_string(),
+            };
+            let encoded_certificate =
+                general_purpose::STANDARD.encode(serde_json::to_vec(&certificate).unwrap());
+            let file = LicenseFile {
+                id: "file-1".to_string(),
+                certificate: format!(
+                    "-----BEGIN LICENSE FILE-----\n{encoded_certificate}\n-----END LICENSE FILE-----"
+                ),
+                issued: "2026-01-01T00:00:00Z".parse().unwrap(),
+                expiry: "2026-01-01T00:00:00Z".parse().unwrap(),
+                ttl: 0,
+            };
+
+            assert_eq!(
+                file.algorithm().unwrap(),
+                LicenseFileAlgorithm::from_code(algorithm).unwrap()
+            );
+            let decoded = file.decode().unwrap();
+            assert_eq!(decoded.license.id, "license-1");
+            let included = decoded.included.unwrap();
+            let products = included.resources_by_type("products");
+            assert_eq!(products.len(), 1);
+            assert_eq!(products[0].attributes["name"], "Desktop");
+            assert_eq!(
+                products[0].relationships["account"]["data"]["id"],
+                "account-1"
+            );
+            assert_eq!(products[0].links["self"], "/v1/products/product-1");
+        }
+    }
+
+    #[test]
+    fn rejects_an_unexpected_license_file_algorithm_before_verification() {
+        let certificate = Certificate {
+            enc: "dataset".to_string(),
+            sig: String::new(),
+            alg: "base64+ed25519".to_string(),
+        };
+        let encoded_certificate =
+            general_purpose::STANDARD.encode(serde_json::to_vec(&certificate).unwrap());
+        let file = LicenseFile {
+            id: "file-1".to_string(),
+            certificate: format!(
+                "-----BEGIN LICENSE FILE-----\n{encoded_certificate}\n-----END LICENSE FILE-----"
+            ),
+            issued: "2026-01-01T00:00:00Z".parse().unwrap(),
+            expiry: "2026-01-01T00:00:00Z".parse().unwrap(),
+            ttl: 0,
+        };
+
+        assert!(matches!(
+            file.verify_with_key_and_algorithm("", LicenseFileAlgorithm::Base64EcdsaP256),
+            Err(Error::LicenseFileAlgorithmMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn decrypts_every_aes_license_file_algorithm() {
+        use aes_gcm::aead::Aead;
+        use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+        use sha2::{Digest, Sha256};
+
+        let secret = "checkout-secret";
+        let dataset = json!({
+            "meta": {
+                "issued": "2026-01-01T00:00:00Z",
+                "expiry": "2026-01-01T00:00:00Z",
+                "ttl": 0
+            },
+            "data": {
+                "type": "licenses",
+                "id": "license-1",
+                "attributes": { "key": "TEST-LICENSE-KEY" },
+                "relationships": {}
+            }
+        });
+        let cipher = Aes256Gcm::new_from_slice(&Sha256::digest(secret.as_bytes())).unwrap();
+        let iv = *b"012345678901";
+        let encrypted = cipher
+            .encrypt(
+                Nonce::from_slice(&iv),
+                serde_json::to_vec(&dataset).unwrap().as_ref(),
+            )
+            .unwrap();
+        let (ciphertext, tag) = encrypted.split_at(encrypted.len() - 16);
+        let encrypted_dataset = format!(
+            "{}.{}.{}",
+            general_purpose::STANDARD.encode(ciphertext),
+            general_purpose::STANDARD.encode(iv),
+            general_purpose::STANDARD.encode(tag)
+        );
+
+        for algorithm in [
+            "aes-256-gcm+ed25519",
+            "aes-256-gcm+ecdsa-p256",
+            "aes-256-gcm+rsa-pss-sha256",
+            "aes-256-gcm+rsa-sha256",
+        ] {
+            let certificate = Certificate {
+                enc: encrypted_dataset.clone(),
+                sig: String::new(),
+                alg: algorithm.to_string(),
+            };
+            let encoded_certificate =
+                general_purpose::STANDARD.encode(serde_json::to_vec(&certificate).unwrap());
+            let file = LicenseFile {
+                id: "file-1".to_string(),
+                certificate: format!(
+                    "-----BEGIN LICENSE FILE-----\n{encoded_certificate}\n-----END LICENSE FILE-----"
+                ),
+                issued: "2026-01-01T00:00:00Z".parse().unwrap(),
+                expiry: "2026-01-01T00:00:00Z".parse().unwrap(),
+                ttl: 0,
+            };
+
+            assert_eq!(file.decrypt(secret).unwrap().license.id, "license-1");
+        }
     }
 }

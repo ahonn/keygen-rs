@@ -122,7 +122,6 @@ pub async fn checkout_license<R: Runtime>(
         include,
         encrypt,
         algorithm,
-        ..Default::default()
     };
     let license_file = license_state.checkout(&app_handle, &options).await?;
     Ok(license_file)

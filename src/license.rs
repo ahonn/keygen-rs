@@ -8,7 +8,7 @@ use std::env;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 
 use crate::certificate::CertificateFileResponse;
@@ -124,6 +124,108 @@ pub(crate) struct LicenseUsersResponse {
     pub links: Option<Value>,
 }
 
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LicenseAttachmentAttributes {
+    created: DateTime<Utc>,
+    updated: DateTime<Utc>,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LicenseAttachmentResource {
+    id: String,
+    #[serde(rename = "type")]
+    resource_type: String,
+    attributes: LicenseAttachmentAttributes,
+    #[serde(default)]
+    relationships: Value,
+    #[serde(default)]
+    links: Value,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LicenseAttachmentsResponse {
+    data: Vec<LicenseAttachmentResource>,
+}
+
+#[cfg(feature = "token")]
+fn attachment_relationship_id(relationships: &Value, name: &str) -> Option<String> {
+    relationships
+        .get(name)?
+        .get("data")?
+        .get("id")?
+        .as_str()
+        .map(str::to_owned)
+}
+
+#[cfg(feature = "token")]
+fn attachment_related_link(links: &Value) -> Option<String> {
+    links.get("related")?.as_str().map(str::to_owned)
+}
+
+/// A relationship resource created when attaching a user to a license.
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LicenseUserAttachment {
+    pub id: String,
+    pub resource_type: String,
+    pub account_id: Option<String>,
+    pub license_id: Option<String>,
+    pub user_id: Option<String>,
+    pub related: Option<String>,
+    pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
+}
+
+#[cfg(feature = "token")]
+impl From<LicenseAttachmentResource> for LicenseUserAttachment {
+    fn from(resource: LicenseAttachmentResource) -> Self {
+        Self {
+            id: resource.id,
+            resource_type: resource.resource_type,
+            account_id: attachment_relationship_id(&resource.relationships, "account"),
+            license_id: attachment_relationship_id(&resource.relationships, "license"),
+            user_id: attachment_relationship_id(&resource.relationships, "user"),
+            related: attachment_related_link(&resource.links),
+            created: resource.attributes.created,
+            updated: resource.attributes.updated,
+        }
+    }
+}
+
+/// A relationship resource created when attaching an entitlement to a license.
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LicenseEntitlementAttachment {
+    pub id: String,
+    pub resource_type: String,
+    pub account_id: Option<String>,
+    pub license_id: Option<String>,
+    pub entitlement_id: Option<String>,
+    pub related: Option<String>,
+    pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
+}
+
+#[cfg(feature = "token")]
+impl From<LicenseAttachmentResource> for LicenseEntitlementAttachment {
+    fn from(resource: LicenseAttachmentResource) -> Self {
+        Self {
+            id: resource.id,
+            resource_type: resource.resource_type,
+            account_id: attachment_relationship_id(&resource.relationships, "account"),
+            license_id: attachment_relationship_id(&resource.relationships, "license"),
+            entitlement_id: attachment_relationship_id(&resource.relationships, "entitlement"),
+            related: attachment_related_link(&resource.links),
+            created: resource.attributes.created,
+            updated: resource.attributes.updated,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LicenseValidationMeta {
     pub ts: DateTime<Utc>,
@@ -133,6 +235,94 @@ pub struct LicenseValidationMeta {
     pub scope: LicenseValidationScope,
     #[serde(default)]
     pub nonce: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum LicenseValidationCode {
+    Valid,
+    NotFound,
+    Suspended,
+    Expired,
+    Overdue,
+    HeartbeatDead,
+    HeartbeatNotStarted,
+    FingerprintScopeRequired,
+    FingerprintScopeEmpty,
+    FingerprintScopeMismatch,
+    ComponentsScopeRequired,
+    ComponentsScopeMismatch,
+    MachineScopeRequired,
+    MachineScopeMismatch,
+    NoMachine,
+    NoMachines,
+    UserScopeRequired,
+    UserScopeMismatch,
+    ProductScopeRequired,
+    ProductScopeMismatch,
+    PolicyScopeRequired,
+    PolicyScopeMismatch,
+    EntitlementsScopeEmpty,
+    EntitlementsMissing,
+    ChecksumScopeRequired,
+    ChecksumScopeMismatch,
+    VersionScopeRequired,
+    VersionScopeMismatch,
+    TooManyMachines,
+    TooManyCores,
+    TooManyProcesses,
+    TooManyUsers,
+    TooMuchMemory,
+    TooMuchDisk,
+    Unknown,
+}
+
+impl LicenseValidationCode {
+    pub fn parse(code: &str) -> Self {
+        match code {
+            "VALID" => Self::Valid,
+            "NOT_FOUND" => Self::NotFound,
+            "SUSPENDED" => Self::Suspended,
+            "EXPIRED" => Self::Expired,
+            "OVERDUE" => Self::Overdue,
+            "HEARTBEAT_DEAD" => Self::HeartbeatDead,
+            "HEARTBEAT_NOT_STARTED" => Self::HeartbeatNotStarted,
+            "FINGERPRINT_SCOPE_REQUIRED" => Self::FingerprintScopeRequired,
+            "FINGERPRINT_SCOPE_EMPTY" => Self::FingerprintScopeEmpty,
+            "FINGERPRINT_SCOPE_MISMATCH" => Self::FingerprintScopeMismatch,
+            "COMPONENTS_SCOPE_REQUIRED" => Self::ComponentsScopeRequired,
+            "COMPONENTS_SCOPE_MISMATCH" => Self::ComponentsScopeMismatch,
+            "MACHINE_SCOPE_REQUIRED" => Self::MachineScopeRequired,
+            "MACHINE_SCOPE_MISMATCH" => Self::MachineScopeMismatch,
+            "NO_MACHINE" => Self::NoMachine,
+            "NO_MACHINES" => Self::NoMachines,
+            "USER_SCOPE_REQUIRED" => Self::UserScopeRequired,
+            "USER_SCOPE_MISMATCH" => Self::UserScopeMismatch,
+            "PRODUCT_SCOPE_REQUIRED" => Self::ProductScopeRequired,
+            "PRODUCT_SCOPE_MISMATCH" => Self::ProductScopeMismatch,
+            "POLICY_SCOPE_REQUIRED" => Self::PolicyScopeRequired,
+            "POLICY_SCOPE_MISMATCH" => Self::PolicyScopeMismatch,
+            "ENTITLEMENTS_SCOPE_EMPTY" => Self::EntitlementsScopeEmpty,
+            "ENTITLEMENTS_MISSING" => Self::EntitlementsMissing,
+            "CHECKSUM_SCOPE_REQUIRED" => Self::ChecksumScopeRequired,
+            "CHECKSUM_SCOPE_MISMATCH" => Self::ChecksumScopeMismatch,
+            "VERSION_SCOPE_REQUIRED" => Self::VersionScopeRequired,
+            "VERSION_SCOPE_MISMATCH" => Self::VersionScopeMismatch,
+            "TOO_MANY_MACHINES" => Self::TooManyMachines,
+            "TOO_MANY_CORES" => Self::TooManyCores,
+            "TOO_MANY_PROCESSES" => Self::TooManyProcesses,
+            "TOO_MANY_USERS" => Self::TooManyUsers,
+            "TOO_MUCH_MEMORY" => Self::TooMuchMemory,
+            "TOO_MUCH_DISK" => Self::TooMuchDisk,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+impl LicenseValidationMeta {
+    pub fn code_kind(&self) -> LicenseValidationCode {
+        LicenseValidationCode::parse(&self.code)
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -299,7 +489,7 @@ pub struct License {
     client: Option<Arc<Client>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LicenseFileAlgorithm {
     #[serde(rename = "aes-256-gcm+ed25519")]
     Aes256GcmEd25519,
@@ -317,6 +507,45 @@ pub enum LicenseFileAlgorithm {
     Base64RsaPssSha256,
     #[serde(rename = "base64+rsa-sha256")]
     Base64RsaSha256,
+}
+
+impl LicenseFileAlgorithm {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Aes256GcmEd25519 => "aes-256-gcm+ed25519",
+            Self::Aes256GcmEcdsaP256 => "aes-256-gcm+ecdsa-p256",
+            Self::Aes256GcmRsaPssSha256 => "aes-256-gcm+rsa-pss-sha256",
+            Self::Aes256GcmRsaSha256 => "aes-256-gcm+rsa-sha256",
+            Self::Base64Ed25519 => "base64+ed25519",
+            Self::Base64EcdsaP256 => "base64+ecdsa-p256",
+            Self::Base64RsaPssSha256 => "base64+rsa-pss-sha256",
+            Self::Base64RsaSha256 => "base64+rsa-sha256",
+        }
+    }
+
+    pub const fn is_encrypted(self) -> bool {
+        matches!(
+            self,
+            Self::Aes256GcmEd25519
+                | Self::Aes256GcmEcdsaP256
+                | Self::Aes256GcmRsaPssSha256
+                | Self::Aes256GcmRsaSha256
+        )
+    }
+
+    pub fn from_code(code: &str) -> Option<Self> {
+        match code {
+            "aes-256-gcm+ed25519" => Some(Self::Aes256GcmEd25519),
+            "aes-256-gcm+ecdsa-p256" => Some(Self::Aes256GcmEcdsaP256),
+            "aes-256-gcm+rsa-pss-sha256" => Some(Self::Aes256GcmRsaPssSha256),
+            "aes-256-gcm+rsa-sha256" => Some(Self::Aes256GcmRsaSha256),
+            "base64+ed25519" => Some(Self::Base64Ed25519),
+            "base64+ecdsa-p256" => Some(Self::Base64EcdsaP256),
+            "base64+rsa-pss-sha256" => Some(Self::Base64RsaPssSha256),
+            "base64+rsa-sha256" => Some(Self::Base64RsaSha256),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -457,6 +686,68 @@ pub struct ResourcePage<T> {
     pub data: Vec<T>,
     pub meta: Option<Value>,
     pub links: Option<Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct PageLinks {
+    #[serde(rename = "self", default, skip_serializing_if = "Option::is_none")]
+    self_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    next: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    previous: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    first: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last: Option<String>,
+    #[serde(flatten)]
+    extensions: Map<String, Value>,
+}
+
+impl PageLinks {
+    pub fn self_url(&self) -> Option<&str> {
+        self.self_url.as_deref()
+    }
+
+    pub fn next_url(&self) -> Option<&str> {
+        self.next.as_deref()
+    }
+
+    pub fn previous_url(&self) -> Option<&str> {
+        self.previous.as_deref()
+    }
+
+    pub fn first_url(&self) -> Option<&str> {
+        self.first.as_deref()
+    }
+
+    pub fn last_url(&self) -> Option<&str> {
+        self.last.as_deref()
+    }
+
+    pub fn extensions(&self) -> &Map<String, Value> {
+        &self.extensions
+    }
+
+    pub fn has_next_page(&self) -> bool {
+        self.next.is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<String> {
+        let query = self.next.as_deref()?.split_once('?')?.1;
+        url::form_urlencoded::parse(query.as_bytes())
+            .find_map(|(key, value)| (key == "page[cursor]").then(|| value.into_owned()))
+    }
+}
+
+impl<T> ResourcePage<T> {
+    pub fn typed_links(&self) -> Result<Option<PageLinks>, serde_json::Error> {
+        self.links.clone().map(serde_json::from_value).transpose()
+    }
+
+    pub fn next_cursor(&self) -> Option<String> {
+        self.typed_links().ok().flatten()?.next_cursor()
+    }
 }
 
 pub type LicensePage = ResourcePage<License>;
@@ -1600,6 +1891,17 @@ impl License {
     /// Attach entitlements to a license
     #[cfg(feature = "token")]
     pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
+        self.attach_entitlements_with_response(entitlement_ids)
+            .await?;
+        Ok(())
+    }
+
+    /// Attach entitlements and return the created relationship resources.
+    #[cfg(feature = "token")]
+    pub async fn attach_entitlements_with_response(
+        &self,
+        entitlement_ids: &[String],
+    ) -> Result<Vec<LicenseEntitlementAttachment>, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/entitlements", self.id);
 
@@ -1617,10 +1919,18 @@ impl License {
             "data": data
         });
 
-        client
+        let response = client
             .post::<Value, Value, ()>(&endpoint, Some(&body), None::<&()>)
             .await?;
-        Ok(())
+        if response.body.is_null() {
+            return Ok(Vec::new());
+        }
+        let attachments: LicenseAttachmentsResponse = serde_json::from_value(response.body)?;
+        Ok(attachments
+            .data
+            .into_iter()
+            .map(LicenseEntitlementAttachment::from)
+            .collect())
     }
 
     /// Detach entitlements from a license
@@ -1672,6 +1982,16 @@ impl License {
     /// Attach users to this license.
     #[cfg(feature = "token")]
     pub async fn attach_users(&self, user_ids: &[String]) -> Result<(), Error> {
+        self.attach_users_with_response(user_ids).await?;
+        Ok(())
+    }
+
+    /// Attach users and return the created relationship resources.
+    #[cfg(feature = "token")]
+    pub async fn attach_users_with_response(
+        &self,
+        user_ids: &[String],
+    ) -> Result<Vec<LicenseUserAttachment>, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/users", self.id);
         let data: Vec<Value> = user_ids
@@ -1684,10 +2004,18 @@ impl License {
             })
             .collect();
         let body = json!({ "data": data });
-        client
+        let response = client
             .post::<Value, Value, ()>(&endpoint, Some(&body), None::<&()>)
             .await?;
-        Ok(())
+        if response.body.is_null() {
+            return Ok(Vec::new());
+        }
+        let attachments: LicenseAttachmentsResponse = serde_json::from_value(response.body)?;
+        Ok(attachments
+            .data
+            .into_iter()
+            .map(LicenseUserAttachment::from)
+            .collect())
     }
 
     /// Detach users from this license.
@@ -1961,6 +2289,17 @@ impl<'a> LicenseService<'a> {
     }
 
     #[cfg(feature = "token")]
+    pub async fn attach_entitlements_with_response(
+        &self,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<Vec<LicenseEntitlementAttachment>, Error> {
+        self.resource(id)
+            .attach_entitlements_with_response(entitlement_ids)
+            .await
+    }
+
+    #[cfg(feature = "token")]
     pub async fn detach_entitlements(
         &self,
         id: &str,
@@ -1981,6 +2320,15 @@ impl<'a> LicenseService<'a> {
     #[cfg(feature = "token")]
     pub async fn attach_users(&self, id: &str, user_ids: &[String]) -> Result<(), Error> {
         self.resource(id).attach_users(user_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn attach_users_with_response(
+        &self,
+        id: &str,
+        user_ids: &[String],
+    ) -> Result<Vec<LicenseUserAttachment>, Error> {
+        self.resource(id).attach_users_with_response(user_ids).await
     }
 
     #[cfg(feature = "token")]

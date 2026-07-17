@@ -42,6 +42,19 @@ impl Decryptor {
             .decode(parts[2])
             .map_err(|_| Error::DecryptionError("Failed to decode tag".into()))?;
 
+        if iv.len() != 12 {
+            return Err(Error::DecryptionError(format!(
+                "Invalid IV length: expected 12 bytes, got {}",
+                iv.len()
+            )));
+        }
+        if tag.len() != 16 {
+            return Err(Error::DecryptionError(format!(
+                "Invalid authentication tag length: expected 16 bytes, got {}",
+                tag.len()
+            )));
+        }
+
         let mut hasher = Sha256::new();
         hasher.update(self.secret.as_bytes());
         let key = hasher.finalize();
@@ -58,5 +71,34 @@ impl Decryptor {
             .map_err(|_| Error::DecryptionError("Decryption failed".into()))?;
 
         Ok(plaintext)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_invalid_iv_and_tag_lengths_without_panicking() {
+        let decryptor = Decryptor::new("secret".to_string());
+        let invalid_iv = Certificate {
+            enc: "Y2lwaGVydGV4dA==.c2hvcnQ=.dGFnMDEyMzQ1Njc4OTAxMg==".to_string(),
+            sig: String::new(),
+            alg: "aes-256-gcm+ed25519".to_string(),
+        };
+        let invalid_tag = Certificate {
+            enc: "Y2lwaGVydGV4dA==.MDEyMzQ1Njc4OTAx.c2hvcnQ=".to_string(),
+            sig: String::new(),
+            alg: "aes-256-gcm+ed25519".to_string(),
+        };
+
+        assert!(matches!(
+            decryptor.decrypt_certificate(&invalid_iv),
+            Err(Error::DecryptionError(_))
+        ));
+        assert!(matches!(
+            decryptor.decrypt_certificate(&invalid_tag),
+            Err(Error::DecryptionError(_))
+        ));
     }
 }
