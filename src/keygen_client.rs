@@ -5,6 +5,7 @@ use crate::errors::Error;
 use crate::license::LicenseService;
 #[cfg(feature = "license-key")]
 use crate::license::{LicenseValidationRequest, LicenseValidationResult};
+use crate::service::ServiceInfo;
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -48,6 +49,10 @@ impl KeygenClient {
 
     pub fn licenses(&self) -> LicenseService<'_> {
         LicenseService::new(self)
+    }
+
+    pub async fn service_info(&self) -> Result<ServiceInfo, Error> {
+        crate::service::get_service_info_with_client(&self.transport).await
     }
 
     #[cfg(feature = "license-key")]

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add typed Keygen API 1.7 and 1.8 contract selection, defaulting to 1.8.
 - Add instance-scoped `KeygenClient` and `LicenseService` APIs for isolated configurations.
+- Add instance service introspection and safe response-contract resolution for API negotiation.
 - Preserve complete JSON:API error documents, including multiple errors and unknown fields.
 
 ### Changed

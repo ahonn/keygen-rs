@@ -22,6 +22,33 @@ impl ApiContractVersion {
             _ => unreachable!(),
         }
     }
+
+    /// Resolve an observed response contract to the newest contract this SDK
+    /// can safely request. Newer minor versions remain compatible through
+    /// Keygen's version pinning, while a different major version does not.
+    pub fn resolve_observed(value: &str) -> Result<Self, ApiVersionParseError> {
+        let mut parts = value.split('.');
+        let parsed = parts
+            .next()
+            .and_then(|major| major.parse::<u16>().ok())
+            .zip(parts.next().and_then(|minor| minor.parse::<u16>().ok()))
+            .filter(|_| parts.next().is_none());
+        let Some((major, minor)) = parsed else {
+            return Err(ApiVersionParseError::new(value));
+        };
+
+        if major != u16::from(Self::CURRENT.major)
+            || minor < u16::from(Self::MINIMUM_SUPPORTED.minor)
+        {
+            return Err(ApiVersionParseError::new(value));
+        }
+
+        if minor == u16::from(Self::V1_7.minor) {
+            Ok(Self::V1_7)
+        } else {
+            Ok(Self::CURRENT)
+        }
+    }
 }
 
 impl Default for ApiContractVersion {
@@ -126,6 +153,29 @@ mod tests {
     fn rejects_legacy_future_and_prefixed_versions() {
         for value in ["1.6", "1.9", "2.0", "v1.8", "1.8.0"] {
             assert!(value.parse::<ApiContractVersion>().is_err());
+        }
+    }
+
+    #[test]
+    fn resolves_observed_contracts_to_the_latest_supported_version() {
+        assert_eq!(
+            ApiContractVersion::resolve_observed("1.7"),
+            Ok(ApiContractVersion::V1_7)
+        );
+        assert_eq!(
+            ApiContractVersion::resolve_observed("1.8"),
+            Ok(ApiContractVersion::V1_8)
+        );
+        assert_eq!(
+            ApiContractVersion::resolve_observed("1.9"),
+            Ok(ApiContractVersion::CURRENT)
+        );
+    }
+
+    #[test]
+    fn rejects_observed_contracts_outside_the_supported_major_range() {
+        for value in ["1.6", "2.0", "v1.8", "1.8.0", "unknown"] {
+            assert!(ApiContractVersion::resolve_observed(value).is_err());
         }
     }
 

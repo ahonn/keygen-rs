@@ -68,6 +68,28 @@ fn client_defaults_to_the_current_api_contract() {
 }
 
 #[tokio::test]
+async fn client_service_info_observes_the_account_contract_without_overriding_it() {
+    let service_mock = mock("GET", "/v1/ping")
+        .match_header("Keygen-Version", mockito::Matcher::Missing)
+        .with_status(200)
+        .with_header("content-type", "text/plain")
+        .with_header("Keygen-Version", "1.8")
+        .with_body("ok")
+        .create();
+    let client = KeygenClient::builder()
+        .account("account")
+        .api_url(server_url())
+        .api_contract_version(ApiContractVersion::V1_7)
+        .build()
+        .unwrap();
+
+    let info = client.service_info().await.unwrap();
+
+    assert_eq!(info.api_version.as_deref(), Some("1.8"));
+    service_mock.assert();
+}
+
+#[tokio::test]
 async fn activated_machine_keeps_the_originating_api_contract() {
     let activate_mock = mock("POST", "/v1/machines")
         .match_header("Keygen-Version", "1.7")

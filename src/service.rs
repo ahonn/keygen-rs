@@ -28,6 +28,10 @@ pub struct ServiceInfo {
 pub async fn get_service_info() -> Result<ServiceInfo, Error> {
     let client = Client::from_global_config()?;
 
+    get_service_info_with_client(&client).await
+}
+
+pub(crate) async fn get_service_info_with_client(client: &Client) -> Result<ServiceInfo, Error> {
     // Use the ping endpoint to get version information
     let response = client.get_text("ping").await?;
 
@@ -70,7 +74,7 @@ pub fn supports_api_contract(
     service_info
         .api_version
         .as_deref()
-        .and_then(|version| version.parse::<ApiContractVersion>().ok())
+        .and_then(|version| ApiContractVersion::resolve_observed(version).ok())
         .is_some_and(|version| version >= required_version)
 }
 
@@ -108,7 +112,7 @@ mod tests {
 
     #[test]
     fn test_supports_api_contract() {
-        let service_info = ServiceInfo {
+        let current_service = ServiceInfo {
             timestamp: None,
             api_version: Some("1.8".to_string()),
             message: None,
@@ -116,11 +120,20 @@ mod tests {
         };
 
         assert!(supports_api_contract(
-            &service_info,
+            &current_service,
             ApiContractVersion::V1_7
         ));
         assert!(supports_api_contract(
-            &service_info,
+            &current_service,
+            ApiContractVersion::V1_8
+        ));
+
+        let future_minor_service = ServiceInfo {
+            api_version: Some("1.9".to_string()),
+            ..current_service
+        };
+        assert!(supports_api_contract(
+            &future_minor_service,
             ApiContractVersion::V1_8
         ));
     }
