@@ -84,11 +84,6 @@ describe("service", () => {
     console.log(`    API version: ${info.apiVersion}`);
   });
 
-  it("supportsProductCode returns boolean", async () => {
-    const result = await keygen.supportsProductCode();
-    assert.equal(typeof result, "boolean");
-    console.log(`    Supports product code: ${result}`);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -108,11 +103,14 @@ describe("license validation", () => {
     console.log(`    License: ${license.id} (${license.status})`);
   });
 
-  it("validate with unregistered fingerprint rejects with NO_MACHINE", async () => {
+  it("validate with unregistered fingerprint rejects as not activated", async () => {
     await assert.rejects(
       () => keygen.validate(["unregistered-napi-fp"], []),
       (err) => {
-        assert.ok(err.message.includes("NO_MACHINE"));
+        assert.match(
+          err.message,
+          /NO_MACHINE|NO_MACHINES|FINGERPRINT_SCOPE_MISMATCH/,
+        );
         return true;
       },
     );

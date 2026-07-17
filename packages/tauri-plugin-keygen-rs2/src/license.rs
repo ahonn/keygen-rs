@@ -62,12 +62,9 @@ impl LicenseState {
         } else {
             let error = license.unwrap_err();
             self.set_valid(false).await;
-            match error {
-                KeygenError::LicenseNotActivated { ref license, .. } => {
-                    self.license = Some((**license).clone());
-                    return Err(error.into());
-                }
-                _ => {}
+            if let KeygenError::LicenseNotActivated { ref license, .. } = error {
+                self.license = Some((**license).clone());
+                return Err(error.into());
             }
             Err(error.into())
         }
@@ -88,7 +85,7 @@ impl LicenseState {
                 .with_config(config.clone())
                 .activate(fingerprint, components)
                 .await?;
-            Self::save_license_key_cache(app_handle, &license)?;
+            Self::save_license_key_cache(app_handle, license)?;
             self.set_valid(true).await;
             Ok(machine)
         } else {
@@ -112,7 +109,12 @@ impl LicenseState {
                 .await
             {
                 // if the machines are not found, remove the license file
-                Ok(_) | Err(KeygenError::NotFound { .. }) => {
+                Ok(_) => {
+                    Self::remove_license_file(app_handle)?;
+                    MachineState::remove_machine_file(app_handle)?;
+                    self.set_valid(false).await;
+                }
+                Err(err) if err.is_api_code("NOT_FOUND") => {
                     Self::remove_license_file(app_handle)?;
                     MachineState::remove_machine_file(app_handle)?;
                     self.set_valid(false).await;

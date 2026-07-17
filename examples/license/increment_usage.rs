@@ -23,31 +23,7 @@ async fn main() -> Result<(), Error> {
     // Get license ID from environment
     let license_id = env::var("KEYGEN_LICENSE_ID").expect("KEYGEN_LICENSE_ID must be set");
 
-    // Create a license instance with the ID
-    let license = License {
-        id: license_id,
-        scheme: None,
-        key: env::var("KEYGEN_LICENSE_KEY").expect("KEYGEN_LICENSE_KEY must be set"),
-        name: None,
-        expiry: None,
-        status: None,
-        uses: None,
-        max_machines: None,
-        max_cores: None,
-        max_uses: None,
-        max_processes: None,
-        max_users: None,
-        protected: None,
-        suspended: None,
-        permissions: None,
-        policy: None,
-        metadata: std::collections::HashMap::new(),
-        account_id: None,
-        product_id: None,
-        group_id: None,
-        owner_id: None,
-        config: None,
-    };
+    let license = License::from_id(&license_id);
 
     match license.increment_usage().await {
         Ok(updated_license) => {

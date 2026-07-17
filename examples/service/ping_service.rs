@@ -1,6 +1,7 @@
 use dotenv::dotenv;
 use keygen_rs::config::{self, KeygenConfig};
 use keygen_rs::service;
+use keygen_rs::ApiContractVersion;
 use std::env;
 
 #[tokio::main]
@@ -66,38 +67,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
-            // Check feature support
-            println!("Feature support checks:");
-
             println!(
-                "   Product codes (v1.8+): {}",
-                service::supports_feature(&service_info, "1.8")
-            );
-
-            println!(
-                "   Modern features (v1.5+): {}",
-                service::supports_feature(&service_info, "1.5")
+                "   Supports API contract 1.8: {}",
+                service::supports_api_contract(&service_info, ApiContractVersion::V1_8)
             );
         }
         Err(e) => {
             eprintln!("Failed to get service info: {e}");
             return Err(e.into());
-        }
-    }
-
-    println!("Checking specific feature support...");
-
-    // Check if product code field is supported
-    match service::supports_product_code().await {
-        Ok(supports) => {
-            if supports {
-                println!("Product codes are supported by this Keygen instance");
-            } else {
-                println!("Product codes are not supported (requires API v1.8+)");
-            }
-        }
-        Err(e) => {
-            eprintln!("Failed to check product code support: {e}");
         }
     }
 

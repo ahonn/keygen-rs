@@ -51,7 +51,7 @@ pub async fn validate_key<R: Runtime>(
     let machine_state = app_handle.get_machine_state();
     let machine_state = machine_state.lock().await;
 
-    let mut fingerprints = components.unwrap_or_else(|| vec![]);
+    let mut fingerprints = components.unwrap_or_default();
     fingerprints.insert(0, machine_state.fingerprint.clone());
 
     let license = license_state

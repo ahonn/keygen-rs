@@ -24,16 +24,21 @@ pub(crate) mod client;
 pub(crate) mod decryptor;
 pub(crate) mod verifier;
 
+pub mod api_version;
 pub mod component;
 pub mod config;
 pub mod entitlement;
 pub mod errors;
 pub mod group;
+pub mod keygen_client;
 pub mod license;
 pub mod license_file;
 pub mod machine;
 pub mod machine_file;
 pub mod service;
+
+pub use api_version::ApiContractVersion;
+pub use keygen_client::{KeygenClient, KeygenClientBuilder};
 
 // Management features only available with "token" feature flag
 #[cfg(feature = "token")]

@@ -46,10 +46,3 @@ pub async fn ping() -> Result<JsValue, JsError> {
         .map_err(to_js_error)?;
     serde_wasm_bindgen::to_value(&resp).map_err(|e| JsError::new(&e.to_string()))
 }
-
-#[wasm_bindgen(js_name = "supportsProductCode")]
-pub async fn supports_product_code() -> Result<bool, JsError> {
-    keygen_rs::service::supports_product_code()
-        .await
-        .map_err(to_js_error)
-}

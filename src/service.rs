@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::ApiContractVersion;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -61,15 +62,16 @@ pub async fn get_service_info() -> Result<ServiceInfo, Error> {
     })
 }
 
-/// Check if the service supports a specific feature by version
-pub fn supports_feature(service_info: &ServiceInfo, required_version: &str) -> bool {
-    if let Some(version) = &service_info.api_version {
-        // Simple version comparison - can be enhanced with semver crate
-        version.as_str() >= required_version
-    } else {
-        // If we can't determine version, assume latest
-        true
-    }
+/// Check whether the observed service contract is at least the required contract.
+pub fn supports_api_contract(
+    service_info: &ServiceInfo,
+    required_version: ApiContractVersion,
+) -> bool {
+    service_info
+        .api_version
+        .as_deref()
+        .and_then(|version| version.parse::<ApiContractVersion>().ok())
+        .is_some_and(|version| version >= required_version)
 }
 
 /// Ping the Keygen service and get basic information
@@ -100,27 +102,26 @@ pub async fn ping() -> Result<PingResponse, Error> {
     })
 }
 
-/// Check if product code field is supported (requires API v1.8+)
-pub async fn supports_product_code() -> Result<bool, Error> {
-    let service_info = get_service_info().await?;
-    Ok(supports_feature(&service_info, "1.8"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_supports_feature() {
+    fn test_supports_api_contract() {
         let service_info = ServiceInfo {
             timestamp: None,
-            api_version: Some("1.8.0".to_string()),
+            api_version: Some("1.8".to_string()),
             message: None,
             headers: HashMap::new(),
         };
 
-        assert!(supports_feature(&service_info, "1.7"));
-        assert!(supports_feature(&service_info, "1.8"));
-        assert!(!supports_feature(&service_info, "1.9"));
+        assert!(supports_api_contract(
+            &service_info,
+            ApiContractVersion::V1_7
+        ));
+        assert!(supports_api_contract(
+            &service_info,
+            ApiContractVersion::V1_8
+        ));
     }
 }

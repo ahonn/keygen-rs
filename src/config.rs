@@ -16,7 +16,7 @@
 //! }).expect("Failed to set config");
 //! ```
 
-use crate::errors::Error;
+use crate::{api_version::ApiContractVersion, errors::Error};
 use lazy_static::lazy_static;
 use std::sync::RwLock;
 
@@ -24,26 +24,19 @@ use std::sync::RwLock;
 pub struct KeygenConfig {
     // Common configuration
     pub api_url: String,
-    pub api_version: String,
+    pub api_version: ApiContractVersion,
     pub api_prefix: String,
     pub account: String,
     pub environment: Option<String>,
     pub user_agent: Option<String>,
 
     // License Key Authentication configuration
-    #[cfg(feature = "license-key")]
     pub product: String,
-    #[cfg(feature = "license-key")]
     pub package: String,
-    #[cfg(feature = "license-key")]
     pub license_key: Option<String>,
-    #[cfg(feature = "license-key")]
     pub public_key: Option<String>,
-    #[cfg(feature = "license-key")]
     pub platform: Option<String>,
-    #[cfg(feature = "license-key")]
     pub max_clock_drift: Option<i64>,
-    #[cfg(feature = "license-key")]
     pub verify_keygen_signature: Option<bool>,
 
     // Token Authentication configuration
@@ -56,26 +49,19 @@ impl Default for KeygenConfig {
         KeygenConfig {
             // Common defaults
             api_url: "https://api.keygen.sh".to_string(),
-            api_version: "1.7".to_string(),
+            api_version: ApiContractVersion::CURRENT,
             api_prefix: "v1".to_string(),
             account: String::new(),
             environment: None,
             user_agent: None,
 
             // License Key Authentication defaults
-            #[cfg(feature = "license-key")]
             product: String::new(),
-            #[cfg(feature = "license-key")]
             package: String::new(),
-            #[cfg(feature = "license-key")]
             license_key: None,
-            #[cfg(feature = "license-key")]
             public_key: None,
-            #[cfg(feature = "license-key")]
             platform: None,
-            #[cfg(feature = "license-key")]
             max_clock_drift: Some(5),
-            #[cfg(feature = "license-key")]
             verify_keygen_signature: Some(true),
 
             // Token Authentication defaults
@@ -151,8 +137,16 @@ pub fn set_api_url(api_url: &str) -> Result<(), Error> {
     update_config(|cfg| cfg.api_url = api_url.to_string())
 }
 
+pub fn set_api_contract_version(api_version: ApiContractVersion) -> Result<(), Error> {
+    update_config(|cfg| cfg.api_version = api_version)
+}
+
+#[deprecated(note = "use set_api_contract_version with ApiContractVersion")]
 pub fn set_api_version(api_version: &str) -> Result<(), Error> {
-    update_config(|cfg| cfg.api_version = api_version.to_string())
+    let api_version = api_version
+        .parse()
+        .map_err(|_| Error::UnsupportedApiVersion(api_version.to_string()))?;
+    set_api_contract_version(api_version)
 }
 
 pub fn set_api_prefix(api_prefix: &str) -> Result<(), Error> {

@@ -63,7 +63,6 @@ describe("exports", () => {
     // Service
     "getServiceInfo",
     "ping",
-    "supportsProductCode",
     // License/Machine file
     "licenseFileFromCert",
     "verifyLicenseFile",
@@ -198,6 +197,7 @@ describe("config", () => {
     const cfg = wasm.getConfig();
     assert.equal(cfg.account, "test-account");
     assert.equal(cfg.product, "test-product");
+    assert.equal(cfg.apiVersion, "1.8");
   });
 
   it("setConfig with all optional fields", () => {
@@ -224,6 +224,18 @@ describe("config", () => {
       product: "test-product",
     });
     assert.doesNotThrow(() => wasm.resetConfig());
+  });
+
+  it("rejects unsupported API contract versions", () => {
+    assert.throws(
+      () =>
+        wasm.setConfig({
+          account: "test-account",
+          product: "test-product",
+          apiVersion: "2.0",
+        }),
+      /supported versions are 1\.7 and 1\.8/,
+    );
   });
 
   it("async functions reject without config", async () => {

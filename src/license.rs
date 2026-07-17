@@ -18,6 +18,7 @@ use crate::config::{get_config, KeygenConfig};
 use crate::entitlement::{Entitlement, EntitlementsResponse};
 use crate::errors::Error;
 use crate::insert_optional;
+use crate::keygen_client::KeygenClient;
 use crate::license_file::LicenseFile;
 use crate::machine::{Machine, MachineResponse, MachinesResponse};
 #[cfg(feature = "token")]
@@ -184,6 +185,8 @@ pub struct License {
     pub owner_id: Option<String>,
     #[serde(skip)]
     pub config: Option<Arc<KeygenConfig>>,
+    #[serde(skip)]
+    client: Option<Arc<Client>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -640,6 +643,7 @@ impl License {
             group_id: data.relationships.group_id(),
             owner_id: data.relationships.owner_id(),
             config: None,
+            client: None,
         }
     }
 
@@ -667,6 +671,7 @@ impl License {
             group_id: None,
             owner_id: None,
             config: None,
+            client: None,
         }
     }
 
@@ -695,7 +700,14 @@ impl License {
             group_id: None,
             owner_id: None,
             config: None,
+            client: None,
         }
+    }
+
+    pub fn from_id(id: &str) -> Self {
+        let mut license = Self::from_key("");
+        license.id = id.to_string();
+        license
     }
 
     /// Associates a configuration with this License
@@ -704,8 +716,27 @@ impl License {
         self
     }
 
+    pub(crate) fn with_client(mut self, client: Arc<Client>, config: Arc<KeygenConfig>) -> Self {
+        self.client = Some(client);
+        self.config = Some(config);
+        self
+    }
+
+    fn inherit_client(&self, license: License) -> License {
+        match (&self.client, &self.config) {
+            (Some(client), Some(config)) => {
+                license.with_client(Arc::clone(client), Arc::clone(config))
+            }
+            (None, Some(config)) => license.with_config(config.as_ref().clone()),
+            _ => license,
+        }
+    }
+
     /// Gets a client for this license, using the associated config or global config
     fn get_client(&self) -> Result<Client, Error> {
+        if let Some(client) = &self.client {
+            return Ok(client.as_ref().clone());
+        }
         let config = if let Some(ref cfg) = self.config {
             cfg.as_ref().clone()
         } else {
@@ -772,12 +803,7 @@ impl License {
         if !meta.valid {
             return Err(self.handle_validation_code(&meta));
         };
-        let license = License::from(validation.data);
-        Ok(if let Some(cfg) = self.config {
-            license.with_config((*cfg).clone())
-        } else {
-            license
-        })
+        Ok(self.inherit_client(License::from(validation.data)))
     }
 
     pub async fn validate_key(
@@ -807,12 +833,7 @@ impl License {
         if !meta.valid {
             return Err(self.handle_validation_code(&meta));
         };
-        let license = License::from(validation.data);
-        Ok(if let Some(cfg) = self.config {
-            license.with_config((*cfg).clone())
-        } else {
-            license
-        })
+        Ok(self.inherit_client(License::from(validation.data)))
     }
 
     #[must_use = "verification result should be checked"]
@@ -897,7 +918,7 @@ impl License {
         let client = self.get_client()?;
         let response = client.post("machines", Some(&params), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
-        let machine = Machine::from(machine_response.data);
+        let machine = Machine::from(machine_response.data).with_config(config.clone());
         Ok(machine)
     }
 
@@ -1037,7 +1058,7 @@ impl License {
         let endpoint = format!("licenses/{}/actions/check-in", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     fn handle_validation_code(&self, meta: &ValidationMeta) -> Error {
@@ -1075,19 +1096,37 @@ impl License {
     /// Create a new license using the comprehensive request structure
     #[cfg(feature = "token")]
     pub async fn create(request: LicenseCreateRequest) -> Result<License, Error> {
-        let config = get_config()?;
-        let client = Client::new(ClientOptions::from(config))?;
+        let config = Arc::new(get_config()?);
+        let client = Arc::new(Client::new(ClientOptions::from(config.as_ref().clone()))?);
+        Self::create_with_client(client, config, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn create_with_client(
+        client: Arc<Client>,
+        config: Arc<KeygenConfig>,
+        request: LicenseCreateRequest,
+    ) -> Result<License, Error> {
         let body = request.to_json_body();
         let response = client.post("licenses", Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(License::from(license_response.data).with_client(client, config))
     }
 
     /// List all licenses with optional filtering
     #[cfg(feature = "token")]
     pub async fn list(options: Option<&LicenseListOptions>) -> Result<Vec<License>, Error> {
-        let config = get_config()?;
-        let client = Client::new(ClientOptions::from(config))?;
+        let config = Arc::new(get_config()?);
+        let client = Arc::new(Client::new(ClientOptions::from(config.as_ref().clone()))?);
+        Self::list_with_client(client, config, options).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn list_with_client(
+        client: Arc<Client>,
+        config: Arc<KeygenConfig>,
+        options: Option<&LicenseListOptions>,
+    ) -> Result<Vec<License>, Error> {
         let mut query = json!({});
 
         if let Some(opts) = options {
@@ -1212,19 +1251,28 @@ impl License {
         Ok(licenses_response
             .data
             .into_iter()
-            .map(License::from)
+            .map(|data| License::from(data).with_client(Arc::clone(&client), Arc::clone(&config)))
             .collect())
     }
 
     /// Get a license by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<License, Error> {
-        let config = get_config()?;
-        let client = Client::new(ClientOptions::from(config))?;
+        let config = Arc::new(get_config()?);
+        let client = Arc::new(Client::new(ClientOptions::from(config.as_ref().clone()))?);
+        Self::get_with_client(client, config, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn get_with_client(
+        client: Arc<Client>,
+        config: Arc<KeygenConfig>,
+        id: &str,
+    ) -> Result<License, Error> {
         let endpoint = format!("licenses/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(License::from(license_response.data).with_client(client, config))
     }
 
     /// Update a license
@@ -1235,7 +1283,7 @@ impl License {
         let body = request.to_json_body();
         let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Delete a license
@@ -1254,7 +1302,7 @@ impl License {
         let endpoint = format!("licenses/{}/actions/suspend", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Reinstate a suspended license
@@ -1264,7 +1312,7 @@ impl License {
         let endpoint = format!("licenses/{}/actions/reinstate", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Renew a license
@@ -1274,7 +1322,7 @@ impl License {
         let endpoint = format!("licenses/{}/actions/renew", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Revoke a license
@@ -1295,7 +1343,7 @@ impl License {
         let endpoint = format!("licenses/{}/actions/increment-usage", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Decrement the license's usage count by 1 (Admin only)
@@ -1308,7 +1356,7 @@ impl License {
         let endpoint = format!("licenses/{}/actions/decrement-usage", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Reset the license's usage count to zero (Admin only)
@@ -1321,13 +1369,13 @@ impl License {
         let endpoint = format!("licenses/{}/actions/reset-usage", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Attach entitlements to a license
     #[cfg(feature = "token")]
     pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/entitlements", self.id);
 
         let data: Vec<Value> = entitlement_ids
@@ -1353,7 +1401,7 @@ impl License {
     /// Detach entitlements from a license
     #[cfg(feature = "token")]
     pub async fn detach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/entitlements", self.id);
 
         let data: Vec<Value> = entitlement_ids
@@ -1461,7 +1509,7 @@ impl License {
         });
         let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Change the owner associated with this license.
@@ -1477,7 +1525,7 @@ impl License {
         });
         let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Change the group associated with this license.
@@ -1493,7 +1541,231 @@ impl License {
         });
         let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
+    }
+}
+
+pub struct LicenseService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> LicenseService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub fn resource(&self, id: &str) -> License {
+        License::from_id(id).with_client(self.client.transport_arc(), self.client.config_arc())
+    }
+
+    pub fn from_key(&self, key: &str) -> License {
+        License::from_key(key).with_client(self.client.transport_arc(), self.client.config_arc())
+    }
+
+    pub async fn validate(
+        &self,
+        id: &str,
+        fingerprints: &[String],
+        entitlements: &[String],
+    ) -> Result<License, Error> {
+        self.resource(id).validate(fingerprints, entitlements).await
+    }
+
+    pub async fn validate_key(
+        &self,
+        key: &str,
+        fingerprints: &[String],
+        entitlements: &[String],
+    ) -> Result<License, Error> {
+        self.from_key(key)
+            .validate_key(fingerprints, entitlements)
+            .await
+    }
+
+    #[must_use = "verification result should be checked"]
+    pub fn verify(&self, scheme: SchemeCode, signed_key: &str) -> Result<Vec<u8>, Error> {
+        License::from_signed_key(scheme, signed_key)
+            .with_client(self.client.transport_arc(), self.client.config_arc())
+            .verify()
+    }
+
+    pub async fn activate(
+        &self,
+        id: &str,
+        fingerprint: &str,
+        components: &[Component],
+    ) -> Result<Machine, Error> {
+        self.resource(id).activate(fingerprint, components).await
+    }
+
+    pub async fn deactivate_machine(
+        &self,
+        license_id: &str,
+        machine_id: &str,
+    ) -> Result<(), Error> {
+        self.resource(license_id).deactivate(machine_id).await
+    }
+
+    pub async fn machine(&self, license_id: &str, machine_id: &str) -> Result<Machine, Error> {
+        self.resource(license_id).machine(machine_id).await
+    }
+
+    pub async fn machines(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<Machine>, Error> {
+        self.resource(id).machines(options).await
+    }
+
+    pub async fn entitlements(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<Entitlement>, Error> {
+        self.resource(id).entitlements(options).await
+    }
+
+    pub async fn checkout(
+        &self,
+        id: &str,
+        options: &LicenseCheckoutOpts,
+    ) -> Result<LicenseFile, Error> {
+        self.resource(id).checkout(options).await
+    }
+
+    pub async fn check_in(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).check_in().await
+    }
+
+    pub async fn increment_usage(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).increment_usage().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn create(&self, request: LicenseCreateRequest) -> Result<License, Error> {
+        License::create_with_client(
+            self.client.transport_arc(),
+            self.client.config_arc(),
+            request,
+        )
+        .await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn list(&self, options: Option<&LicenseListOptions>) -> Result<Vec<License>, Error> {
+        License::list_with_client(
+            self.client.transport_arc(),
+            self.client.config_arc(),
+            options,
+        )
+        .await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn get(&self, id: &str) -> Result<License, Error> {
+        License::get_with_client(self.client.transport_arc(), self.client.config_arc(), id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn update(&self, id: &str, request: LicenseUpdateRequest) -> Result<License, Error> {
+        self.resource(id).update(request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        self.resource(id).delete().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn suspend(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).suspend().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn reinstate(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).reinstate().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn renew(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).renew().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn revoke(&self, id: &str) -> Result<(), Error> {
+        self.resource(id).revoke().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn decrement_usage(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).decrement_usage().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn reset_usage(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).reset_usage().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn attach_entitlements(
+        &self,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<(), Error> {
+        self.resource(id).attach_entitlements(entitlement_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn detach_entitlements(
+        &self,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<(), Error> {
+        self.resource(id).detach_entitlements(entitlement_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn generate_token(
+        &self,
+        id: &str,
+        request: Option<CreateTokenRequest>,
+    ) -> Result<Token, Error> {
+        self.resource(id).generate_token(request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn attach_users(&self, id: &str, user_ids: &[String]) -> Result<(), Error> {
+        self.resource(id).attach_users(user_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn detach_users(&self, id: &str, user_ids: &[String]) -> Result<(), Error> {
+        self.resource(id).detach_users(user_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn users(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<User>, Error> {
+        self.resource(id).users(options).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn change_policy(&self, id: &str, policy_id: &str) -> Result<License, Error> {
+        self.resource(id).change_policy(policy_id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn change_owner(&self, id: &str, owner_id: &str) -> Result<License, Error> {
+        self.resource(id).change_owner(owner_id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn change_group(&self, id: &str, group_id: &str) -> Result<License, Error> {
+        self.resource(id).change_group(group_id).await
     }
 }
 
@@ -1530,6 +1802,7 @@ mod tests {
             group_id: None,
             owner_id: None,
             config: None,
+            client: None,
         }
     }
 

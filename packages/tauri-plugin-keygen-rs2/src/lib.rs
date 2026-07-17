@@ -1,5 +1,7 @@
 use error::Error;
-use keygen_rs::{config::KeygenConfig, license_file::LicenseFile, machine_file::MachineFile};
+use keygen_rs::{
+    config::KeygenConfig, license_file::LicenseFile, machine_file::MachineFile, ApiContractVersion,
+};
 use lazy_static::lazy_static;
 use license::LicenseState;
 use machine::MachineState;
@@ -19,10 +21,10 @@ pub use keygen_rs;
 pub use keygen_rs::{component::Component, entitlement::Entitlement, machine::Machine};
 
 pub type Result<T> = std::result::Result<T, Error>;
+type LicenseListener = Box<dyn Fn(&LicenseState) + Send + Sync + 'static>;
 
 lazy_static! {
-    static ref LISTENERS: Mutex<Vec<Box<dyn Fn(&LicenseState) + Send + Sync + 'static>>> =
-        Mutex::new(Vec::new());
+    static ref LISTENERS: Mutex<Vec<LicenseListener>> = Mutex::new(Vec::new());
 }
 
 pub async fn add_license_listener<F>(listener: F)
@@ -85,7 +87,7 @@ pub struct Builder {
     product: String,
     public_key: String,
     api_url: Option<String>,
-    api_version: Option<String>,
+    api_version: Option<ApiContractVersion>,
     api_prefix: Option<String>,
 }
 
@@ -110,8 +112,8 @@ impl Builder {
         self
     }
 
-    pub fn api_version(mut self, api_version: impl Into<String>) -> Self {
-        self.api_version = Some(api_version.into());
+    pub fn api_version(mut self, api_version: ApiContractVersion) -> Self {
+        self.api_version = Some(api_version);
         self
     }
 
@@ -120,16 +122,22 @@ impl Builder {
         self
     }
 
-    pub fn build<R: Runtime>(self) -> TauriPlugin<R> {
-        let config = KeygenConfig {
-            api_url: self.api_url.unwrap_or("https://api.keygen.sh".to_string()),
-            api_version: self.api_version.unwrap_or("1.7".to_string()),
-            api_prefix: self.api_prefix.unwrap_or("v1".to_string()),
+    fn into_config(self) -> KeygenConfig {
+        KeygenConfig {
+            api_url: self
+                .api_url
+                .unwrap_or_else(|| "https://api.keygen.sh".to_string()),
+            api_version: self.api_version.unwrap_or(ApiContractVersion::CURRENT),
+            api_prefix: self.api_prefix.unwrap_or_else(|| "v1".to_string()),
             account: self.account,
             product: self.product,
             public_key: Some(self.public_key),
-            ..Default::default()
-        };
+            ..KeygenConfig::default()
+        }
+    }
+
+    pub fn build<R: Runtime>(self) -> TauriPlugin<R> {
+        let config = self.into_config();
 
         PluginBuilder::new("keygen-rs2")
             .invoke_handler(tauri::generate_handler![
@@ -206,5 +214,26 @@ impl Builder {
                 Ok(())
             })
             .build()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builder_defaults_to_current_api_contract() {
+        let config = Builder::new("account", "product", "public-key").into_config();
+
+        assert_eq!(config.api_version, ApiContractVersion::V1_8);
+    }
+
+    #[test]
+    fn builder_accepts_previous_supported_contract() {
+        let config = Builder::new("account", "product", "public-key")
+            .api_version(ApiContractVersion::V1_7)
+            .into_config();
+
+        assert_eq!(config.api_version, ApiContractVersion::V1_7);
     }
 }

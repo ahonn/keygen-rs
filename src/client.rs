@@ -3,25 +3,25 @@
 //! This module provides the low-level HTTP client used to communicate with the Keygen API.
 //! It handles authentication, request signing verification, and error handling.
 
+use crate::api_version::ApiContractVersion;
 use crate::config::get_config;
 use crate::errors::Error;
 use crate::verifier::Verifier;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
-use serde::Deserialize;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 use url::Url;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Client {
     inner: ReqwestClient,
     options: ClientOptions,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ClientOptions {
     pub account: String,
     pub environment: Option<String>,
@@ -29,7 +29,7 @@ pub struct ClientOptions {
     pub token: Option<String>,
     pub user_agent: Option<String>,
     pub api_url: String,
-    pub api_version: String,
+    pub api_version: ApiContractVersion,
     pub api_prefix: String,
     pub verify_keygen_signature: bool,
     pub public_key: Option<String>,
@@ -48,12 +48,6 @@ pub struct Response<T> {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EmptyResponse;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ErrorMeta {
-    pub code: String,
-    pub detail: String,
-}
 
 impl From<crate::config::KeygenConfig> for ClientOptions {
     fn from(config: crate::config::KeygenConfig) -> Self {
@@ -273,7 +267,7 @@ impl Client {
         if include_version {
             headers.insert(
                 "Keygen-Version",
-                HeaderValue::from_str(&self.options.api_version)?,
+                HeaderValue::from_static(self.options.api_version.as_str()),
             );
         }
 
@@ -312,26 +306,14 @@ impl Client {
 
         let status = response.status();
         let headers = response.headers().clone();
-
-        if status.is_client_error() || status.is_server_error() {
-            let error_body: serde_json::Value = response.json().await?;
-            return Err(self.handle_error(status, &headers, error_body));
-        }
         let bytes = response.bytes().await?;
 
-        if self.options.verify_keygen_signature {
-            if let Some(public_key) = &self.options.public_key {
-                let verifier = Verifier::new(public_key.clone());
+        self.verify_response_signature(&headers, &bytes, &method, &url, &host)?;
 
-                let base_path = url.path();
-                let full_path = if let Some(query) = url.query() {
-                    format!("{base_path}?{query}")
-                } else {
-                    base_path.to_string()
-                };
-
-                verifier.verify_keygen_signature(&headers, &bytes, &method, &full_path, &host)?;
-            }
+        if status.is_client_error() || status.is_server_error() {
+            let error_body = serde_json::from_slice(&bytes)
+                .unwrap_or_else(|_| String::from_utf8_lossy(&bytes).into_owned().into());
+            return Err(self.handle_error(status, &headers, error_body));
         }
 
         let body: U = if status == StatusCode::NO_CONTENT {
@@ -360,40 +342,47 @@ impl Client {
 
         let status = response.status();
         let headers = response.headers().clone();
+        let bytes = response.bytes().await?;
+
+        self.verify_response_signature(&headers, &bytes, &method, &url, &host)?;
 
         if status.is_client_error() || status.is_server_error() {
-            let error_body: serde_json::Value = response.json().await?;
+            let error_body = serde_json::from_slice(&bytes)
+                .unwrap_or_else(|_| String::from_utf8_lossy(&bytes).into_owned().into());
             return Err(self.handle_error(status, &headers, error_body));
         }
 
-        let text = response.text().await?;
-
-        if self.options.verify_keygen_signature {
-            if let Some(public_key) = &self.options.public_key {
-                let verifier = Verifier::new(public_key.clone());
-
-                let base_path = url.path();
-                let full_path = if let Some(query) = url.query() {
-                    format!("{base_path}?{query}")
-                } else {
-                    base_path.to_string()
-                };
-
-                verifier.verify_keygen_signature(
-                    &headers,
-                    text.as_bytes(),
-                    &method,
-                    &full_path,
-                    &host,
-                )?;
-            }
-        }
+        let text = String::from_utf8_lossy(&bytes).into_owned();
 
         Ok(Response {
             status,
             headers,
             body: text,
         })
+    }
+
+    fn verify_response_signature(
+        &self,
+        headers: &HeaderMap,
+        body: &[u8],
+        method: &str,
+        url: &Url,
+        host: &str,
+    ) -> Result<(), Error> {
+        if !self.options.verify_keygen_signature {
+            return Ok(());
+        }
+
+        let Some(public_key) = &self.options.public_key else {
+            return Ok(());
+        };
+
+        let full_path = match url.query() {
+            Some(query) => format!("{}?{query}", url.path()),
+            None => url.path().to_string(),
+        };
+        Verifier::new(public_key.clone())
+            .verify_keygen_signature(headers, body, method, &full_path, host)
     }
 
     fn handle_error(
@@ -404,16 +393,11 @@ impl Client {
     ) -> Error {
         match status {
             StatusCode::TOO_MANY_REQUESTS => self.handle_rate_limit_error(headers),
-            StatusCode::FORBIDDEN => self.handle_forbidden_error(&body),
-            _ if status.is_server_error() => Error::UnexpectedError(format!(
-                "Unexpected API error: status={status}, body={body}"
-            )),
-            _ => self.handle_other_error(&body),
+            _ => Error::Api(crate::errors::ApiErrorDocument::from_response(status, body)),
         }
     }
 
     fn handle_rate_limit_error(&self, headers: &HeaderMap) -> Error {
-        // Handle rate limiting
         let window = headers
             .get("X-RateLimit-Window")
             .and_then(|v| v.to_str().ok())
@@ -453,76 +437,12 @@ impl Client {
             retry_after,
         }
     }
-
-    fn handle_forbidden_error(&self, body: &serde_json::Value) -> Error {
-        let meta: Result<ErrorMeta, serde_json::Error> =
-            serde_json::from_value(body["errors"][0].clone());
-        if let Ok(meta) = meta {
-            let detail = meta.detail.clone();
-            let code = meta.code.clone();
-            match code.as_str() {
-                "TOKEN_NOT_ALLOWED" => Error::TokenNotAllowed { code, detail },
-                "TOKEN_FORMAT_INVALID" => Error::TokenFormatInvalid { code, detail },
-                "TOKEN_INVALID" => Error::TokenInvalid { code, detail },
-                "TOKEN_EXPIRED" => Error::TokenExpired { code, detail },
-                "LICENSE_NOT_ALLOWED" => Error::LicenseNotAllowed { code, detail },
-                "LICENSE_SUSPENDED" => Error::LicenseSuspended { code, detail },
-                "LICENSE_EXPIRED" => Error::LicenseExpired { code, detail },
-                _ => Error::KeygenApiError {
-                    code: code.clone(),
-                    detail: detail.clone(),
-                    body: body.clone(),
-                },
-            }
-        } else {
-            Error::KeygenApiError {
-                code: "API_ERROR".to_string(),
-                detail: "Unknown error".to_string(),
-                body: body.clone(),
-            }
-        }
-    }
-
-    fn handle_other_error(&self, body: &serde_json::Value) -> Error {
-        let meta: Result<ErrorMeta, serde_json::Error> =
-            serde_json::from_value(body["errors"][0].clone());
-        if let Ok(meta) = meta {
-            let detail = meta.detail.clone();
-            let code = meta.code.clone();
-            match code.as_str() {
-                "ENVIRONMENT_NOT_SUPPORTED" | "ENVIRONMENT_INVALID" => {
-                    Error::EnvironmentError { code, detail }
-                }
-                "MACHINE_HEARTBEAT_DEAD" | "PROCESS_HEARTBEAT_DEAD" => {
-                    Error::HeartbeatDead { code, detail }
-                }
-                "FINGERPRINT_TAKEN" => Error::MachineAlreadyActivated { code, detail },
-                "MACHINE_LIMIT_EXCEEDED" => Error::MachineLimitExceeded { code, detail },
-                "MACHINE_PROCESS_LIMIT_EXCEEDED" => Error::ProcessLimitExceeded { code, detail },
-                "COMPONENTS_FINGERPRINT_CONFLICT" => Error::ComponentConflict { code, detail },
-                "COMPONENTS_FINGERPRINT_TAKEN" => Error::ComponentAlreadyActivated { code, detail },
-                "TOKEN_INVALID" => Error::LicenseTokenInvalid { code, detail },
-                "LICENSE_INVALID" => Error::LicenseKeyInvalid { code, detail },
-                "NOT_FOUND" => Error::NotFound { code, detail },
-                _ => Error::KeygenApiError {
-                    code: code.clone(),
-                    detail: detail.clone(),
-                    body: body.clone(),
-                },
-            }
-        } else {
-            Error::KeygenApiError {
-                code: "API_ERROR".to_string(),
-                detail: body.to_string(),
-                body: body.clone(),
-            }
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api_version::ApiContractVersion;
     use mockito::{mock, server_url};
     use serde_json::json;
 
@@ -534,10 +454,10 @@ mod tests {
             token: None,
             user_agent: Some("test_user_agent".to_string()),
             api_url: server_url(),
-            api_version: "1.0".to_string(),
+            api_version: ApiContractVersion::V1_8,
             api_prefix: "v1".to_string(),
             public_key: None,
-            verify_keygen_signature: true, // Enable Keygen-Signature verification for tests
+            verify_keygen_signature: true,
         })
         .expect("Failed to create test client")
     }
@@ -545,6 +465,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_request() {
         let _m = mock("GET", "/v1/test_path")
+            .match_header("Keygen-Version", "1.8")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"data": {"id": "123", "type": "test"}}"#)
@@ -647,10 +568,15 @@ mod tests {
         let result: Result<Response<serde_json::Value>, Error> =
             client.get("test_path", None::<&()>).await;
 
-        match result {
-            Err(Error::NotFound { .. }) => {}
-            _ => panic!("Expected NotFound error"),
-        }
+        let document = match result {
+            Err(Error::Api(document)) => document,
+            _ => panic!("Expected structured API error"),
+        };
+        assert_eq!(document.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            document.primary().and_then(|error| error.code()),
+            Some("NOT_FOUND")
+        );
     }
 
     #[tokio::test]

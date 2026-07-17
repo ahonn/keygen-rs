@@ -13,7 +13,7 @@ The `keygen-rs` crate is an unofficial Rust SDK for integrating with the [keygen
 - **Distribution APIs**: Manage releases, packages, artifacts, platforms, architectures, and channels
 - **Offline Verification**: Verify signed license keys without internet connectivity
 - **Type Safety**: Strongly-typed enums for all API options (LicenseStatus, HeartbeatStatus, etc.)
-- **Service Introspection**: Check API availability and feature support
+- **Service Introspection**: Check API availability and the observed API contract
 - **Security**: Sensitive data is automatically zeroed from memory using `zeroize`
 
 ### Sponsored by
@@ -30,7 +30,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keygen-rs = "0.9"
+keygen-rs = "0.12"
 ```
 
 ### Feature Flags
@@ -42,13 +42,13 @@ The SDK uses feature flags to minimize binary size:
 
 ```toml
 # For end-user features only (default)
-keygen-rs = "0.9"
+keygen-rs = "0.12"
 
 # For administrative features
-keygen-rs = { version = "0.9", features = ["token"] }
+keygen-rs = { version = "0.12", features = ["token"] }
 
 # For both end-user and administrative features
-keygen-rs = { version = "0.9", features = ["license-key", "token"] }
+keygen-rs = { version = "0.12", features = ["license-key", "token"] }
 ```
 
 ## Tauri Plugin
@@ -64,39 +64,41 @@ These plugins provide an easy way to integrate Keygen licensing into your Tauri 
 
 ### KeygenConfig
 
-Use `KeygenConfig` to configure the SDK globally. You should set this before making any API calls.
+Use an instance client when possible. Each client pins its own API contract, so API 1.7 and 1.8 clients can safely coexist in one process. The global configuration API remains available as a compatibility facade.
 
 #### For End Users (License Key Authentication)
 
 ```rust
-use keygen_rs::config::{self, KeygenConfig};
+use keygen_rs::{ApiContractVersion, KeygenClient};
 
-config::set_config(KeygenConfig::license_key(
-    "YOUR_KEYGEN_ACCOUNT_ID",
-    "YOUR_KEYGEN_PRODUCT_ID", 
-    "A_KEYGEN_LICENSE_KEY",
-    Some("YOUR_KEYGEN_PUBLIC_KEY"),
-));
+let client = KeygenClient::builder()
+    .account("YOUR_KEYGEN_ACCOUNT_ID")
+    .product("YOUR_KEYGEN_PRODUCT_ID")
+    .license_key("A_KEYGEN_LICENSE_KEY")
+    .public_key("YOUR_KEYGEN_PUBLIC_KEY")
+    .api_contract_version(ApiContractVersion::V1_8)
+    .build()?;
 ```
 
 #### For Administrators (Token Authentication)
 
 ```rust
-use keygen_rs::config::{self, KeygenConfig};
+use keygen_rs::KeygenClient;
 
-config::set_config(KeygenConfig::admin(
-    "YOUR_KEYGEN_ACCOUNT_ID",
-    "YOUR_ADMIN_TOKEN",
-));
+let client = KeygenClient::builder()
+    .account("YOUR_KEYGEN_ACCOUNT_ID")
+    .token("YOUR_ADMIN_TOKEN")
+    .build()?;
 ```
 
 #### Custom Configuration
 
 ```rust
-use keygen_rs::config::{self, KeygenConfig};
+use keygen_rs::{config::{self, KeygenConfig}, ApiContractVersion};
 
 config::set_config(KeygenConfig {
     api_url: "https://api.keygen.sh".to_string(), // or your custom domain
+    api_version: ApiContractVersion::V1_8,
     account: "YOUR_KEYGEN_ACCOUNT_ID".to_string(),
     product: "YOUR_KEYGEN_PRODUCT_ID".to_string(),
     license_key: Some("A_KEYGEN_LICENSE_KEY".to_string()),
@@ -307,12 +309,7 @@ async fn main() -> Result<(), Error> {
     
     // Get detailed service information
     let info = service::get_service_info().await?;
-    println!("API Version: {}", info.api_version);
-    
-    // Check if a specific feature is supported
-    if service::supports_product_code().await? {
-        println!("Product codes are supported!");
-    }
+    println!("API Version: {:?}", info.api_version);
     
     Ok(())
 }

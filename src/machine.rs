@@ -8,6 +8,7 @@ use crate::client::{Client, ClientOptions, Response};
 use crate::config::get_config;
 use crate::config::KeygenConfig;
 use crate::errors::Error;
+#[cfg(feature = "token")]
 use crate::insert_optional;
 use crate::machine_file::MachineFile;
 use crate::KeygenResponseData;

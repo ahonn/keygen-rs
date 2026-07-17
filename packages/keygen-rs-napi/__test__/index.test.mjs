@@ -47,7 +47,6 @@ describe("exports", () => {
     // Service
     "getServiceInfo",
     "ping",
-    "supportsProductCode",
     // License/Machine file
     "licenseFileFromCert",
     "verifyLicenseFile",
@@ -183,10 +182,17 @@ describe("config", () => {
     const cfg = keygen.getConfig();
 
     assert.equal(cfg.apiUrl, "https://api.keygen.sh");
-    assert.equal(cfg.apiVersion, "1.7");
+    assert.equal(cfg.apiVersion, "1.8");
     assert.equal(cfg.apiPrefix, "v1");
     assert.equal(cfg.maxClockDrift, 5);
     assert.equal(cfg.verifyKeygenSignature, true);
+  });
+
+  it("rejects unsupported API contract versions", () => {
+    assert.throws(
+      () => keygen.setConfig({ account: "a", product: "p", apiVersion: "2.0" }),
+      /supported versions are 1\.7 and 1\.8/,
+    );
   });
 
   it("optional fields default to undefined/null", () => {
@@ -448,7 +454,6 @@ describe("async API functions", () => {
     { name: "resetMachine", args: ["m-1"] },
     { name: "getServiceInfo", args: [] },
     { name: "ping", args: [] },
-    { name: "supportsProductCode", args: [] },
     { name: "createProduct", args: [{ name: "p", code: "c" }] },
     { name: "listProducts", args: [] },
     { name: "getProduct", args: ["prod-1"] },
@@ -544,7 +549,7 @@ describe("type safety", () => {
       licenseKey: "lk",
       publicKey: "pk",
       apiUrl: "https://example.com",
-      apiVersion: "2.0",
+      apiVersion: "1.8",
       apiPrefix: "v2",
       environment: "sandbox",
       userAgent: "test/1.0",

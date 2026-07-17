@@ -3,6 +3,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Add typed Keygen API 1.7 and 1.8 contract selection, defaulting to 1.8.
+- Add instance-scoped `KeygenClient` and `LicenseService` APIs for isolated configurations.
+- Preserve complete JSON:API error documents, including multiple errors and unknown fields.
+
+### Changed
+
+- Propagate the originating client configuration across License and Machine operations.
+- Reject unsupported API contract versions in Rust, NAPI, WASM, and Tauri configuration.
+- Construct License values through constructors or `LicenseService`; external struct literals are no longer supported.
+
+### Removed
+
+- Remove `supportsProductCode` and related version-based capability inference. API contract versions do not imply additive feature availability.
+
 ## [0.11.0] - 2026-03-25
 
 ### Added

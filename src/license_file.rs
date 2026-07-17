@@ -399,29 +399,19 @@ mod tests {
         };
 
         let dataset = LicenseFileDataset {
-            license: License {
-                id: "lic1".to_string(),
-                scheme: None,
-                key: "test-key".to_string(),
-                name: Some("Test License".to_string()),
-                expiry: None,
-                status: Some("active".to_string()),
-                uses: Some(0),
-                max_machines: Some(5),
-                max_cores: None,
-                max_uses: None,
-                max_processes: None,
-                max_users: None,
-                protected: Some(false),
-                suspended: Some(false),
-                permissions: None,
-                policy: Some("policy1".to_string()),
-                metadata: std::collections::HashMap::new(),
-                account_id: Some("acc1".to_string()),
-                product_id: Some("prod1".to_string()),
-                group_id: None,
-                owner_id: None,
-                config: None,
+            license: {
+                let mut license = License::from_id("lic1");
+                license.key = "test-key".to_string();
+                license.name = Some("Test License".to_string());
+                license.status = Some("active".to_string());
+                license.uses = Some(0);
+                license.max_machines = Some(5);
+                license.protected = Some(false);
+                license.suspended = Some(false);
+                license.policy = Some("policy1".to_string());
+                license.account_id = Some("acc1".to_string());
+                license.product_id = Some("prod1".to_string());
+                license
             },
             issued: chrono::Utc::now(),
             expiry: chrono::Utc::now(),

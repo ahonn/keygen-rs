@@ -318,7 +318,6 @@ impl Verifier {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use super::*;
     use crate::license::SchemeCode;
@@ -355,30 +354,9 @@ mod tests {
     }
 
     fn create_test_license(key: &str) -> License {
-        License {
-            id: String::new(),
-            scheme: Some(SchemeCode::Ed25519Sign),
-            name: Some("Test License".to_string()),
-            key: key.to_string(),
-            expiry: None,
-            status: None,
-            uses: None,
-            max_machines: None,
-            max_cores: None,
-            max_uses: None,
-            max_processes: None,
-            max_users: None,
-            protected: None,
-            suspended: None,
-            permissions: None,
-            policy: None,
-            metadata: HashMap::new(),
-            account_id: None,
-            product_id: None,
-            group_id: None,
-            owner_id: None,
-            config: None,
-        }
+        let mut license = License::from_signed_key(SchemeCode::Ed25519Sign, key);
+        license.name = Some("Test License".to_string());
+        license
     }
 
     #[test]
