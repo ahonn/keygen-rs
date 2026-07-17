@@ -631,6 +631,25 @@ pub struct PaginationOptions {
     pub page_cursor: Option<String>,
 }
 
+fn cursor_pagination_query(
+    limit: Option<i32>,
+    page_size: Option<i32>,
+    page_cursor: Option<&str>,
+    default_limit: Option<i32>,
+) -> Value {
+    let mut query = json!({});
+    if let Some(limit) = limit.or(default_limit) {
+        query["limit"] = json!(limit);
+    }
+    if page_size.is_some() || page_cursor.is_some() {
+        query["page[cursor]"] = json!(page_cursor.unwrap_or_default());
+    }
+    if let Some(page_size) = page_size {
+        query["page[size]"] = json!(page_size);
+    }
+    query
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct NumericFilter {
     pub eq: Option<i32>,
@@ -1484,25 +1503,17 @@ impl License {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<ResourcePage<Machine>, Error> {
-        let mut query = json!({});
-
-        if let Some(opts) = options {
-            if let Some(limit) = opts.limit {
-                query["limit"] = json!(limit);
-            } else {
-                query["limit"] = json!(100);
-            }
-
-            if let Some(page_cursor) = &opts.page_cursor {
-                query["page[cursor]"] = json!(page_cursor);
-            }
-
-            if let Some(page_size) = opts.page_size {
-                query["page[size]"] = json!(page_size);
-            }
-        } else {
-            query["limit"] = json!(100);
-        }
+        let query = options.map_or_else(
+            || cursor_pagination_query(None, None, None, Some(100)),
+            |options| {
+                cursor_pagination_query(
+                    options.limit,
+                    options.page_size,
+                    options.page_cursor.as_deref(),
+                    Some(100),
+                )
+            },
+        );
 
         let client = self.get_client()?;
         let response = client
@@ -1531,25 +1542,17 @@ impl License {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<ResourcePage<Entitlement>, Error> {
-        let mut query = json!({});
-
-        if let Some(opts) = options {
-            if let Some(limit) = opts.limit {
-                query["limit"] = json!(limit);
-            } else {
-                query["limit"] = json!(100);
-            }
-
-            if let Some(page_cursor) = &opts.page_cursor {
-                query["page[cursor]"] = json!(page_cursor);
-            }
-
-            if let Some(page_size) = opts.page_size {
-                query["page[size]"] = json!(page_size);
-            }
-        } else {
-            query["limit"] = json!(100);
-        }
+        let query = options.map_or_else(
+            || cursor_pagination_query(None, None, None, Some(100)),
+            |options| {
+                cursor_pagination_query(
+                    options.limit,
+                    options.page_size,
+                    options.page_cursor.as_deref(),
+                    Some(100),
+                )
+            },
+        );
 
         let client = self.get_client()?;
         let response = client
@@ -1642,19 +1645,19 @@ impl License {
         config: Arc<KeygenConfig>,
         options: Option<&LicenseListOptions>,
     ) -> Result<LicensePage, Error> {
-        let mut query = json!({});
+        let mut query = options.map_or_else(
+            || cursor_pagination_query(None, None, None, None),
+            |options| {
+                cursor_pagination_query(
+                    options.limit,
+                    options.page_size,
+                    options.page_cursor.as_deref(),
+                    None,
+                )
+            },
+        );
 
         if let Some(opts) = options {
-            if let Some(limit) = opts.limit {
-                query["limit"] = json!(limit);
-            }
-            if let Some(page_cursor) = &opts.page_cursor {
-                query["page[cursor]"] = json!(page_cursor);
-            }
-            if let Some(page_size) = opts.page_size {
-                query["page[size]"] = json!(page_size);
-            }
-
             // Simple filters
             if let Some(ref status) = opts.status {
                 query["status"] = json!(status);
@@ -2047,7 +2050,15 @@ impl License {
     ) -> Result<ResourcePage<User>, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/users", self.id);
-        let response = client.get(&endpoint, options).await?;
+        let query = options.map(|options| {
+            cursor_pagination_query(
+                options.limit,
+                options.page_size,
+                options.page_cursor.as_deref(),
+                None,
+            )
+        });
+        let response = client.get(&endpoint, query.as_ref()).await?;
         let users_response: LicenseUsersResponse = serde_json::from_value(response.body)?;
         Ok(ResourcePage {
             data: users_response.data.into_iter().map(User::from).collect(),
@@ -3845,6 +3856,36 @@ mod tests {
 
     #[cfg(feature = "token")]
     #[tokio::test]
+    async fn test_license_list_initial_cursor_pagination() {
+        let _m = mock("GET", "/v1/licenses")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("page[cursor]".into(), String::new()),
+                mockito::Matcher::UrlEncoded("page[size]".into(), "15".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({ "data": [] }).to_string())
+            .create();
+
+        let _ = set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+        let options = LicenseListOptions {
+            page_size: Some(15),
+            ..Default::default()
+        };
+
+        let result = License::list(Some(&options)).await;
+
+        assert!(result.is_ok());
+        let _ = reset_config();
+    }
+
+    #[cfg(feature = "token")]
+    #[tokio::test]
     async fn test_license_list_pagination_with_limit_only() {
         let _m = mock("GET", "/v1/licenses")
             .match_query(mockito::Matcher::UrlEncoded("limit".into(), "5".into()))
@@ -3910,6 +3951,37 @@ mod tests {
         };
 
         let result = license.machines(Some(&pagination_options)).await;
+        assert!(result.is_ok());
+        let _ = reset_config();
+    }
+
+    #[tokio::test]
+    async fn test_pagination_options_start_with_an_empty_cursor() {
+        let _m = mock("GET", "/v1/licenses/test_license_id/machines")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("page[cursor]".into(), String::new()),
+                mockito::Matcher::UrlEncoded("page[size]".into(), "25".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({ "data": [] }).to_string())
+            .create();
+
+        let config = KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        };
+        let _ = set_config(config.clone());
+        let license = create_test_license().with_config(config);
+        let pagination_options = PaginationOptions {
+            page_size: Some(25),
+            ..Default::default()
+        };
+
+        let result = license.machines(Some(&pagination_options)).await;
+
         assert!(result.is_ok());
         let _ = reset_config();
     }
