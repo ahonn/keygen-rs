@@ -35,6 +35,9 @@ pub mod machine;
 pub mod machine_file;
 pub mod service;
 
+#[cfg(feature = "specta")]
+pub mod specta_support;
+
 // Management features only available with "token" feature flag
 #[cfg(feature = "token")]
 pub mod environment;

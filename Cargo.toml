@@ -35,6 +35,8 @@ native-tls = ["reqwest/native-tls"]
 license-key = []
 # Token Authentication (Environment/Product/License/Admin tokens)
 token = []
+# Derive `specta::Type` on the end-user data types, for TypeScript export
+specta = ["dep:specta"]
 
 [dependencies]
 reqwest = { version = "0.13", features = ["json"], default-features = false }
@@ -54,6 +56,12 @@ rand = "0.8"
 subtle = "2.5"
 aes-gcm = "0.10"
 zeroize = { version = "1", features = ["derive"] }
+# `chrono` for `DateTime<Utc>` fields, `serde_json` for `metadata` maps.
+specta = { version = "2.0.0-rc.22", optional = true, features = [
+  "derive",
+  "chrono",
+  "serde_json",
+] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.0", features = ["full"] }
@@ -70,6 +78,9 @@ dotenv = "0.15"
 mockito = "0.31"
 uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
+# Let the `specta` tests run a real export, not just check that derives compile.
+specta-typescript = "0.0.12"
+specta-serde = "0.0.12"
 
 [[example]]
 name = "create_product"
