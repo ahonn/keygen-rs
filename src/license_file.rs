@@ -21,6 +21,7 @@ use crate::{
 /// For License Checkout: entitlements, group
 /// For Machine Checkout: license.entitlements, components, group
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct IncludedResources {
     #[serde(default)]
     pub entitlements: Vec<Entitlement>,
@@ -137,6 +138,7 @@ impl IncludedResources {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LicenseFileDataset {
     pub license: License,
     pub issued: DateTime<Utc>,
@@ -147,6 +149,7 @@ pub struct LicenseFileDataset {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LicenseFile {
     pub id: String,
     pub certificate: String,

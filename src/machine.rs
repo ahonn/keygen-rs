@@ -26,6 +26,7 @@ use tokio::sync::mpsc;
 
 /// Heartbeat status as returned by the Keygen API
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum HeartbeatStatus {
     Alive,
@@ -77,6 +78,7 @@ pub(crate) struct MachinesResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Machine {
     pub id: String,
     pub fingerprint: String,
@@ -85,6 +87,10 @@ pub struct Machine {
     pub hostname: Option<String>,
     pub ip: Option<String>,
     pub cores: Option<i32>,
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = Option<crate::specta_support::JsonMetadata>)
+    )]
     pub metadata: Option<HashMap<String, Value>>,
     #[serde(rename = "requireHeartbeat")]
     pub require_heartbeat: bool,

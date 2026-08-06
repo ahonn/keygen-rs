@@ -55,10 +55,15 @@ pub struct UpdateEntitlementRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Entitlement {
     pub id: String,
     pub name: Option<String>,
     pub code: String,
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = Option<crate::specta_support::JsonMetadata>)
+    )]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
