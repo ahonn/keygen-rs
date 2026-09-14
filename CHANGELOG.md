@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Remove `supportsProductCode` and related version-based capability inference. API contract versions do not imply additive feature availability.
+## [0.11.1] - 2026-06-13
+
+### Fixed
+
+- Make code field optional in CreateProductRequest ([522a390](https://github.com/ahonn/keygen-rs/commit/522a3907c6960a84878f27f3b60c2923a306606d))
+
 
 ## [0.11.0] - 2026-03-25
 
