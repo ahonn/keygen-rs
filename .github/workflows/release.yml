@@ -86,7 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -115,7 +115,7 @@ jobs:
         run: npx napi build --platform --release --target ${{ matrix.target }} ${{ matrix.use-zig && '--cross-compile' || '' }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bindings-${{ matrix.target }}
           path: |
@@ -131,7 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -140,7 +140,7 @@ jobs:
         run: npm ci
 
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: bindings-aarch64-apple-darwin
           path: ${{ env.NAPI_WORKING_DIR }}
@@ -156,7 +156,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -166,7 +166,7 @@ jobs:
         run: npm ci
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: ${{ env.NAPI_WORKING_DIR }}/artifacts
 
@@ -186,6 +186,10 @@ jobs:
         working-directory: ${{ env.NAPI_WORKING_DIR }}
         run: ls -R npm/
 
+      # npm trusted publishing (OIDC) needs npm >= 11.5.1; Node 22 bundles npm 10.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
       - name: Publish to npm
         working-directory: ${{ env.NAPI_WORKING_DIR }}
         run: |
@@ -198,7 +202,6 @@ jobs:
           npm publish --access public --provenance
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   wasm-publish:
     name: WASM Publish
@@ -208,7 +211,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -237,8 +240,10 @@ jobs:
           echo "Syncing npm version to $VERSION"
           npm version "$VERSION" --no-git-tag-version --allow-same-version
 
+      # npm trusted publishing (OIDC) needs npm >= 11.5.1; Node 22 bundles npm 10.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
       - name: Publish to npm
         working-directory: ${{ env.WASM_WORKING_DIR }}/pkg
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
