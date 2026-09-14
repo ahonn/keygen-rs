@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-14
+
+### Added
+
+- Negotiate response contract versions ([435aaab](https://github.com/ahonn/keygen-rs/commit/435aaabc85cf7c78103cb455a4312eb68ad53b76))
+- Complete API and offline file support ([57c3ad2](https://github.com/ahonn/keygen-rs/commit/57c3ad2630267fffd0b2f4fb4a23efd577eebe02))
+- [**breaking**] Complete Keygen 1.7+ API alignment ([bacc6f6](https://github.com/ahonn/keygen-rs/commit/bacc6f66f3fef874fdedd7e9589f94e6c0742a6d))
+- [**breaking**] Introduce instance-scoped API configuration ([e50bf1d](https://github.com/ahonn/keygen-rs/commit/e50bf1d91e1332beb7a127f6613e1e9e711aa9e9))
+
+### Fixed
+
+- Send cursor for initial pagination ([8a42211](https://github.com/ahonn/keygen-rs/commit/8a42211e858fdfd01a6b96711125cca7de783366))
+
+### Other
+
+- Publish crates with crates.io trusted publishing ([863ee76](https://github.com/ahonn/keygen-rs/commit/863ee76ea27fd6fa386d37bc595620c8ff4f5bd1))
+- Remove the sponsor section from the READMEs ([77eef91](https://github.com/ahonn/keygen-rs/commit/77eef9110a145a4dac431eb975d0719186732bf7))
+- Merge remote-tracking branch 'origin/master' ([4bfb5ac](https://github.com/ahonn/keygen-rs/commit/4bfb5ac20a6fb3abdd284ae36dc9adfb5afc3ae1))
+- Publish npm packages with trusted publishing ([67502df](https://github.com/ahonn/keygen-rs/commit/67502df239db4b5eb43053ceeb806ece8b73169c))
+
+
 ### Added
 
 - Add typed Keygen API 1.7 and 1.8 contract selection, defaulting to 1.8.
