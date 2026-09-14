@@ -16,14 +16,6 @@ The `keygen-rs` crate is an unofficial Rust SDK for integrating with the [keygen
 - **Service Introspection**: Check API availability and the observed API contract
 - **Security**: Sensitive data is automatically zeroed from memory using `zeroize`
 
-### Sponsored by
-
-<a href="https://keymana.com?ref=keygen-rs" style="margin-right: 10px">
-    <img src="https://keymana.com/logo-pill.png" width="200" alt="Keygen">
-</a>
-
-Keymana is a desktop interface for Keygen.sh that eliminates API calls, offering intuitive license management with multi-account support, advanced filtering, and compatibility with both cloud and self-hosted instances.
-
 ## Installing
 
 Add this to your `Cargo.toml`:
