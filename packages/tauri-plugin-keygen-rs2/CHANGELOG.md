@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2026-09-14
+
+### Other
+
+- Updated the following local packages: keygen-rs
+- 0.12.0 was not published to crates.io; this release includes its changes
+
 ## [0.12.0] - 2026-09-14
 
 ### Added

@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-09-14
+
+### Added
+
+- Add current token profile lookup ([d2b237c](https://github.com/ahonn/keygen-rs/commit/d2b237c273f2280d2bf445aef2996a4c4c8cc202))
+
 ## [0.12.0] - 2026-09-14
 
 ### Added
