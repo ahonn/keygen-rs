@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-09-14
+
+### Added
+
+- Complete API and offline file support ([57c3ad2](https://github.com/ahonn/keygen-rs/commit/57c3ad2630267fffd0b2f4fb4a23efd577eebe02))
+- [**breaking**] Complete Keygen 1.7+ API alignment ([bacc6f6](https://github.com/ahonn/keygen-rs/commit/bacc6f66f3fef874fdedd7e9589f94e6c0742a6d))
+- [**breaking**] Introduce instance-scoped API configuration ([e50bf1d](https://github.com/ahonn/keygen-rs/commit/e50bf1d91e1332beb7a127f6613e1e9e711aa9e9))
+
+### Other
+
+- Remove the sponsor section from the READMEs ([77eef91](https://github.com/ahonn/keygen-rs/commit/77eef9110a145a4dac431eb975d0719186732bf7))
+
+
 ## [0.9.0] - 2026-02-03
 
 ### Other
