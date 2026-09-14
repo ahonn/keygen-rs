@@ -267,6 +267,9 @@ pub enum Error {
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
 
+    #[error("Invalid API response: {0}")]
+    InvalidResponse(String),
+
     #[error("Invalid header value: {0}")]
     InvalidHeader(#[from] InvalidHeaderValue),
 

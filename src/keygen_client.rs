@@ -5,6 +5,8 @@ use crate::errors::Error;
 use crate::license::LicenseService;
 #[cfg(feature = "license-key")]
 use crate::license::{LicenseValidationRequest, LicenseValidationResult};
+#[cfg(feature = "token")]
+use crate::profile::CurrentProfile;
 use crate::service::ServiceInfo;
 use std::sync::Arc;
 
@@ -53,6 +55,12 @@ impl KeygenClient {
 
     pub async fn service_info(&self) -> Result<ServiceInfo, Error> {
         crate::service::get_service_info_with_client(&self.transport).await
+    }
+
+    /// Retrieves the bearer and token used to authenticate this client.
+    #[cfg(feature = "token")]
+    pub async fn current_profile(&self) -> Result<CurrentProfile, Error> {
+        crate::profile::get_current_profile_with_client(&self.transport).await
     }
 
     #[cfg(feature = "license-key")]

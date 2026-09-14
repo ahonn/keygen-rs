@@ -47,6 +47,8 @@ pub mod policy;
 #[cfg(feature = "token")]
 pub mod product;
 #[cfg(feature = "token")]
+pub mod profile;
+#[cfg(feature = "token")]
 pub mod release;
 #[cfg(feature = "token")]
 pub mod token;
