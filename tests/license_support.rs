@@ -64,3 +64,24 @@ fn validation_meta_classifies_documented_codes_without_losing_raw_values() {
         LicenseValidationCode::Unknown
     );
 }
+
+#[test]
+fn validation_code_parses_banned_environment_and_empty_components_codes() {
+    for (code, kind) in [
+        ("BANNED", LicenseValidationCode::Banned),
+        (
+            "ENVIRONMENT_SCOPE_REQUIRED",
+            LicenseValidationCode::EnvironmentScopeRequired,
+        ),
+        (
+            "ENVIRONMENT_SCOPE_MISMATCH",
+            LicenseValidationCode::EnvironmentScopeMismatch,
+        ),
+        (
+            "COMPONENTS_SCOPE_EMPTY",
+            LicenseValidationCode::ComponentsScopeEmpty,
+        ),
+    ] {
+        assert_eq!(LicenseValidationCode::parse(code), kind, "{code}");
+    }
+}
