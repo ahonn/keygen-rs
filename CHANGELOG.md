@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-08
+
+### Added
+
+- Parse banned, environment scope and empty components validation codes ([a75375b](https://github.com/ahonn/keygen-rs/commit/a75375b0d5811ee7fd6703edf7a53b628407ba2d))
+
+
 ## [0.12.1] - 2026-09-14
 
 ### Added
