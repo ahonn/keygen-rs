@@ -38,6 +38,7 @@ pub(crate) struct PackagesResponse {
 }
 
 /// Request to create a new package
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreatePackageRequest {
     /// Human-readable name of the package
@@ -53,6 +54,7 @@ pub struct CreatePackageRequest {
 }
 
 /// Request to update an existing package
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UpdatePackageRequest {
     pub name: Option<String>,
@@ -120,6 +122,30 @@ impl Package {
         }
     }
 
+    /// List packages with optional filtering and pagination
+    pub async fn list(options: Option<ListPackagesOptions>) -> Result<Vec<Package>, Error> {
+        let client = Client::from_global_config()?;
+        let response = client.get("packages", options.as_ref()).await?;
+        let packages_response: PackagesResponse = serde_json::from_value(response.body)?;
+        Ok(packages_response
+            .data
+            .into_iter()
+            .map(Package::from)
+            .collect())
+    }
+
+    /// Get a package by ID or key
+    pub async fn get(id: &str) -> Result<Package, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("packages/{id}");
+        let response = client.get(&endpoint, None::<&()>).await?;
+        let package_response: PackageResponse = serde_json::from_value(response.body)?;
+        Ok(Package::from(package_response.data))
+    }
+}
+
+#[cfg(feature = "token")]
+impl Package {
     /// Create a new package
     pub async fn create(request: CreatePackageRequest) -> Result<Package, Error> {
         let client = Client::from_global_config()?;
@@ -151,27 +177,6 @@ impl Package {
         });
 
         let response = client.post("packages", Some(&body), None::<&()>).await?;
-        let package_response: PackageResponse = serde_json::from_value(response.body)?;
-        Ok(Package::from(package_response.data))
-    }
-
-    /// List packages with optional filtering and pagination
-    pub async fn list(options: Option<ListPackagesOptions>) -> Result<Vec<Package>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("packages", options.as_ref()).await?;
-        let packages_response: PackagesResponse = serde_json::from_value(response.body)?;
-        Ok(packages_response
-            .data
-            .into_iter()
-            .map(Package::from)
-            .collect())
-    }
-
-    /// Get a package by ID or key
-    pub async fn get(id: &str) -> Result<Package, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("packages/{id}");
-        let response = client.get(&endpoint, None::<&()>).await?;
         let package_response: PackageResponse = serde_json::from_value(response.body)?;
         Ok(Package::from(package_response.data))
     }
