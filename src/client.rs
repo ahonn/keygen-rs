@@ -11,8 +11,6 @@ use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYP
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
-#[cfg(not(target_arch = "wasm32"))]
-use std::time::Duration;
 use url::Url;
 
 #[derive(Clone, Debug)]
@@ -90,8 +88,12 @@ impl Client {
     /// Creates a new client with the specified options.
     pub fn new(options: ClientOptions) -> Result<Self, Error> {
         let builder = ReqwestClient::builder();
+        // Redirects are not followed automatically: Keygen answers artifact downloads and
+        // uploads with a redirect, and callers need the `Location` header and the response body.
         #[cfg(not(target_arch = "wasm32"))]
-        let builder = builder.timeout(Duration::from_secs(30));
+        let builder = builder
+            .timeout(std::time::Duration::from_secs(30))
+            .redirect(reqwest::redirect::Policy::none());
         let client = builder
             .build()
             .map_err(|e| Error::UnexpectedError(format!("Failed to build HTTP client: {e}")))?;
@@ -325,7 +327,7 @@ impl Client {
             return Err(self.handle_error(status, &headers, error_body));
         }
 
-        let body: U = if status == StatusCode::NO_CONTENT {
+        let body: U = if status == StatusCode::NO_CONTENT || bytes.is_empty() {
             serde_json::from_value(serde_json::Value::Null)?
         } else {
             serde_json::from_slice(&bytes)?
@@ -562,6 +564,69 @@ mod tests {
             client.delete("test_path/789", None::<&()>).await.unwrap();
 
         assert_eq!(response.status, StatusCode::NO_CONTENT);
+        assert!(response.body.is_null());
+    }
+
+    #[tokio::test]
+    async fn test_temporary_redirect_is_not_followed() {
+        let location = format!("{}/s3/redirect_upload", server_url());
+        let target = mock("POST", "/s3/redirect_upload").expect(0).create();
+        let _m = mock("POST", "/v1/redirect_upload")
+            .with_status(307)
+            .with_header("content-type", "application/json")
+            .with_header("location", &location)
+            .with_body(r#"{"data": {"id": "789", "type": "artifacts"}}"#)
+            .create();
+
+        let client = create_test_client();
+        let params = json!({"filename": "app.zip"});
+        let response: Response<serde_json::Value> = client
+            .post("redirect_upload", Some(&params), None::<&()>)
+            .await
+            .unwrap();
+
+        assert_eq!(response.status, StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            response.headers[reqwest::header::LOCATION],
+            location.as_str()
+        );
+        assert_eq!(response.body["data"]["id"], "789");
+        target.assert();
+    }
+
+    #[tokio::test]
+    async fn test_see_other_redirect_body_is_parsed() {
+        let _m = mock("GET", "/v1/redirect_download")
+            .with_status(303)
+            .with_header("content-type", "application/json")
+            .with_header("location", "https://s3.example.com/app.zip")
+            .with_body(r#"{"data": {"id": "321", "type": "artifacts"}}"#)
+            .create();
+
+        let client = create_test_client();
+        let response: Response<serde_json::Value> =
+            client.get("redirect_download", None::<&()>).await.unwrap();
+
+        assert_eq!(response.status, StatusCode::SEE_OTHER);
+        assert_eq!(
+            response.headers[reqwest::header::LOCATION],
+            "https://s3.example.com/app.zip"
+        );
+        assert_eq!(response.body["data"]["id"], "321");
+    }
+
+    #[tokio::test]
+    async fn test_redirect_with_empty_body() {
+        let _m = mock("GET", "/v1/redirect_empty")
+            .with_status(302)
+            .with_header("location", "https://s3.example.com/app.zip")
+            .create();
+
+        let client = create_test_client();
+        let response: Response<serde_json::Value> =
+            client.get("redirect_empty", None::<&()>).await.unwrap();
+
+        assert_eq!(response.status, StatusCode::FOUND);
         assert!(response.body.is_null());
     }
 
