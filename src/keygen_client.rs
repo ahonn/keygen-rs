@@ -7,6 +7,7 @@ use crate::license::LicenseService;
 use crate::license::{LicenseValidationRequest, LicenseValidationResult};
 #[cfg(feature = "token")]
 use crate::profile::CurrentProfile;
+use crate::release::{Release, ReleaseUpgradeRequest};
 use crate::service::ServiceInfo;
 use std::sync::Arc;
 
@@ -55,6 +56,21 @@ impl KeygenClient {
 
     pub async fn service_info(&self) -> Result<ServiceInfo, Error> {
         crate::service::get_service_info_with_client(&self.transport).await
+    }
+
+    /// Check whether an upgrade is available. See [`Release::upgrade_from`].
+    pub async fn upgrade_from(
+        &self,
+        current_version: &str,
+        request: Option<&ReleaseUpgradeRequest>,
+    ) -> Result<Option<Release>, Error> {
+        crate::release::upgrade_from_with_client(
+            &self.transport,
+            &self.config,
+            current_version,
+            request,
+        )
+        .await
     }
 
     /// Retrieves the bearer and token used to authenticate this client.
