@@ -73,6 +73,10 @@ cargo run --features=admin --example user/create_user
 ### `/release/` - Release Management (admin feature required)
 - `inspect_release_distribution.rs` - Inspect upgrade resolution and artifact redirects
 - `download_release_artifact.rs` - Download and verify a release artifact by filename (license key only)
+- `release_with_artifacts.rs` - Create a draft release, upload artifact files and publish it
+
+### `/artifact/` - Artifact Management (admin feature required)
+- `upload_artifact.rs` - Create an artifact and upload its file
 
 ## Environment Variables
 
