@@ -35,6 +35,7 @@ pub enum ApiErrorKind {
     LicenseTooManyCores,
     LicenseTooManyProcesses,
     MachineAlreadyActivated,
+    FingerprintTaken,
     MachineLimitExceeded,
     ProcessLimitExceeded,
     ComponentConflict,
@@ -144,12 +145,13 @@ impl ApiErrorObject {
             Some("LICENSE_EXPIRED") => ApiErrorKind::LicenseExpired,
             Some("LICENSE_NOT_ALLOWED") => ApiErrorKind::LicenseNotAllowed,
             Some("LICENSE_NOT_ACTIVATED") => ApiErrorKind::LicenseNotActivated,
-            Some("LICENSE_KEY_INVALID") => ApiErrorKind::LicenseKeyInvalid,
+            Some("LICENSE_INVALID" | "LICENSE_KEY_INVALID") => ApiErrorKind::LicenseKeyInvalid,
             Some("LICENSE_TOKEN_INVALID") => ApiErrorKind::LicenseTokenInvalid,
             Some("LICENSE_TOO_MANY_MACHINES") => ApiErrorKind::LicenseTooManyMachines,
             Some("LICENSE_TOO_MANY_CORES") => ApiErrorKind::LicenseTooManyCores,
             Some("LICENSE_TOO_MANY_PROCESSES") => ApiErrorKind::LicenseTooManyProcesses,
             Some("MACHINE_ALREADY_ACTIVATED") => ApiErrorKind::MachineAlreadyActivated,
+            Some("FINGERPRINT_TAKEN") => ApiErrorKind::FingerprintTaken,
             Some("MACHINE_LIMIT_EXCEEDED") => ApiErrorKind::MachineLimitExceeded,
             Some("PROCESS_LIMIT_EXCEEDED") => ApiErrorKind::ProcessLimitExceeded,
             Some("COMPONENT_CONFLICT") => ApiErrorKind::ComponentConflict,
@@ -676,6 +678,20 @@ mod api_error_tests {
         assert!(document.contains_kind(ApiErrorKind::LicenseSuspended));
         assert!(document.has_code("LICENSE_SUSPENDED"));
         assert!(!document.has_code("LICENSE_EXPIRED"));
+    }
+
+    #[test]
+    fn classifies_codes_sent_by_keygen_server() {
+        for (code, kind) in [
+            ("LICENSE_INVALID", ApiErrorKind::LicenseKeyInvalid),
+            ("FINGERPRINT_TAKEN", ApiErrorKind::FingerprintTaken),
+        ] {
+            let document = ApiErrorDocument::from_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                json!({ "errors": [{ "code": code }] }),
+            );
+            assert_eq!(document.kind(), kind, "{code}");
+        }
     }
 
     #[test]
