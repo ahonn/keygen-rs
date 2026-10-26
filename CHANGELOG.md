@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-26
+
+### Fixed
+
+- Map LICENSE_INVALID and FINGERPRINT_TAKEN to ApiErrorKind ([5bb99d9](https://github.com/ahonn/keygen-rs/commit/5bb99d98060ae5b0f4a0547a6ad24973f8b9f3a2))
+
+
 ## [0.13.0] - 2026-10-08
 
 ### Added
