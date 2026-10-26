@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-26
+
+### Added
+
+- Allow read-only distribution APIs with license key auth ([9b826a5](https://github.com/ahonn/keygen-rs/commit/9b826a509fe24ac631e664b83e5cb1ae2a0efdc0))
+- Add optional specta::Type derives for end-user types ([ca9557d](https://github.com/ahonn/keygen-rs/commit/ca9557d7aca8ebc5a471a8e3bb9618210c57a0c3))
+
+### Fixed
+
+- Map LICENSE_INVALID and FINGERPRINT_TAKEN to ApiErrorKind ([5bb99d9](https://github.com/ahonn/keygen-rs/commit/5bb99d98060ae5b0f4a0547a6ad24973f8b9f3a2))
+
+### Other
+
+- Run release-plz release-pr in a concurrency group ([2af1678](https://github.com/ahonn/keygen-rs/commit/2af16787e653a3b20fa1c17c19dbb29ea4eee832))
+- Merge branch 'master' into feat/specta-type-derives ([cf88d80](https://github.com/ahonn/keygen-rs/commit/cf88d80c3a4be90191efbc93b23d45ac143bc619))
+- Gate insert_optional import behind token feature ([f427bfe](https://github.com/ahonn/keygen-rs/commit/f427bfe7beb507283b52b07b57a4fed1ee980d4b))
+
+
 ## [0.13.0] - 2026-10-08
 
 ### Added
