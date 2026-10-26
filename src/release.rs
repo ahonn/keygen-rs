@@ -1,6 +1,7 @@
 use crate::artifact::{Artifact, ListArtifactsOptions};
 use crate::client::Client;
 use crate::errors::Error;
+#[cfg(feature = "token")]
 use crate::insert_optional;
 use crate::license::PaginationOptions;
 use crate::KeygenRelationship;
@@ -80,6 +81,7 @@ pub(crate) struct ReleasesResponse {
 }
 
 /// Request to create a new release
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateReleaseRequest {
     /// Version string (semver format, without 'v' prefix)
@@ -101,6 +103,7 @@ pub struct CreateReleaseRequest {
 }
 
 /// Request to update an existing release
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UpdateReleaseRequest {
     pub name: Option<String>,
@@ -240,46 +243,6 @@ impl Release {
         }
     }
 
-    /// Create a new release
-    pub async fn create(request: CreateReleaseRequest) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
-
-        let mut attributes = serde_json::Map::new();
-        attributes.insert(
-            "version".to_string(),
-            serde_json::Value::String(request.version),
-        );
-        attributes.insert(
-            "channel".to_string(),
-            serde_json::to_value(&request.channel)?,
-        );
-
-        insert_optional(&mut attributes, "name", request.name)?;
-        insert_optional(&mut attributes, "description", request.description)?;
-        insert_optional(&mut attributes, "status", request.status)?;
-        insert_optional(&mut attributes, "tag", request.tag)?;
-        insert_optional(&mut attributes, "metadata", request.metadata)?;
-
-        let body = serde_json::json!({
-            "data": {
-                "type": "releases",
-                "attributes": attributes,
-                "relationships": {
-                    "product": {
-                        "data": {
-                            "type": "products",
-                            "id": request.product_id
-                        }
-                    }
-                }
-            }
-        });
-
-        let response = client.post("releases", Some(&body), None::<&()>).await?;
-        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
-        Ok(Release::from(release_response.data))
-    }
-
     /// List releases with optional filtering and pagination
     pub async fn list(options: Option<ListReleasesOptions>) -> Result<Vec<Release>, Error> {
         let client = Client::from_global_config()?;
@@ -306,60 +269,6 @@ impl Release {
         let client = Client::from_global_config()?;
         let endpoint = format!("releases/{}/upgrade", self.id);
         let response = client.get(&endpoint, request).await?;
-        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
-        Ok(Release::from(release_response.data))
-    }
-
-    /// Update an existing release
-    pub async fn update(&self, request: UpdateReleaseRequest) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}", self.id);
-
-        let mut attributes = serde_json::Map::new();
-        insert_optional(&mut attributes, "name", request.name)?;
-        insert_optional(&mut attributes, "description", request.description)?;
-        insert_optional(&mut attributes, "channel", request.channel)?;
-        insert_optional(&mut attributes, "tag", request.tag)?;
-        insert_optional(&mut attributes, "metadata", request.metadata)?;
-
-        let body = serde_json::json!({
-            "data": {
-                "type": "releases",
-                "attributes": attributes
-            }
-        });
-
-        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
-        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
-        Ok(Release::from(release_response.data))
-    }
-
-    /// Delete a release
-    pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}", self.id);
-        client.delete::<(), ()>(&endpoint, None::<&()>).await?;
-        Ok(())
-    }
-
-    /// Publish a release (DRAFT -> PUBLISHED)
-    ///
-    /// Makes the release visible to customers
-    pub async fn publish(&self) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/actions/publish", self.id);
-        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
-        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
-        Ok(Release::from(release_response.data))
-    }
-
-    /// Yank a release (PUBLISHED -> YANKED)
-    ///
-    /// Makes the release unavailable for distribution
-    pub async fn yank(&self) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/actions/yank", self.id);
-        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
         Ok(Release::from(release_response.data))
     }
@@ -425,6 +334,119 @@ impl Release {
         Artifact::list(Some(options)).await
     }
 
+    /// List entitlement constraints for this release.
+    pub async fn constraints(
+        &self,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Vec<Constraint>, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}/constraints", self.id);
+        let response = client.get(&endpoint, options).await?;
+        let constraints_response: ConstraintsResponse = serde_json::from_value(response.body)?;
+        Ok(constraints_response
+            .data
+            .into_iter()
+            .map(Constraint::from)
+            .collect())
+    }
+}
+
+#[cfg(feature = "token")]
+impl Release {
+    /// Create a new release
+    pub async fn create(request: CreateReleaseRequest) -> Result<Release, Error> {
+        let client = Client::from_global_config()?;
+
+        let mut attributes = serde_json::Map::new();
+        attributes.insert(
+            "version".to_string(),
+            serde_json::Value::String(request.version),
+        );
+        attributes.insert(
+            "channel".to_string(),
+            serde_json::to_value(&request.channel)?,
+        );
+
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "description", request.description)?;
+        insert_optional(&mut attributes, "status", request.status)?;
+        insert_optional(&mut attributes, "tag", request.tag)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
+
+        let body = serde_json::json!({
+            "data": {
+                "type": "releases",
+                "attributes": attributes,
+                "relationships": {
+                    "product": {
+                        "data": {
+                            "type": "products",
+                            "id": request.product_id
+                        }
+                    }
+                }
+            }
+        });
+
+        let response = client.post("releases", Some(&body), None::<&()>).await?;
+        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
+        Ok(Release::from(release_response.data))
+    }
+
+    /// Update an existing release
+    pub async fn update(&self, request: UpdateReleaseRequest) -> Result<Release, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}", self.id);
+
+        let mut attributes = serde_json::Map::new();
+        insert_optional(&mut attributes, "name", request.name)?;
+        insert_optional(&mut attributes, "description", request.description)?;
+        insert_optional(&mut attributes, "channel", request.channel)?;
+        insert_optional(&mut attributes, "tag", request.tag)?;
+        insert_optional(&mut attributes, "metadata", request.metadata)?;
+
+        let body = serde_json::json!({
+            "data": {
+                "type": "releases",
+                "attributes": attributes
+            }
+        });
+
+        let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
+        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
+        Ok(Release::from(release_response.data))
+    }
+
+    /// Delete a release
+    pub async fn delete(&self) -> Result<(), Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}", self.id);
+        client.delete::<(), ()>(&endpoint, None::<&()>).await?;
+        Ok(())
+    }
+
+    /// Publish a release (DRAFT -> PUBLISHED)
+    ///
+    /// Makes the release visible to customers
+    pub async fn publish(&self) -> Result<Release, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}/actions/publish", self.id);
+        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
+        Ok(Release::from(release_response.data))
+    }
+
+    /// Yank a release (PUBLISHED -> YANKED)
+    ///
+    /// Makes the release unavailable for distribution
+    pub async fn yank(&self) -> Result<Release, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("releases/{}/actions/yank", self.id);
+        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
+        Ok(Release::from(release_response.data))
+    }
+
     /// Attach entitlement constraints to this release.
     pub async fn attach_constraints(
         &self,
@@ -476,22 +498,6 @@ impl Release {
             .delete::<serde_json::Value, serde_json::Value>(&endpoint, Some(&body))
             .await?;
         Ok(())
-    }
-
-    /// List entitlement constraints for this release.
-    pub async fn constraints(
-        &self,
-        options: Option<&PaginationOptions>,
-    ) -> Result<Vec<Constraint>, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/constraints", self.id);
-        let response = client.get(&endpoint, options).await?;
-        let constraints_response: ConstraintsResponse = serde_json::from_value(response.body)?;
-        Ok(constraints_response
-            .data
-            .into_iter()
-            .map(Constraint::from)
-            .collect())
     }
 
     /// Change the package associated with this release.

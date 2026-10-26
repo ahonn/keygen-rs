@@ -49,25 +49,19 @@ pub mod product;
 #[cfg(feature = "token")]
 pub mod profile;
 #[cfg(feature = "token")]
-pub mod release;
-#[cfg(feature = "token")]
 pub mod token;
 #[cfg(feature = "token")]
 pub mod user;
 #[cfg(feature = "token")]
 pub mod webhook;
 
-// Distribution modules (only available with "token" feature flag)
-#[cfg(feature = "token")]
+// Distribution modules (write operations require "token" feature flag)
 pub mod arch;
-#[cfg(feature = "token")]
 pub mod artifact;
-#[cfg(feature = "token")]
 pub mod channel;
-#[cfg(feature = "token")]
 pub mod package;
-#[cfg(feature = "token")]
 pub mod platform;
+pub mod release;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationshipData {
