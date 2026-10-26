@@ -44,10 +44,3 @@ pub async fn ping() -> Result<PingResponse> {
         })
         .map_err(to_napi_error)
 }
-
-#[napi]
-pub async fn supports_product_code() -> Result<bool> {
-    keygen_rs::service::supports_product_code()
-        .await
-        .map_err(to_napi_error)
-}

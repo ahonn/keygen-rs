@@ -13,16 +13,8 @@ The `keygen-rs` crate is an unofficial Rust SDK for integrating with the [keygen
 - **Distribution APIs**: Manage releases, packages, artifacts, platforms, architectures, and channels
 - **Offline Verification**: Verify signed license keys without internet connectivity
 - **Type Safety**: Strongly-typed enums for all API options (LicenseStatus, HeartbeatStatus, etc.)
-- **Service Introspection**: Check API availability and feature support
+- **Service Introspection**: Check API availability and the observed API contract
 - **Security**: Sensitive data is automatically zeroed from memory using `zeroize`
-
-### Sponsored by
-
-<a href="https://keymana.com?ref=keygen-rs" style="margin-right: 10px">
-    <img src="https://keymana.com/logo-pill.png" width="200" alt="Keygen">
-</a>
-
-Keymana is a desktop interface for Keygen.sh that eliminates API calls, offering intuitive license management with multi-account support, advanced filtering, and compatibility with both cloud and self-hosted instances.
 
 ## Installing
 
@@ -30,7 +22,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keygen-rs = "0.9"
+keygen-rs = "0.12"
 ```
 
 ### Feature Flags
@@ -43,16 +35,16 @@ The SDK uses feature flags to minimize binary size:
 
 ```toml
 # For end-user features only (default)
-keygen-rs = "0.9"
+keygen-rs = "0.12"
 
 # For administrative features
-keygen-rs = { version = "0.9", features = ["token"] }
+keygen-rs = { version = "0.12", features = ["token"] }
 
 # For both end-user and administrative features
-keygen-rs = { version = "0.9", features = ["license-key", "token"] }
+keygen-rs = { version = "0.12", features = ["license-key", "token"] }
 
 # With TypeScript type export
-keygen-rs = { version = "0.9", features = ["specta"] }
+keygen-rs = { version = "0.12", features = ["specta"] }
 ```
 
 ## Tauri Plugin
@@ -68,39 +60,41 @@ These plugins provide an easy way to integrate Keygen licensing into your Tauri 
 
 ### KeygenConfig
 
-Use `KeygenConfig` to configure the SDK globally. You should set this before making any API calls.
+Use an instance client when possible. Each client pins its own API contract, so API 1.7 and 1.8 clients can safely coexist in one process. The global configuration API remains available as a compatibility facade.
 
 #### For End Users (License Key Authentication)
 
 ```rust
-use keygen_rs::config::{self, KeygenConfig};
+use keygen_rs::{ApiContractVersion, KeygenClient};
 
-config::set_config(KeygenConfig::license_key(
-    "YOUR_KEYGEN_ACCOUNT_ID",
-    "YOUR_KEYGEN_PRODUCT_ID", 
-    "A_KEYGEN_LICENSE_KEY",
-    Some("YOUR_KEYGEN_PUBLIC_KEY"),
-));
+let client = KeygenClient::builder()
+    .account("YOUR_KEYGEN_ACCOUNT_ID")
+    .product("YOUR_KEYGEN_PRODUCT_ID")
+    .license_key("A_KEYGEN_LICENSE_KEY")
+    .public_key("YOUR_KEYGEN_PUBLIC_KEY")
+    .api_contract_version(ApiContractVersion::V1_8)
+    .build()?;
 ```
 
 #### For Administrators (Token Authentication)
 
 ```rust
-use keygen_rs::config::{self, KeygenConfig};
+use keygen_rs::KeygenClient;
 
-config::set_config(KeygenConfig::admin(
-    "YOUR_KEYGEN_ACCOUNT_ID",
-    "YOUR_ADMIN_TOKEN",
-));
+let client = KeygenClient::builder()
+    .account("YOUR_KEYGEN_ACCOUNT_ID")
+    .token("YOUR_ADMIN_TOKEN")
+    .build()?;
 ```
 
 #### Custom Configuration
 
 ```rust
-use keygen_rs::config::{self, KeygenConfig};
+use keygen_rs::{config::{self, KeygenConfig}, ApiContractVersion};
 
 config::set_config(KeygenConfig {
     api_url: "https://api.keygen.sh".to_string(), // or your custom domain
+    api_version: ApiContractVersion::V1_8,
     account: "YOUR_KEYGEN_ACCOUNT_ID".to_string(),
     product: "YOUR_KEYGEN_PRODUCT_ID".to_string(),
     license_key: Some("A_KEYGEN_LICENSE_KEY".to_string()),
@@ -117,7 +111,11 @@ config::set_config(KeygenConfig {
 To validate a license, configure `KeygenConfig` with your Keygen account details. Then call the `validate` function with a device fingerprint:
 
 ```rust
-use keygen_rs::{config::{self, KeygenConfig}, errors::Error};
+use keygen_rs::{
+    config::{self, KeygenConfig},
+    errors::Error,
+    license::LicenseValidationRequest,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -129,8 +127,9 @@ async fn main() -> Result<(), Error> {
     ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    let license = keygen_rs::validate(&[fingerprint], &[]).await?;
-    println!("License validated successfully: {:?}", license);
+    let request = LicenseValidationRequest::for_fingerprint(fingerprint);
+    let validation = keygen_rs::validate(&request).await?;
+    println!("License validation: {} ({})", validation.meta.valid, validation.meta.code);
 
     Ok(())
 }
@@ -144,6 +143,7 @@ To activate a machine for a license:
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
+    license::LicenseValidationRequest,
 };
 
 #[tokio::main]
@@ -156,18 +156,19 @@ async fn main() -> Result<(), Error> {
     ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Err(err) = keygen_rs::validate(&[fingerprint.clone()], &[]).await {
-        match err {
-            Error::LicenseNotActivated { license, .. } => {
-                let machine = license.activate(&fingerprint, &[]).await?;
-                println!("License activated successfully: {:?}", machine);
-            }
-            _ => {
-                println!("License validation failed: {:?}", err);
-            }
-        }
-    } else {
+    let request = LicenseValidationRequest::for_fingerprint(fingerprint.clone());
+    let validation = keygen_rs::validate(&request).await?;
+    if validation.meta.valid {
         println!("License validated successfully");
+    } else if matches!(
+        validation.meta.code.as_str(),
+        "NO_MACHINE" | "NO_MACHINES" | "FINGERPRINT_SCOPE_MISMATCH"
+    ) && validation.license.is_some() {
+        let license = validation.license.unwrap();
+        let machine = license.activate(&fingerprint, &[]).await?;
+        println!("License activated successfully: {:?}", machine);
+    } else {
+        println!("License validation failed: {}", validation.meta.detail);
     }
 
     Ok(())
@@ -200,10 +201,14 @@ fn main() {
 
 ## Error Handling
 
-The SDK returns meaningful errors which can be handled in your integration. Here's an example of handling a `LicenseNotActivated` error:
+Transport and API failures return `Error`; invalid licenses are returned as validation metadata:
 
 ```rust
-use keygen_rs::{config::{self, KeygenConfig}, errors::Error};
+use keygen_rs::{
+    config::{self, KeygenConfig},
+    errors::Error,
+    license::LicenseValidationRequest,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -215,14 +220,16 @@ async fn main() -> Result<(), Error> {
     ));
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    match keygen_rs::validate(&[fingerprint.clone()], &[]).await {
-        Ok(license) => println!("License is valid: {:?}", license),
-        Err(Error::LicenseNotActivated { license, .. }) => {
-            println!("License is not activated. Activating...");
+    let request = LicenseValidationRequest::for_fingerprint(fingerprint.clone());
+    let validation = keygen_rs::validate(&request).await?;
+    match (validation.meta.valid, validation.license) {
+        (true, Some(license)) => println!("License is valid: {:?}", license),
+        (false, Some(license)) => {
+            println!("License is invalid: {}", validation.meta.code);
             let machine = license.activate(&fingerprint, &[]).await?;
             println!("Machine activated: {:?}", machine);
-        },
-        Err(e) => println!("Error: {:?}", e),
+        }
+        (_, None) => println!("License not found"),
     }
 
     Ok(())
@@ -311,12 +318,7 @@ async fn main() -> Result<(), Error> {
     
     // Get detailed service information
     let info = service::get_service_info().await?;
-    println!("API Version: {}", info.api_version);
-    
-    // Check if a specific feature is supported
-    if service::supports_product_code().await? {
-        println!("Product codes are supported!");
-    }
+    println!("API Version: {:?}", info.api_version);
     
     Ok(())
 }

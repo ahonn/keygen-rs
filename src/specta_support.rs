@@ -159,15 +159,21 @@ mod tests {
     #[test]
     fn machine_serde_renames_reach_the_bindings() {
         let ts = export();
+        // Scope the checks to `Machine`: `License` serializes its own
+        // `require_heartbeat` field in snake_case on purpose.
+        let start = ts
+            .find("export type Machine = {")
+            .expect("Machine missing from bindings");
+        let machine = &ts[start..start + ts[start..].find("};").expect("unterminated Machine")];
         for field in ["requireHeartbeat", "heartbeatStatus", "heartbeatDuration"] {
             assert!(
-                ts.contains(field),
-                "{field} missing from bindings — serde rename was dropped:\n{ts}"
+                machine.contains(field),
+                "{field} missing from bindings — serde rename was dropped:\n{machine}"
             );
         }
         assert!(
-            !ts.contains("require_heartbeat"),
-            "snake_case leaked past the serde rename:\n{ts}"
+            !machine.contains("require_heartbeat"),
+            "snake_case leaked past the serde rename:\n{machine}"
         );
     }
 }

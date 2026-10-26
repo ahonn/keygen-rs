@@ -8,7 +8,7 @@ use std::env;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 
 use crate::certificate::CertificateFileResponse;
@@ -18,10 +18,11 @@ use crate::config::{get_config, KeygenConfig};
 use crate::entitlement::{Entitlement, EntitlementsResponse};
 use crate::errors::Error;
 use crate::insert_optional;
+use crate::keygen_client::KeygenClient;
 use crate::license_file::LicenseFile;
 use crate::machine::{Machine, MachineResponse, MachinesResponse};
 #[cfg(feature = "token")]
-use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
+use crate::token::{Token, TokenResponse};
 #[cfg(feature = "token")]
 use crate::user::{User, UserAttributes};
 use crate::verifier::Verifier;
@@ -34,7 +35,7 @@ use std::sync::Arc;
 /// - `Keep`: Do not include this field in the update (no change)
 /// - `Clear`: Set the field to null/None
 /// - `Set(T)`: Set the field to a specific value
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum UpdateField<T> {
     /// Do not update this field
     #[default]
@@ -121,29 +122,305 @@ pub(crate) struct LicenseResponse<M> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct LicenseUsersResponse {
     pub data: Vec<KeygenResponseData<UserAttributes>>,
+    pub meta: Option<Value>,
+    pub links: Option<Value>,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LicenseAttachmentAttributes {
+    created: DateTime<Utc>,
+    updated: DateTime<Utc>,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LicenseAttachmentResource {
+    id: String,
+    #[serde(rename = "type")]
+    resource_type: String,
+    attributes: LicenseAttachmentAttributes,
+    #[serde(default)]
+    relationships: Value,
+    #[serde(default)]
+    links: Value,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LicenseAttachmentsResponse {
+    data: Vec<LicenseAttachmentResource>,
+}
+
+#[cfg(feature = "token")]
+fn attachment_relationship_id(relationships: &Value, name: &str) -> Option<String> {
+    relationships
+        .get(name)?
+        .get("data")?
+        .get("id")?
+        .as_str()
+        .map(str::to_owned)
+}
+
+#[cfg(feature = "token")]
+fn attachment_related_link(links: &Value) -> Option<String> {
+    links.get("related")?.as_str().map(str::to_owned)
+}
+
+/// A relationship resource created when attaching a user to a license.
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LicenseUserAttachment {
+    pub id: String,
+    pub resource_type: String,
+    pub account_id: Option<String>,
+    pub license_id: Option<String>,
+    pub user_id: Option<String>,
+    pub related: Option<String>,
+    pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
+}
+
+#[cfg(feature = "token")]
+impl From<LicenseAttachmentResource> for LicenseUserAttachment {
+    fn from(resource: LicenseAttachmentResource) -> Self {
+        Self {
+            id: resource.id,
+            resource_type: resource.resource_type,
+            account_id: attachment_relationship_id(&resource.relationships, "account"),
+            license_id: attachment_relationship_id(&resource.relationships, "license"),
+            user_id: attachment_relationship_id(&resource.relationships, "user"),
+            related: attachment_related_link(&resource.links),
+            created: resource.attributes.created,
+            updated: resource.attributes.updated,
+        }
+    }
+}
+
+/// A relationship resource created when attaching an entitlement to a license.
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LicenseEntitlementAttachment {
+    pub id: String,
+    pub resource_type: String,
+    pub account_id: Option<String>,
+    pub license_id: Option<String>,
+    pub entitlement_id: Option<String>,
+    pub related: Option<String>,
+    pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
+}
+
+#[cfg(feature = "token")]
+impl From<LicenseAttachmentResource> for LicenseEntitlementAttachment {
+    fn from(resource: LicenseAttachmentResource) -> Self {
+        Self {
+            id: resource.id,
+            resource_type: resource.resource_type,
+            account_id: attachment_relationship_id(&resource.relationships, "account"),
+            license_id: attachment_relationship_id(&resource.relationships, "license"),
+            entitlement_id: attachment_relationship_id(&resource.relationships, "entitlement"),
+            related: attachment_related_link(&resource.links),
+            created: resource.attributes.created,
+            updated: resource.attributes.updated,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ValidationMeta {
+pub struct LicenseValidationMeta {
     pub ts: DateTime<Utc>,
     pub valid: bool,
     pub detail: String,
     pub code: String,
-    pub scope: ValidationScope,
+    pub scope: LicenseValidationScope,
+    #[serde(default)]
+    pub nonce: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ValidationScope {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum LicenseValidationCode {
+    Valid,
+    NotFound,
+    Banned,
+    Suspended,
+    Expired,
+    Overdue,
+    HeartbeatDead,
+    HeartbeatNotStarted,
+    EnvironmentScopeRequired,
+    EnvironmentScopeMismatch,
+    FingerprintScopeRequired,
+    FingerprintScopeEmpty,
+    FingerprintScopeMismatch,
+    ComponentsScopeRequired,
+    ComponentsScopeEmpty,
+    ComponentsScopeMismatch,
+    MachineScopeRequired,
+    MachineScopeMismatch,
+    NoMachine,
+    NoMachines,
+    UserScopeRequired,
+    UserScopeMismatch,
+    ProductScopeRequired,
+    ProductScopeMismatch,
+    PolicyScopeRequired,
+    PolicyScopeMismatch,
+    EntitlementsScopeEmpty,
+    EntitlementsMissing,
+    ChecksumScopeRequired,
+    ChecksumScopeMismatch,
+    VersionScopeRequired,
+    VersionScopeMismatch,
+    TooManyMachines,
+    TooManyCores,
+    TooManyProcesses,
+    TooManyUsers,
+    TooMuchMemory,
+    TooMuchDisk,
+    Unknown,
+}
+
+impl LicenseValidationCode {
+    pub fn parse(code: &str) -> Self {
+        match code {
+            "VALID" => Self::Valid,
+            "NOT_FOUND" => Self::NotFound,
+            "BANNED" => Self::Banned,
+            "SUSPENDED" => Self::Suspended,
+            "EXPIRED" => Self::Expired,
+            "OVERDUE" => Self::Overdue,
+            "HEARTBEAT_DEAD" => Self::HeartbeatDead,
+            "HEARTBEAT_NOT_STARTED" => Self::HeartbeatNotStarted,
+            "ENVIRONMENT_SCOPE_REQUIRED" => Self::EnvironmentScopeRequired,
+            "ENVIRONMENT_SCOPE_MISMATCH" => Self::EnvironmentScopeMismatch,
+            "FINGERPRINT_SCOPE_REQUIRED" => Self::FingerprintScopeRequired,
+            "FINGERPRINT_SCOPE_EMPTY" => Self::FingerprintScopeEmpty,
+            "FINGERPRINT_SCOPE_MISMATCH" => Self::FingerprintScopeMismatch,
+            "COMPONENTS_SCOPE_REQUIRED" => Self::ComponentsScopeRequired,
+            "COMPONENTS_SCOPE_EMPTY" => Self::ComponentsScopeEmpty,
+            "COMPONENTS_SCOPE_MISMATCH" => Self::ComponentsScopeMismatch,
+            "MACHINE_SCOPE_REQUIRED" => Self::MachineScopeRequired,
+            "MACHINE_SCOPE_MISMATCH" => Self::MachineScopeMismatch,
+            "NO_MACHINE" => Self::NoMachine,
+            "NO_MACHINES" => Self::NoMachines,
+            "USER_SCOPE_REQUIRED" => Self::UserScopeRequired,
+            "USER_SCOPE_MISMATCH" => Self::UserScopeMismatch,
+            "PRODUCT_SCOPE_REQUIRED" => Self::ProductScopeRequired,
+            "PRODUCT_SCOPE_MISMATCH" => Self::ProductScopeMismatch,
+            "POLICY_SCOPE_REQUIRED" => Self::PolicyScopeRequired,
+            "POLICY_SCOPE_MISMATCH" => Self::PolicyScopeMismatch,
+            "ENTITLEMENTS_SCOPE_EMPTY" => Self::EntitlementsScopeEmpty,
+            "ENTITLEMENTS_MISSING" => Self::EntitlementsMissing,
+            "CHECKSUM_SCOPE_REQUIRED" => Self::ChecksumScopeRequired,
+            "CHECKSUM_SCOPE_MISMATCH" => Self::ChecksumScopeMismatch,
+            "VERSION_SCOPE_REQUIRED" => Self::VersionScopeRequired,
+            "VERSION_SCOPE_MISMATCH" => Self::VersionScopeMismatch,
+            "TOO_MANY_MACHINES" => Self::TooManyMachines,
+            "TOO_MANY_CORES" => Self::TooManyCores,
+            "TOO_MANY_PROCESSES" => Self::TooManyProcesses,
+            "TOO_MANY_USERS" => Self::TooManyUsers,
+            "TOO_MUCH_MEMORY" => Self::TooMuchMemory,
+            "TOO_MUCH_DISK" => Self::TooMuchDisk,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+impl LicenseValidationMeta {
+    pub fn code_kind(&self) -> LicenseValidationCode {
+        LicenseValidationCode::parse(&self.code)
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LicenseValidationScope {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fingerprints: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fingerprint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub components: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub machine: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checksum: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LicenseValidationRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<i64>,
+    pub scope: LicenseValidationScope,
+}
+
+impl LicenseValidationRequest {
+    pub fn new(scope: LicenseValidationScope) -> Self {
+        Self { nonce: None, scope }
+    }
+
+    pub fn for_fingerprint(fingerprint: String) -> Self {
+        Self::new(LicenseValidationScope {
+            fingerprint: Some(fingerprint),
+            ..Default::default()
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LicenseValidationResult {
+    pub license: Option<License>,
+    pub meta: LicenseValidationMeta,
+}
+
+impl LicenseValidationResult {
+    pub fn into_license(self) -> Result<License, Error> {
+        if !self.meta.valid {
+            return Err(Error::LicenseKeyInvalid {
+                code: self.meta.code,
+                detail: self.meta.detail,
+            });
+        }
+        self.license.ok_or(Error::LicenseKeyInvalid {
+            code: self.meta.code,
+            detail: self.meta.detail,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LicenseValidationResponse {
+    pub meta: LicenseValidationMeta,
+    pub data: Option<KeygenResponseData<LicenseAttributes>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct LicenseAttributes {
     pub key: String,
     pub name: Option<String>,
     pub expiry: Option<DateTime<Utc>>,
     pub status: Option<String>,
     pub uses: Option<i32>,
+    pub protected: Option<bool>,
+    pub version: Option<String>,
+    pub suspended: Option<bool>,
+    pub floating: Option<bool>,
+    pub encrypted: Option<bool>,
+    pub scheme: Option<String>,
+    pub strict: Option<bool>,
     #[serde(rename = "maxMachines")]
     pub max_machines: Option<i32>,
     #[serde(rename = "maxCores")]
@@ -154,9 +431,26 @@ pub(crate) struct LicenseAttributes {
     pub max_processes: Option<i32>,
     #[serde(rename = "maxUsers")]
     pub max_users: Option<i32>,
-    pub protected: Option<bool>,
-    pub suspended: Option<bool>,
+    #[serde(rename = "maxMemory")]
+    pub max_memory: Option<i64>,
+    #[serde(rename = "maxDisk")]
+    pub max_disk: Option<i64>,
+    #[serde(rename = "requireHeartbeat")]
+    pub require_heartbeat: Option<bool>,
+    #[serde(rename = "requireCheckIn")]
+    pub require_check_in: Option<bool>,
+    #[serde(rename = "lastValidated")]
+    pub last_validated: Option<DateTime<Utc>>,
+    #[serde(rename = "lastCheckOut")]
+    pub last_check_out: Option<DateTime<Utc>>,
+    #[serde(rename = "lastCheckIn")]
+    pub last_check_in: Option<DateTime<Utc>>,
+    #[serde(rename = "nextCheckIn")]
+    pub next_check_in: Option<DateTime<Utc>>,
     pub permissions: Option<Vec<String>>,
+    pub created: Option<DateTime<Utc>>,
+    pub updated: Option<DateTime<Utc>>,
+    #[serde(default)]
     pub metadata: HashMap<String, Value>,
 }
 
@@ -171,13 +465,29 @@ pub struct License {
     pub expiry: Option<DateTime<Utc>>,
     pub status: Option<String>,
     pub uses: Option<i32>,
+    pub version: Option<String>,
+    pub floating: Option<bool>,
+    pub encrypted: Option<bool>,
+    pub strict: Option<bool>,
     pub max_machines: Option<i32>,
     pub max_cores: Option<i32>,
     pub max_uses: Option<i32>,
     pub max_processes: Option<i32>,
     pub max_users: Option<i32>,
+    // specta-typescript rejects 64-bit integers. Byte counts stay far below
+    // 2^53, so exporting them as a JS `number` loses no precision.
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
+    pub max_memory: Option<i64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
+    pub max_disk: Option<i64>,
     pub protected: Option<bool>,
     pub suspended: Option<bool>,
+    pub require_heartbeat: Option<bool>,
+    pub require_check_in: Option<bool>,
+    pub last_validated: Option<DateTime<Utc>>,
+    pub last_check_out: Option<DateTime<Utc>>,
+    pub last_check_in: Option<DateTime<Utc>>,
+    pub next_check_in: Option<DateTime<Utc>>,
     pub permissions: Option<Vec<String>>,
     pub policy: Option<String>,
     #[cfg_attr(
@@ -189,14 +499,80 @@ pub struct License {
     pub product_id: Option<String>,
     pub group_id: Option<String>,
     pub owner_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub created: Option<DateTime<Utc>>,
+    pub updated: Option<DateTime<Utc>>,
     #[serde(skip)]
     pub config: Option<Arc<KeygenConfig>>,
+    #[serde(skip)]
+    client: Option<Arc<Client>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LicenseFileAlgorithm {
+    #[serde(rename = "aes-256-gcm+ed25519")]
+    Aes256GcmEd25519,
+    #[serde(rename = "aes-256-gcm+ecdsa-p256")]
+    Aes256GcmEcdsaP256,
+    #[serde(rename = "aes-256-gcm+rsa-pss-sha256")]
+    Aes256GcmRsaPssSha256,
+    #[serde(rename = "aes-256-gcm+rsa-sha256")]
+    Aes256GcmRsaSha256,
+    #[serde(rename = "base64+ed25519")]
+    Base64Ed25519,
+    #[serde(rename = "base64+ecdsa-p256")]
+    Base64EcdsaP256,
+    #[serde(rename = "base64+rsa-pss-sha256")]
+    Base64RsaPssSha256,
+    #[serde(rename = "base64+rsa-sha256")]
+    Base64RsaSha256,
+}
+
+impl LicenseFileAlgorithm {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Aes256GcmEd25519 => "aes-256-gcm+ed25519",
+            Self::Aes256GcmEcdsaP256 => "aes-256-gcm+ecdsa-p256",
+            Self::Aes256GcmRsaPssSha256 => "aes-256-gcm+rsa-pss-sha256",
+            Self::Aes256GcmRsaSha256 => "aes-256-gcm+rsa-sha256",
+            Self::Base64Ed25519 => "base64+ed25519",
+            Self::Base64EcdsaP256 => "base64+ecdsa-p256",
+            Self::Base64RsaPssSha256 => "base64+rsa-pss-sha256",
+            Self::Base64RsaSha256 => "base64+rsa-sha256",
+        }
+    }
+
+    pub const fn is_encrypted(self) -> bool {
+        matches!(
+            self,
+            Self::Aes256GcmEd25519
+                | Self::Aes256GcmEcdsaP256
+                | Self::Aes256GcmRsaPssSha256
+                | Self::Aes256GcmRsaSha256
+        )
+    }
+
+    pub fn from_code(code: &str) -> Option<Self> {
+        match code {
+            "aes-256-gcm+ed25519" => Some(Self::Aes256GcmEd25519),
+            "aes-256-gcm+ecdsa-p256" => Some(Self::Aes256GcmEcdsaP256),
+            "aes-256-gcm+rsa-pss-sha256" => Some(Self::Aes256GcmRsaPssSha256),
+            "aes-256-gcm+rsa-sha256" => Some(Self::Aes256GcmRsaSha256),
+            "base64+ed25519" => Some(Self::Base64Ed25519),
+            "base64+ecdsa-p256" => Some(Self::Base64EcdsaP256),
+            "base64+rsa-pss-sha256" => Some(Self::Base64RsaPssSha256),
+            "base64+rsa-sha256" => Some(Self::Base64RsaSha256),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct LicenseCheckoutOpts {
-    pub ttl: Option<i64>,
+    pub ttl: UpdateField<i64>,
     pub include: Option<Vec<String>>,
+    pub encrypt: Option<bool>,
+    pub algorithm: Option<LicenseFileAlgorithm>,
 }
 
 impl LicenseCheckoutOpts {
@@ -208,7 +584,14 @@ impl LicenseCheckoutOpts {
     /// Create checkout options with TTL
     pub fn with_ttl(ttl: i64) -> Self {
         Self {
-            ttl: Some(ttl),
+            ttl: UpdateField::Set(ttl),
+            ..Self::default()
+        }
+    }
+
+    pub fn perpetual() -> Self {
+        Self {
+            ttl: UpdateField::Clear,
             ..Self::default()
         }
     }
@@ -220,16 +603,70 @@ impl LicenseCheckoutOpts {
             ..Self::default()
         }
     }
+
+    pub fn with_encrypt(mut self, encrypt: bool) -> Self {
+        self.encrypt = Some(encrypt);
+        self
+    }
+
+    pub fn with_algorithm(mut self, algorithm: LicenseFileAlgorithm) -> Self {
+        self.algorithm = Some(algorithm);
+        self
+    }
+
+    fn to_query(&self) -> Result<Value, Error> {
+        if self.encrypt.is_some() && self.algorithm.is_some() {
+            return Err(Error::UnexpectedError(
+                "checkout encrypt and algorithm are mutually exclusive".to_string(),
+            ));
+        }
+
+        let mut query = json!({});
+        match &self.ttl {
+            UpdateField::Keep => {}
+            UpdateField::Clear => query["ttl"] = json!("null"),
+            UpdateField::Set(ttl) => query["ttl"] = json!(ttl),
+        }
+        if let Some(include) = &self.include {
+            query["include"] = json!(include.join(","));
+        }
+        if let Some(encrypt) = self.encrypt {
+            query["encrypt"] = json!(encrypt);
+        }
+        if let Some(algorithm) = &self.algorithm {
+            query["algorithm"] = serde_json::to_value(algorithm)?;
+        }
+        Ok(query)
+    }
 }
 
 #[derive(Debug, Default, Serialize)]
 pub struct PaginationOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<i32>,
-    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
-    pub page_number: Option<i32>,
     #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
     pub page_size: Option<i32>,
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
+}
+
+fn cursor_pagination_query(
+    limit: Option<i32>,
+    page_size: Option<i32>,
+    page_cursor: Option<&str>,
+    default_limit: Option<i32>,
+) -> Value {
+    let mut query = json!({});
+    if let Some(limit) = limit.or(default_limit) {
+        query["limit"] = json!(limit);
+    }
+    if page_size.is_some() || page_cursor.is_some() {
+        query["page[cursor]"] = json!(page_cursor.unwrap_or_default());
+    }
+    if let Some(page_size) = page_size {
+        query["page[size]"] = json!(page_size);
+    }
+    query
 }
 
 #[derive(Debug, Clone, Default)]
@@ -257,13 +694,12 @@ pub struct LicenseActivityFilter {
     pub after: Option<String>,
 }
 
-/// Simple license list options with common filters
+/// Filters and cursor pagination for listing licenses.
 #[derive(Debug, Default)]
 pub struct LicenseListOptions {
-    // Pagination - following Keygen API standards
     pub limit: Option<i32>, // Number of resources to return (1-100, default 10)
-    pub page_number: Option<i32>, // Page number to retrieve
     pub page_size: Option<i32>, // Number of resources per page (1-100)
+    pub page_cursor: Option<String>,
 
     // Common filters
     pub status: Option<String>,  // "ACTIVE", "EXPIRED", "SUSPENDED", etc.
@@ -283,7 +719,78 @@ pub struct LicenseListOptions {
     pub activity: Option<LicenseActivityFilter>,
 }
 
-/// Request structure for creating a new license with complete API support
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourcePage<T> {
+    pub data: Vec<T>,
+    pub meta: Option<Value>,
+    pub links: Option<Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct PageLinks {
+    #[serde(rename = "self", default, skip_serializing_if = "Option::is_none")]
+    self_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    next: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    previous: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    first: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last: Option<String>,
+    #[serde(flatten)]
+    extensions: Map<String, Value>,
+}
+
+impl PageLinks {
+    pub fn self_url(&self) -> Option<&str> {
+        self.self_url.as_deref()
+    }
+
+    pub fn next_url(&self) -> Option<&str> {
+        self.next.as_deref()
+    }
+
+    pub fn previous_url(&self) -> Option<&str> {
+        self.previous.as_deref()
+    }
+
+    pub fn first_url(&self) -> Option<&str> {
+        self.first.as_deref()
+    }
+
+    pub fn last_url(&self) -> Option<&str> {
+        self.last.as_deref()
+    }
+
+    pub fn extensions(&self) -> &Map<String, Value> {
+        &self.extensions
+    }
+
+    pub fn has_next_page(&self) -> bool {
+        self.next.is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<String> {
+        let query = self.next.as_deref()?.split_once('?')?.1;
+        url::form_urlencoded::parse(query.as_bytes())
+            .find_map(|(key, value)| (key == "page[cursor]").then(|| value.into_owned()))
+    }
+}
+
+impl<T> ResourcePage<T> {
+    pub fn typed_links(&self) -> Result<Option<PageLinks>, serde_json::Error> {
+        self.links.clone().map(serde_json::from_value).transpose()
+    }
+
+    pub fn next_cursor(&self) -> Option<String> {
+        self.typed_links().ok().flatten()?.next_cursor()
+    }
+}
+
+pub type LicensePage = ResourcePage<License>;
+
+/// Attributes and relationships accepted when creating a license.
 #[derive(Debug, Default)]
 pub struct LicenseCreateRequest {
     // Required relationship
@@ -298,6 +805,8 @@ pub struct LicenseCreateRequest {
     pub max_users: Option<i32>,
     pub max_cores: Option<i32>,
     pub max_uses: Option<i32>,
+    pub max_memory: Option<i64>,
+    pub max_disk: Option<i64>,
     pub protected: Option<bool>,
     pub suspended: Option<bool>,
     pub permissions: Option<Vec<String>>,
@@ -308,21 +817,39 @@ pub struct LicenseCreateRequest {
     pub group_id: Option<String>, // Group ID
 }
 
-/// Request structure for updating a license with complete API support
+/// Mutable license attributes.
 #[derive(Debug, Default)]
 pub struct LicenseUpdateRequest {
     // All optional attributes that can be updated
-    pub name: Option<String>,
-    pub expiry: Option<DateTime<Utc>>,
+    pub name: UpdateField<String>,
+    pub expiry: UpdateField<DateTime<Utc>>,
     pub max_machines: UpdateField<i32>,
     pub max_processes: UpdateField<i32>,
     pub max_users: UpdateField<i32>,
     pub max_cores: UpdateField<i32>,
     pub max_uses: UpdateField<i32>,
+    pub max_memory: UpdateField<i64>,
+    pub max_disk: UpdateField<i64>,
     pub protected: Option<bool>,
     pub suspended: Option<bool>,
     pub permissions: Option<Vec<String>>,
     pub metadata: Option<HashMap<String, Value>>,
+}
+
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LicenseTokenCreateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expiry: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_activations: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_deactivations: Option<u32>,
 }
 
 impl LicenseCreateRequest {
@@ -382,6 +909,16 @@ impl LicenseCreateRequest {
         self
     }
 
+    pub fn with_max_memory(mut self, max_memory: i64) -> Self {
+        self.max_memory = Some(max_memory);
+        self
+    }
+
+    pub fn with_max_disk(mut self, max_disk: i64) -> Self {
+        self.max_disk = Some(max_disk);
+        self
+    }
+
     /// Set the protected flag
     pub fn with_protected(mut self, protected: bool) -> Self {
         self.protected = Some(protected);
@@ -433,6 +970,8 @@ impl LicenseCreateRequest {
         let _ = insert_optional(&mut attributes, "maxUsers", self.max_users);
         let _ = insert_optional(&mut attributes, "maxCores", self.max_cores);
         let _ = insert_optional(&mut attributes, "maxUses", self.max_uses);
+        let _ = insert_optional(&mut attributes, "maxMemory", self.max_memory);
+        let _ = insert_optional(&mut attributes, "maxDisk", self.max_disk);
         let _ = insert_optional(&mut attributes, "protected", self.protected);
         let _ = insert_optional(&mut attributes, "suspended", self.suspended);
         let _ = insert_optional(&mut attributes, "permissions", self.permissions);
@@ -491,13 +1030,23 @@ impl LicenseUpdateRequest {
 
     /// Set the license name
     pub fn with_name(mut self, name: String) -> Self {
-        self.name = Some(name);
+        self.name = UpdateField::Set(name);
+        self
+    }
+
+    pub fn clear_name(mut self) -> Self {
+        self.name = UpdateField::Clear;
         self
     }
 
     /// Set the expiry date
     pub fn with_expiry(mut self, expiry: DateTime<Utc>) -> Self {
-        self.expiry = Some(expiry);
+        self.expiry = UpdateField::Set(expiry);
+        self
+    }
+
+    pub fn clear_expiry(mut self) -> Self {
+        self.expiry = UpdateField::Clear;
         self
     }
 
@@ -561,6 +1110,26 @@ impl LicenseUpdateRequest {
         self
     }
 
+    pub fn with_max_memory(mut self, max_memory: i64) -> Self {
+        self.max_memory = UpdateField::Set(max_memory);
+        self
+    }
+
+    pub fn clear_max_memory(mut self) -> Self {
+        self.max_memory = UpdateField::Clear;
+        self
+    }
+
+    pub fn with_max_disk(mut self, max_disk: i64) -> Self {
+        self.max_disk = UpdateField::Set(max_disk);
+        self
+    }
+
+    pub fn clear_max_disk(mut self) -> Self {
+        self.max_disk = UpdateField::Clear;
+        self
+    }
+
     /// Set the protected flag
     pub fn with_protected(mut self, protected: bool) -> Self {
         self.protected = Some(protected);
@@ -589,17 +1158,15 @@ impl LicenseUpdateRequest {
     pub fn to_json_body(self) -> Value {
         let mut attributes = serde_json::Map::new();
 
-        if let Some(name) = self.name {
-            attributes.insert("name".to_string(), json!(name));
-        }
-        if let Some(expiry) = self.expiry {
-            attributes.insert("expiry".to_string(), json!(expiry));
-        }
+        self.name.apply_to(&mut attributes, "name");
+        self.expiry.apply_to(&mut attributes, "expiry");
         self.max_machines.apply_to(&mut attributes, "maxMachines");
         self.max_processes.apply_to(&mut attributes, "maxProcesses");
         self.max_users.apply_to(&mut attributes, "maxUsers");
         self.max_cores.apply_to(&mut attributes, "maxCores");
         self.max_uses.apply_to(&mut attributes, "maxUses");
+        self.max_memory.apply_to(&mut attributes, "maxMemory");
+        self.max_disk.apply_to(&mut attributes, "maxDisk");
         if let Some(protected) = self.protected {
             attributes.insert("protected".to_string(), json!(protected));
         }
@@ -624,21 +1191,38 @@ impl LicenseUpdateRequest {
 
 impl License {
     pub(crate) fn from(data: KeygenResponseData<LicenseAttributes>) -> License {
+        let scheme = data
+            .attributes
+            .scheme
+            .as_ref()
+            .and_then(|value| serde_json::from_value(Value::String(value.clone())).ok());
         License {
             id: data.id,
-            scheme: None,
+            scheme,
             key: data.attributes.key,
             name: data.attributes.name,
             expiry: data.attributes.expiry,
             status: data.attributes.status,
             uses: data.attributes.uses,
+            version: data.attributes.version,
+            floating: data.attributes.floating,
+            encrypted: data.attributes.encrypted,
+            strict: data.attributes.strict,
             max_machines: data.attributes.max_machines,
             max_cores: data.attributes.max_cores,
             max_uses: data.attributes.max_uses,
             max_processes: data.attributes.max_processes,
             max_users: data.attributes.max_users,
+            max_memory: data.attributes.max_memory,
+            max_disk: data.attributes.max_disk,
             protected: data.attributes.protected,
             suspended: data.attributes.suspended,
+            require_heartbeat: data.attributes.require_heartbeat,
+            require_check_in: data.attributes.require_check_in,
+            last_validated: data.attributes.last_validated,
+            last_check_out: data.attributes.last_check_out,
+            last_check_in: data.attributes.last_check_in,
+            next_check_in: data.attributes.next_check_in,
             permissions: data.attributes.permissions,
             policy: data.relationships.policy_id(),
             metadata: data.attributes.metadata,
@@ -646,7 +1230,11 @@ impl License {
             product_id: data.relationships.product_id(),
             group_id: data.relationships.group_id(),
             owner_id: data.relationships.owner_id(),
+            environment_id: data.relationships.environment_id(),
+            created: data.attributes.created,
+            updated: data.attributes.updated,
             config: None,
+            client: None,
         }
     }
 
@@ -659,13 +1247,25 @@ impl License {
             expiry: None,
             status: None,
             uses: None,
+            version: None,
+            floating: None,
+            encrypted: None,
+            strict: None,
             max_machines: None,
             max_cores: None,
             max_uses: None,
             max_processes: None,
             max_users: None,
+            max_memory: None,
+            max_disk: None,
             protected: None,
             suspended: None,
+            require_heartbeat: None,
+            require_check_in: None,
+            last_validated: None,
+            last_check_out: None,
+            last_check_in: None,
+            next_check_in: None,
             permissions: None,
             policy: None,
             metadata: HashMap::new(),
@@ -673,7 +1273,11 @@ impl License {
             product_id: None,
             group_id: None,
             owner_id: None,
+            environment_id: None,
+            created: None,
+            updated: None,
             config: None,
+            client: None,
         }
     }
 
@@ -687,13 +1291,25 @@ impl License {
             expiry: None,
             status: None,
             uses: None,
+            version: None,
+            floating: None,
+            encrypted: None,
+            strict: None,
             max_machines: None,
             max_cores: None,
             max_uses: None,
             max_processes: None,
             max_users: None,
+            max_memory: None,
+            max_disk: None,
             protected: None,
             suspended: None,
+            require_heartbeat: None,
+            require_check_in: None,
+            last_validated: None,
+            last_check_out: None,
+            last_check_in: None,
+            next_check_in: None,
             permissions: None,
             policy: None,
             metadata: HashMap::new(),
@@ -701,8 +1317,18 @@ impl License {
             product_id: None,
             group_id: None,
             owner_id: None,
+            environment_id: None,
+            created: None,
+            updated: None,
             config: None,
+            client: None,
         }
+    }
+
+    pub fn from_id(id: &str) -> Self {
+        let mut license = Self::from_key("");
+        license.id = id.to_string();
+        license
     }
 
     /// Associates a configuration with this License
@@ -711,8 +1337,27 @@ impl License {
         self
     }
 
+    pub(crate) fn with_client(mut self, client: Arc<Client>, config: Arc<KeygenConfig>) -> Self {
+        self.client = Some(client);
+        self.config = Some(config);
+        self
+    }
+
+    fn inherit_client(&self, license: License) -> License {
+        match (&self.client, &self.config) {
+            (Some(client), Some(config)) => {
+                license.with_client(Arc::clone(client), Arc::clone(config))
+            }
+            (None, Some(config)) => license.with_config(config.as_ref().clone()),
+            _ => license,
+        }
+    }
+
     /// Gets a client for this license, using the associated config or global config
     fn get_client(&self) -> Result<Client, Error> {
+        if let Some(client) = &self.client {
+            return Ok(client.as_ref().clone());
+        }
         let config = if let Some(ref cfg) = self.config {
             cfg.as_ref().clone()
         } else {
@@ -721,51 +1366,12 @@ impl License {
         Client::new(ClientOptions::from(config))
     }
 
-    fn build_scope(
-        config: &KeygenConfig,
-        fingerprints: &[String],
-        entitlements: &[String],
-    ) -> Result<Value, Error> {
-        let mut scope = json!({
-            "product": config.product.to_string(),
-        });
-
-        if !fingerprints.is_empty() {
-            scope["fingerprint"] = json!(fingerprints[0]);
-            if fingerprints.len() > 1 {
-                scope["components"] = json!(fingerprints[1..].to_vec());
-            }
-        }
-
-        if !entitlements.is_empty() {
-            scope["entitlements"] = json!(entitlements);
-        }
-
-        if let Some(env) = config.environment.as_ref() {
-            scope["environment"] = json!(env);
-        }
-
-        Ok(scope)
-    }
-
     pub async fn validate(
-        self,
-        fingerprints: &[String],
-        entitlements: &[String],
-    ) -> Result<License, Error> {
+        &self,
+        request: &LicenseValidationRequest,
+    ) -> Result<LicenseValidationResult, Error> {
         let client = self.get_client()?;
-        let config = if let Some(ref cfg) = self.config {
-            cfg.as_ref()
-        } else {
-            &get_config()?
-        };
-        let scope = Self::build_scope(config, fingerprints, entitlements)?;
-        let params = json!({
-            "meta": {
-                "nonce": chrono::Utc::now().timestamp(),
-                "scope": scope
-            }
-        });
+        let params = json!({ "meta": request });
 
         let response = client
             .post(
@@ -774,51 +1380,33 @@ impl License {
                 None::<&()>,
             )
             .await?;
-        let validation: LicenseResponse<ValidationMeta> = serde_json::from_value(response.body)?;
-        let meta = validation.meta.clone().unwrap();
-        if !meta.valid {
-            return Err(self.handle_validation_code(&meta));
-        };
-        let license = License::from(validation.data);
-        Ok(if let Some(cfg) = self.config {
-            license.with_config((*cfg).clone())
-        } else {
-            license
+        let validation: LicenseValidationResponse = serde_json::from_value(response.body)?;
+        Ok(LicenseValidationResult {
+            license: validation
+                .data
+                .map(|data| self.inherit_client(License::from(data))),
+            meta: validation.meta,
         })
     }
 
     pub async fn validate_key(
-        self,
-        fingerprints: &[String],
-        entitlements: &[String],
-    ) -> Result<License, Error> {
+        &self,
+        request: &LicenseValidationRequest,
+    ) -> Result<LicenseValidationResult, Error> {
         let client = self.get_client()?;
-        let config = if let Some(ref cfg) = self.config {
-            cfg.as_ref()
-        } else {
-            &get_config()?
-        };
-        let scope = Self::build_scope(config, fingerprints, entitlements)?;
-        let params = json!({
-            "meta": {
-                "key": self.key.clone(),
-                "scope": scope
-            }
-        });
+        let mut meta = serde_json::to_value(request)?;
+        meta["key"] = json!(self.key);
+        let params = json!({ "meta": meta });
 
         let response = client
             .post("licenses/actions/validate-key", Some(&params), None::<&()>)
             .await?;
-        let validation: LicenseResponse<ValidationMeta> = serde_json::from_value(response.body)?;
-        let meta = validation.meta.clone().unwrap();
-        if !meta.valid {
-            return Err(self.handle_validation_code(&meta));
-        };
-        let license = License::from(validation.data);
-        Ok(if let Some(cfg) = self.config {
-            license.with_config((*cfg).clone())
-        } else {
-            license
+        let validation: LicenseValidationResponse = serde_json::from_value(response.body)?;
+        Ok(LicenseValidationResult {
+            license: validation
+                .data
+                .map(|data| self.inherit_client(License::from(data))),
+            meta: validation.meta,
         })
     }
 
@@ -904,7 +1492,7 @@ impl License {
         let client = self.get_client()?;
         let response = client.post("machines", Some(&params), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
-        let machine = Machine::from(machine_response.data);
+        let machine = Machine::from(machine_response.data).with_config(config.clone());
         Ok(machine)
     }
 
@@ -933,26 +1521,18 @@ impl License {
     pub async fn machines(
         &self,
         options: Option<&PaginationOptions>,
-    ) -> Result<Vec<Machine>, Error> {
-        let mut query = json!({});
-
-        if let Some(opts) = options {
-            if let Some(limit) = opts.limit {
-                query["limit"] = json!(limit);
-            } else {
-                query["limit"] = json!(100);
-            }
-
-            if let Some(page_number) = opts.page_number {
-                query["page[number]"] = json!(page_number);
-            }
-
-            if let Some(page_size) = opts.page_size {
-                query["page[size]"] = json!(page_size);
-            }
-        } else {
-            query["limit"] = json!(100);
-        }
+    ) -> Result<ResourcePage<Machine>, Error> {
+        let query = options.map_or_else(
+            || cursor_pagination_query(None, None, None, Some(100)),
+            |options| {
+                cursor_pagination_query(
+                    options.limit,
+                    options.page_size,
+                    options.page_cursor.as_deref(),
+                    Some(100),
+                )
+            },
+        );
 
         let client = self.get_client()?;
         let response = client
@@ -970,32 +1550,28 @@ impl License {
             .iter()
             .map(|d| Machine::from(d.clone()).with_config(config.clone()))
             .collect();
-        Ok(machines)
+        Ok(ResourcePage {
+            data: machines,
+            meta: machines_response.meta,
+            links: machines_response.links,
+        })
     }
 
     pub async fn entitlements(
         &self,
         options: Option<&PaginationOptions>,
-    ) -> Result<Vec<Entitlement>, Error> {
-        let mut query = json!({});
-
-        if let Some(opts) = options {
-            if let Some(limit) = opts.limit {
-                query["limit"] = json!(limit);
-            } else {
-                query["limit"] = json!(100);
-            }
-
-            if let Some(page_number) = opts.page_number {
-                query["page[number]"] = json!(page_number);
-            }
-
-            if let Some(page_size) = opts.page_size {
-                query["page[size]"] = json!(page_size);
-            }
-        } else {
-            query["limit"] = json!(100);
-        }
+    ) -> Result<ResourcePage<Entitlement>, Error> {
+        let query = options.map_or_else(
+            || cursor_pagination_query(None, None, None, Some(100)),
+            |options| {
+                cursor_pagination_query(
+                    options.limit,
+                    options.page_size,
+                    options.page_cursor.as_deref(),
+                    Some(100),
+                )
+            },
+        );
 
         let client = self.get_client()?;
         let response = client
@@ -1007,23 +1583,15 @@ impl License {
             .iter()
             .map(|d| Entitlement::from(d.clone()))
             .collect();
-        Ok(entitlements)
+        Ok(ResourcePage {
+            data: entitlements,
+            meta: entitlements_response.meta,
+            links: entitlements_response.links,
+        })
     }
 
     pub async fn checkout(&self, options: &LicenseCheckoutOpts) -> Result<LicenseFile, Error> {
-        let mut query = json!({
-            "encrypt": 1,
-        });
-
-        if let Some(ttl) = options.ttl {
-            query["ttl"] = ttl.into();
-        }
-
-        if let Some(ref include) = options.include {
-            query["include"] = json!(include.join(","));
-        } else {
-            query["include"] = "entitlements".into();
-        }
+        let query = options.to_query()?;
 
         let client = self.get_client()?;
         let response = client
@@ -1038,77 +1606,77 @@ impl License {
         Ok(license_file)
     }
 
+    pub async fn checkout_certificate(
+        &self,
+        options: &LicenseCheckoutOpts,
+    ) -> Result<String, Error> {
+        let query = options.to_query()?;
+        let client = self.get_client()?;
+        let response = client
+            .get_text_with_params(
+                &format!("licenses/{}/actions/check-out", self.id),
+                Some(&query),
+            )
+            .await?;
+        Ok(response.body)
+    }
+
     /// Check a license back in, invalidating any offline license file.
     pub async fn check_in(&self) -> Result<License, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/check-in", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
-    fn handle_validation_code(&self, meta: &ValidationMeta) -> Error {
-        let code = meta.code.clone();
-        let detail = meta.detail.clone();
-        match code.as_str() {
-            "FINGERPRINT_SCOPE_MISMATCH" | "NO_MACHINES" | "NO_MACHINE" => {
-                Error::LicenseNotActivated {
-                    code,
-                    detail,
-                    license: Box::new(self.clone()),
-                }
-            }
-            "EXPIRED" => Error::LicenseExpired { code, detail },
-            "SUSPENDED" => Error::LicenseSuspended { code, detail },
-            "TOO_MANY_MACHINES" => Error::LicenseTooManyMachines { code, detail },
-            "TOO_MANY_CORES" => Error::LicenseTooManyCores { code, detail },
-            "TOO_MANY_PROCESSES" => Error::LicenseTooManyProcesses { code, detail },
-            "FINGERPRINT_SCOPE_REQUIRED" | "FINGERPRINT_SCOPE_EMPTY" => {
-                Error::ValidationFingerprintMissing { code, detail }
-            }
-            "COMPONENTS_SCOPE_REQUIRED" | "COMPONENTS_SCOPE_EMPTY" => {
-                Error::ValidationComponentsMissing { code, detail }
-            }
-            "COMPONENTS_SCOPE_MISMATCH" => Error::ComponentNotActivated { code, detail },
-            "HEARTBEAT_NOT_STARTED" => Error::HeartbeatRequired { code, detail },
-            "HEARTBEAT_DEAD" => Error::HeartbeatDead { code, detail },
-            "PRODUCT_SCOPE_REQUIRED" | "PRODUCT_SCOPE_EMPTY" => {
-                Error::ValidationProductMissing { code, detail }
-            }
-            _ => Error::LicenseKeyInvalid { code, detail },
-        }
-    }
-
-    /// Create a new license using the comprehensive request structure
+    /// Create a license.
     #[cfg(feature = "token")]
     pub async fn create(request: LicenseCreateRequest) -> Result<License, Error> {
-        let config = get_config()?;
-        let client = Client::new(ClientOptions::from(config))?;
+        let config = Arc::new(get_config()?);
+        let client = Arc::new(Client::new(ClientOptions::from(config.as_ref().clone()))?);
+        Self::create_with_client(client, config, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn create_with_client(
+        client: Arc<Client>,
+        config: Arc<KeygenConfig>,
+        request: LicenseCreateRequest,
+    ) -> Result<License, Error> {
         let body = request.to_json_body();
         let response = client.post("licenses", Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(License::from(license_response.data).with_client(client, config))
     }
 
     /// List all licenses with optional filtering
     #[cfg(feature = "token")]
-    pub async fn list(options: Option<&LicenseListOptions>) -> Result<Vec<License>, Error> {
-        let config = get_config()?;
-        let client = Client::new(ClientOptions::from(config))?;
-        let mut query = json!({});
+    pub async fn list(options: Option<&LicenseListOptions>) -> Result<LicensePage, Error> {
+        let config = Arc::new(get_config()?);
+        let client = Arc::new(Client::new(ClientOptions::from(config.as_ref().clone()))?);
+        Self::list_with_client(client, config, options).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn list_with_client(
+        client: Arc<Client>,
+        config: Arc<KeygenConfig>,
+        options: Option<&LicenseListOptions>,
+    ) -> Result<LicensePage, Error> {
+        let mut query = options.map_or_else(
+            || cursor_pagination_query(None, None, None, None),
+            |options| {
+                cursor_pagination_query(
+                    options.limit,
+                    options.page_size,
+                    options.page_cursor.as_deref(),
+                    None,
+                )
+            },
+        );
 
         if let Some(opts) = options {
-            // Pagination - following Keygen API standards
-            if let Some(limit) = opts.limit {
-                query["limit"] = json!(limit);
-            }
-            if let Some(page_number) = opts.page_number {
-                query["page[number]"] = json!(page_number);
-            }
-            if let Some(page_size) = opts.page_size {
-                query["page[size]"] = json!(page_size);
-            }
-
             // Simple filters
             if let Some(ref status) = opts.status {
                 query["status"] = json!(status);
@@ -1213,25 +1781,42 @@ impl License {
         #[derive(Debug, Clone, Serialize, Deserialize)]
         struct LicensesResponse {
             pub data: Vec<KeygenResponseData<LicenseAttributes>>,
+            pub meta: Option<Value>,
+            pub links: Option<Value>,
         }
 
         let licenses_response: LicensesResponse = serde_json::from_value(response.body)?;
-        Ok(licenses_response
-            .data
-            .into_iter()
-            .map(License::from)
-            .collect())
+        Ok(ResourcePage {
+            data: licenses_response
+                .data
+                .into_iter()
+                .map(|data| {
+                    License::from(data).with_client(Arc::clone(&client), Arc::clone(&config))
+                })
+                .collect(),
+            meta: licenses_response.meta,
+            links: licenses_response.links,
+        })
     }
 
     /// Get a license by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<License, Error> {
-        let config = get_config()?;
-        let client = Client::new(ClientOptions::from(config))?;
+        let config = Arc::new(get_config()?);
+        let client = Arc::new(Client::new(ClientOptions::from(config.as_ref().clone()))?);
+        Self::get_with_client(client, config, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn get_with_client(
+        client: Arc<Client>,
+        config: Arc<KeygenConfig>,
+        id: &str,
+    ) -> Result<License, Error> {
         let endpoint = format!("licenses/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(License::from(license_response.data).with_client(client, config))
     }
 
     /// Update a license
@@ -1242,7 +1827,7 @@ impl License {
         let body = request.to_json_body();
         let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Delete a license
@@ -1261,7 +1846,7 @@ impl License {
         let endpoint = format!("licenses/{}/actions/suspend", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Reinstate a suspended license
@@ -1271,7 +1856,7 @@ impl License {
         let endpoint = format!("licenses/{}/actions/reinstate", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Renew a license
@@ -1281,7 +1866,7 @@ impl License {
         let endpoint = format!("licenses/{}/actions/renew", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Revoke a license
@@ -1293,29 +1878,23 @@ impl License {
         Ok(())
     }
 
-    /// Increment the license's usage count by 1
-    ///
-    /// This operation is available to end users with license key authentication.
-    /// It's the primary way for applications to track feature usage.
-    pub async fn increment_usage(&self) -> Result<License, Error> {
+    pub async fn increment_usage(&self, increment: Option<u32>) -> Result<License, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/increment-usage", self.id);
-        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let body = increment.map(|value| json!({ "meta": { "increment": value } }));
+        let response = client.post(&endpoint, body.as_ref(), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
-    /// Decrement the license's usage count by 1 (Admin only)
-    ///
-    /// This is an administrative operation typically used to correct
-    /// incorrect usage tracking or handle refunds.
     #[cfg(feature = "token")]
-    pub async fn decrement_usage(&self) -> Result<License, Error> {
+    pub async fn decrement_usage(&self, decrement: Option<u32>) -> Result<License, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/actions/decrement-usage", self.id);
-        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        let body = decrement.map(|value| json!({ "meta": { "decrement": value } }));
+        let response = client.post(&endpoint, body.as_ref(), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Reset the license's usage count to zero (Admin only)
@@ -1328,13 +1907,24 @@ impl License {
         let endpoint = format!("licenses/{}/actions/reset-usage", self.id);
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Attach entitlements to a license
     #[cfg(feature = "token")]
     pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
+        self.attach_entitlements_with_response(entitlement_ids)
+            .await?;
+        Ok(())
+    }
+
+    /// Attach entitlements and return the created relationship resources.
+    #[cfg(feature = "token")]
+    pub async fn attach_entitlements_with_response(
+        &self,
+        entitlement_ids: &[String],
+    ) -> Result<Vec<LicenseEntitlementAttachment>, Error> {
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/entitlements", self.id);
 
         let data: Vec<Value> = entitlement_ids
@@ -1351,16 +1941,24 @@ impl License {
             "data": data
         });
 
-        client
+        let response = client
             .post::<Value, Value, ()>(&endpoint, Some(&body), None::<&()>)
             .await?;
-        Ok(())
+        if response.body.is_null() {
+            return Ok(Vec::new());
+        }
+        let attachments: LicenseAttachmentsResponse = serde_json::from_value(response.body)?;
+        Ok(attachments
+            .data
+            .into_iter()
+            .map(LicenseEntitlementAttachment::from)
+            .collect())
     }
 
     /// Detach entitlements from a license
     #[cfg(feature = "token")]
     pub async fn detach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
+        let client = self.get_client()?;
         let endpoint = format!("licenses/{}/entitlements", self.id);
 
         let data: Vec<Value> = entitlement_ids
@@ -1387,11 +1985,11 @@ impl License {
     #[cfg(feature = "token")]
     pub async fn generate_token(
         &self,
-        request: Option<CreateTokenRequest>,
+        request: Option<LicenseTokenCreateRequest>,
     ) -> Result<Token, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/tokens", self.id);
-        let attributes = token_request_attributes(request.as_ref())?;
+        let attributes = serde_json::to_value(request.unwrap_or_default())?;
         let body = json!({
             "data": {
                 "type": "tokens",
@@ -1406,6 +2004,16 @@ impl License {
     /// Attach users to this license.
     #[cfg(feature = "token")]
     pub async fn attach_users(&self, user_ids: &[String]) -> Result<(), Error> {
+        self.attach_users_with_response(user_ids).await?;
+        Ok(())
+    }
+
+    /// Attach users and return the created relationship resources.
+    #[cfg(feature = "token")]
+    pub async fn attach_users_with_response(
+        &self,
+        user_ids: &[String],
+    ) -> Result<Vec<LicenseUserAttachment>, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/users", self.id);
         let data: Vec<Value> = user_ids
@@ -1418,10 +2026,18 @@ impl License {
             })
             .collect();
         let body = json!({ "data": data });
-        client
+        let response = client
             .post::<Value, Value, ()>(&endpoint, Some(&body), None::<&()>)
             .await?;
-        Ok(())
+        if response.body.is_null() {
+            return Ok(Vec::new());
+        }
+        let attachments: LicenseAttachmentsResponse = serde_json::from_value(response.body)?;
+        Ok(attachments
+            .data
+            .into_iter()
+            .map(LicenseUserAttachment::from)
+            .collect())
     }
 
     /// Detach users from this license.
@@ -1447,12 +2063,27 @@ impl License {
 
     /// List users attached to this license.
     #[cfg(feature = "token")]
-    pub async fn users(&self, options: Option<&PaginationOptions>) -> Result<Vec<User>, Error> {
+    pub async fn users(
+        &self,
+        options: Option<&PaginationOptions>,
+    ) -> Result<ResourcePage<User>, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/users", self.id);
-        let response = client.get(&endpoint, options).await?;
+        let query = options.map(|options| {
+            cursor_pagination_query(
+                options.limit,
+                options.page_size,
+                options.page_cursor.as_deref(),
+                None,
+            )
+        });
+        let response = client.get(&endpoint, query.as_ref()).await?;
         let users_response: LicenseUsersResponse = serde_json::from_value(response.body)?;
-        Ok(users_response.data.into_iter().map(User::from).collect())
+        Ok(ResourcePage {
+            data: users_response.data.into_iter().map(User::from).collect(),
+            meta: users_response.meta,
+            links: users_response.links,
+        })
     }
 
     /// Change the policy associated with this license.
@@ -1468,7 +2099,7 @@ impl License {
         });
         let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Change the owner associated with this license.
@@ -1484,7 +2115,7 @@ impl License {
         });
         let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
     }
 
     /// Change the group associated with this license.
@@ -1500,7 +2131,263 @@ impl License {
         });
         let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let license_response: LicenseResponse<()> = serde_json::from_value(response.body)?;
-        Ok(License::from(license_response.data))
+        Ok(self.inherit_client(License::from(license_response.data)))
+    }
+}
+
+pub struct LicenseService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> LicenseService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub fn resource(&self, id: &str) -> License {
+        License::from_id(id).with_client(self.client.transport_arc(), self.client.config_arc())
+    }
+
+    pub fn from_key(&self, key: &str) -> License {
+        License::from_key(key).with_client(self.client.transport_arc(), self.client.config_arc())
+    }
+
+    pub async fn validate(
+        &self,
+        id: &str,
+        request: &LicenseValidationRequest,
+    ) -> Result<LicenseValidationResult, Error> {
+        self.resource(id).validate(request).await
+    }
+
+    pub async fn validate_key(
+        &self,
+        key: &str,
+        request: &LicenseValidationRequest,
+    ) -> Result<LicenseValidationResult, Error> {
+        self.from_key(key).validate_key(request).await
+    }
+
+    #[must_use = "verification result should be checked"]
+    pub fn verify(&self, scheme: SchemeCode, signed_key: &str) -> Result<Vec<u8>, Error> {
+        License::from_signed_key(scheme, signed_key)
+            .with_client(self.client.transport_arc(), self.client.config_arc())
+            .verify()
+    }
+
+    pub async fn activate(
+        &self,
+        id: &str,
+        fingerprint: &str,
+        components: &[Component],
+    ) -> Result<Machine, Error> {
+        self.resource(id).activate(fingerprint, components).await
+    }
+
+    pub async fn deactivate_machine(
+        &self,
+        license_id: &str,
+        machine_id: &str,
+    ) -> Result<(), Error> {
+        self.resource(license_id).deactivate(machine_id).await
+    }
+
+    pub async fn machine(&self, license_id: &str, machine_id: &str) -> Result<Machine, Error> {
+        self.resource(license_id).machine(machine_id).await
+    }
+
+    pub async fn machines(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<ResourcePage<Machine>, Error> {
+        self.resource(id).machines(options).await
+    }
+
+    pub async fn entitlements(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<ResourcePage<Entitlement>, Error> {
+        self.resource(id).entitlements(options).await
+    }
+
+    pub async fn checkout(
+        &self,
+        id: &str,
+        options: &LicenseCheckoutOpts,
+    ) -> Result<LicenseFile, Error> {
+        self.resource(id).checkout(options).await
+    }
+
+    pub async fn checkout_certificate(
+        &self,
+        id: &str,
+        options: &LicenseCheckoutOpts,
+    ) -> Result<String, Error> {
+        self.resource(id).checkout_certificate(options).await
+    }
+
+    pub async fn check_in(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).check_in().await
+    }
+
+    pub async fn increment_usage(
+        &self,
+        id: &str,
+        increment: Option<u32>,
+    ) -> Result<License, Error> {
+        self.resource(id).increment_usage(increment).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn create(&self, request: LicenseCreateRequest) -> Result<License, Error> {
+        License::create_with_client(
+            self.client.transport_arc(),
+            self.client.config_arc(),
+            request,
+        )
+        .await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn list(&self, options: Option<&LicenseListOptions>) -> Result<LicensePage, Error> {
+        License::list_with_client(
+            self.client.transport_arc(),
+            self.client.config_arc(),
+            options,
+        )
+        .await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn get(&self, id: &str) -> Result<License, Error> {
+        License::get_with_client(self.client.transport_arc(), self.client.config_arc(), id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn update(&self, id: &str, request: LicenseUpdateRequest) -> Result<License, Error> {
+        self.resource(id).update(request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        self.resource(id).delete().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn suspend(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).suspend().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn reinstate(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).reinstate().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn renew(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).renew().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn revoke(&self, id: &str) -> Result<(), Error> {
+        self.resource(id).revoke().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn decrement_usage(
+        &self,
+        id: &str,
+        decrement: Option<u32>,
+    ) -> Result<License, Error> {
+        self.resource(id).decrement_usage(decrement).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn reset_usage(&self, id: &str) -> Result<License, Error> {
+        self.resource(id).reset_usage().await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn attach_entitlements(
+        &self,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<(), Error> {
+        self.resource(id).attach_entitlements(entitlement_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn attach_entitlements_with_response(
+        &self,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<Vec<LicenseEntitlementAttachment>, Error> {
+        self.resource(id)
+            .attach_entitlements_with_response(entitlement_ids)
+            .await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn detach_entitlements(
+        &self,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<(), Error> {
+        self.resource(id).detach_entitlements(entitlement_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn generate_token(
+        &self,
+        id: &str,
+        request: Option<LicenseTokenCreateRequest>,
+    ) -> Result<Token, Error> {
+        self.resource(id).generate_token(request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn attach_users(&self, id: &str, user_ids: &[String]) -> Result<(), Error> {
+        self.resource(id).attach_users(user_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn attach_users_with_response(
+        &self,
+        id: &str,
+        user_ids: &[String],
+    ) -> Result<Vec<LicenseUserAttachment>, Error> {
+        self.resource(id).attach_users_with_response(user_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn detach_users(&self, id: &str, user_ids: &[String]) -> Result<(), Error> {
+        self.resource(id).detach_users(user_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn users(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<ResourcePage<User>, Error> {
+        self.resource(id).users(options).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn change_policy(&self, id: &str, policy_id: &str) -> Result<License, Error> {
+        self.resource(id).change_policy(policy_id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn change_owner(&self, id: &str, owner_id: &str) -> Result<License, Error> {
+        self.resource(id).change_owner(owner_id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn change_group(&self, id: &str, group_id: &str) -> Result<License, Error> {
+        self.resource(id).change_group(group_id).await
     }
 }
 
@@ -1537,6 +2424,20 @@ mod tests {
             group_id: None,
             owner_id: None,
             config: None,
+            client: None,
+            ..License::from_key("TEST-LICENSE-KEY")
+        }
+    }
+
+    fn validation_request() -> LicenseValidationRequest {
+        LicenseValidationRequest {
+            nonce: Some(1),
+            scope: LicenseValidationScope {
+                product: Some("test_product".to_string()),
+                fingerprint: Some("test_fingerprint".to_string()),
+                components: Some(vec!["comp1".to_string(), "comp2".to_string()]),
+                ..Default::default()
+            },
         }
     }
 
@@ -1597,16 +2498,7 @@ mod tests {
         })
         .unwrap();
 
-        let result = license
-            .validate(
-                &[
-                    "test_fingerprint".to_string(),
-                    "comp1".to_string(),
-                    "comp2".to_string(),
-                ],
-                &[],
-            )
-            .await;
+        let result = license.validate(&validation_request()).await;
         assert!(result.is_ok());
         let _ = reset_config();
     }
@@ -1628,18 +2520,78 @@ mod tests {
             ..Default::default()
         });
 
-        let result = license
-            .validate_key(
-                &[
-                    "test_fingerprint".to_string(),
-                    "comp1".to_string(),
-                    "comp2".to_string(),
-                ],
-                &[],
-            )
-            .await;
+        let result = license.validate_key(&validation_request()).await;
         assert!(result.is_ok());
         let _ = reset_config();
+    }
+
+    #[tokio::test]
+    async fn test_validate_key_supports_complete_scope_and_missing_license() {
+        let request = LicenseValidationRequest {
+            nonce: Some(42),
+            scope: LicenseValidationScope {
+                product: Some("product-1".into()),
+                policy: Some("policy-1".into()),
+                fingerprints: Some(vec!["fp-a".into(), "fp-b".into()]),
+                fingerprint: Some("fp-primary".into()),
+                components: Some(vec!["component-1".into()]),
+                machine: Some("machine-1".into()),
+                user: Some("user-1".into()),
+                entitlements: Some(vec!["ENTITLEMENT".into()]),
+                checksum: Some("checksum".into()),
+                version: Some("1.2.3".into()),
+            },
+        };
+        let _mock = mock("POST", "/v1/licenses/actions/validate-key")
+            .match_body(mockito::Matcher::Json(json!({
+                "meta": {
+                    "key": "TEST-LICENSE-KEY",
+                    "nonce": 42,
+                    "scope": {
+                        "product": "product-1",
+                        "policy": "policy-1",
+                        "fingerprints": ["fp-a", "fp-b"],
+                        "fingerprint": "fp-primary",
+                        "components": ["component-1"],
+                        "machine": "machine-1",
+                        "user": "user-1",
+                        "entitlements": ["ENTITLEMENT"],
+                        "checksum": "checksum",
+                        "version": "1.2.3"
+                    }
+                }
+            })))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "meta": {
+                        "ts": "2021-01-01T00:00:00Z",
+                        "valid": false,
+                        "detail": "license not found",
+                        "code": "NOT_FOUND",
+                        "scope": {}
+                    },
+                    "data": null
+                })
+                .to_string(),
+            )
+            .create();
+        let config = KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            ..Default::default()
+        };
+
+        let result = create_test_license()
+            .with_config(config)
+            .validate_key(&request)
+            .await
+            .unwrap();
+
+        assert!(!result.meta.valid);
+        assert_eq!(result.meta.code, "NOT_FOUND");
+        assert!(result.license.is_none());
     }
 
     #[test]
@@ -1672,19 +2624,10 @@ mod tests {
         })
         .unwrap();
 
-        let result = license
-            .validate(
-                &[
-                    "test_fingerprint".to_string(),
-                    "comp1".to_string(),
-                    "comp2".to_string(),
-                ],
-                &[],
-            )
-            .await;
+        let result = license.validate(&validation_request()).await;
 
         assert!(result.is_ok());
-        let validated_license = result.unwrap();
+        let validated_license = result.unwrap().license.unwrap();
 
         // Verify metadata fields
         assert!(validated_license.metadata.contains_key("customer_name"));
@@ -1725,14 +2668,23 @@ mod tests {
         let _m = mock("GET", "/v1/licenses/test_license_id/machines")
             .match_query(mockito::Matcher::AllOf(vec![
                 mockito::Matcher::UrlEncoded("limit".into(), "50".into()),
-                mockito::Matcher::UrlEncoded("page[number]".into(), "2".into()),
+                mockito::Matcher::UrlEncoded("page[cursor]".into(), "cursor-2".into()),
                 mockito::Matcher::UrlEncoded("page[size]".into(), "10".into()),
             ]))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(
                 json!({
-                    "data": []
+                    "data": [],
+                    "meta": {
+                        "page": {
+                            "cursor": "cursor-2",
+                            "next": "cursor-3"
+                        }
+                    },
+                    "links": {
+                        "next": "/v1/licenses/test_license_id/machines?page[cursor]=cursor-3"
+                    }
                 })
                 .to_string(),
             )
@@ -1756,16 +2708,17 @@ mod tests {
 
         let pagination_options = PaginationOptions {
             limit: Some(50),
-            page_number: Some(2),
             page_size: Some(10),
+            page_cursor: Some("cursor-2".to_string()),
         };
 
-        let result = license.machines(Some(&pagination_options)).await;
-        match &result {
-            Ok(_) => println!("Test passed"),
-            Err(e) => println!("Test failed with error: {:?}", e),
-        }
-        assert!(result.is_ok());
+        let page = license.machines(Some(&pagination_options)).await.unwrap();
+        assert!(page.data.is_empty());
+        assert_eq!(page.meta.unwrap()["page"]["next"], "cursor-3");
+        assert!(page.links.unwrap()["next"]
+            .as_str()
+            .unwrap()
+            .contains("cursor-3"));
         let _ = reset_config();
     }
 
@@ -1827,10 +2780,13 @@ mod tests {
         })
         .unwrap();
 
-        let result = license
-            .validate(&["test_fingerprint".to_string()], &[])
-            .await;
-        assert!(matches!(result, Err(Error::LicenseExpired { .. })));
+        let result = license.validate(&validation_request()).await.unwrap();
+        assert!(!result.meta.valid);
+        assert_eq!(result.meta.code, "EXPIRED");
+        assert!(matches!(
+            result.into_license(),
+            Err(Error::LicenseKeyInvalid { code, .. }) if code == "EXPIRED"
+        ));
         let _ = reset_config();
     }
 
@@ -1851,7 +2807,7 @@ mod tests {
         })
         .unwrap();
 
-        let result = license.validate(&[], &[]).await;
+        let result = license.validate(&LicenseValidationRequest::default()).await;
         assert!(result.is_ok());
         let _ = reset_config();
     }
@@ -1882,10 +2838,26 @@ mod tests {
                             "expiry": "2025-12-31T23:59:59Z",
                             "status": "active",
                             "uses": 5,
+                            "version": "1.2.3",
+                            "floating": true,
+                            "encrypted": false,
+                            "scheme": "ED25519_SIGN",
+                            "strict": true,
                             "maxMachines": 10,
                             "maxCores": 20,
                             "maxUses": 100,
                             "maxProcesses": 5,
+                            "maxUsers": 3,
+                            "maxMemory": 8589934592_i64,
+                            "maxDisk": 53687091200_i64,
+                            "requireHeartbeat": true,
+                            "requireCheckIn": true,
+                            "lastValidated": "2025-01-01T00:00:00Z",
+                            "lastCheckOut": "2025-01-02T00:00:00Z",
+                            "lastCheckIn": "2025-01-03T00:00:00Z",
+                            "nextCheckIn": "2025-01-04T00:00:00Z",
+                            "created": "2024-01-01T00:00:00Z",
+                            "updated": "2025-01-04T00:00:00Z",
                             "protected": true,
                             "suspended": false,
                             "metadata": {
@@ -1894,6 +2866,9 @@ mod tests {
                             }
                         },
                         "relationships": {
+                            "environment": {
+                                "data": { "type": "environments", "id": "environment-1" }
+                            },
                             "policy": {
                                 "data": {
                                     "type": "policies",
@@ -1915,17 +2890,26 @@ mod tests {
         })
         .unwrap();
 
-        let result = license
-            .validate(&["test_fingerprint".to_string()], &[])
-            .await;
+        let result = license.validate(&validation_request()).await;
         assert!(result.is_ok());
 
-        let validated_license = result.unwrap();
+        let validated_license = result.unwrap().license.unwrap();
         assert_eq!(validated_license.uses, Some(5));
         assert_eq!(validated_license.max_machines, Some(10));
         assert_eq!(validated_license.max_cores, Some(20));
         assert_eq!(validated_license.max_uses, Some(100));
         assert_eq!(validated_license.max_processes, Some(5));
+        assert_eq!(validated_license.max_users, Some(3));
+        assert_eq!(validated_license.max_memory, Some(8_589_934_592));
+        assert_eq!(validated_license.max_disk, Some(53_687_091_200));
+        assert_eq!(validated_license.version.as_deref(), Some("1.2.3"));
+        assert_eq!(validated_license.scheme, Some(SchemeCode::Ed25519Sign));
+        assert_eq!(
+            validated_license.environment_id.as_deref(),
+            Some("environment-1")
+        );
+        assert_eq!(validated_license.require_heartbeat, Some(true));
+        assert_eq!(validated_license.require_check_in, Some(true));
         assert!(validated_license.protected == Some(true));
         assert_eq!(validated_license.suspended, Some(false));
         assert!(validated_license.metadata.contains_key("tier"));
@@ -1998,6 +2982,7 @@ mod tests {
                 suspended: Some(false),
                 permissions: None,
                 metadata: HashMap::new(),
+                ..Default::default()
             },
             relationships: KeygenRelationships {
                 policy: Some(KeygenRelationship {
@@ -2078,6 +3063,7 @@ mod tests {
                 suspended: None,
                 permissions: None,
                 metadata: HashMap::new(),
+                ..Default::default()
             },
             relationships: KeygenRelationships {
                 policy: None,
@@ -2732,10 +3718,12 @@ mod tests {
         let request = LicenseUpdateRequest::new()
             .with_name("Test License".to_string())
             .with_max_machines(10)
+            .with_max_memory(8_589_934_592)
+            .clear_max_disk()
             .with_protected(true)
             .with_metadata(metadata.clone());
 
-        assert_eq!(request.name, Some("Test License".to_string()));
+        assert_eq!(request.name, UpdateField::Set("Test License".to_string()));
         assert!(matches!(request.max_machines, UpdateField::Set(10)));
         assert!(request.protected == Some(true));
         assert_eq!(request.metadata, Some(metadata));
@@ -2761,14 +3749,59 @@ mod tests {
         assert_eq!(attributes.get("maxMachines").unwrap().as_i64().unwrap(), 10);
         assert!(attributes.get("protected").unwrap().as_bool().unwrap());
         assert!(attributes.get("metadata").is_some());
+        assert_eq!(attributes["maxMemory"], json!(8_589_934_592_i64));
+        assert!(attributes["maxDisk"].is_null());
+    }
+
+    #[test]
+    fn test_license_create_supports_memory_and_disk_limits() {
+        let body = LicenseCreateRequest::new("policy-1".to_string())
+            .with_max_memory(8_589_934_592)
+            .with_max_disk(53_687_091_200)
+            .to_json_body();
+
+        assert_eq!(
+            body["data"]["attributes"]["maxMemory"],
+            json!(8_589_934_592_i64)
+        );
+        assert_eq!(
+            body["data"]["attributes"]["maxDisk"],
+            json!(53_687_091_200_i64)
+        );
+    }
+
+    #[test]
+    fn test_checkout_query_supports_current_api_options() {
+        let options = LicenseCheckoutOpts {
+            ttl: UpdateField::Clear,
+            include: Some(vec!["entitlements".into(), "product".into()]),
+            encrypt: None,
+            algorithm: Some(LicenseFileAlgorithm::Base64Ed25519),
+        };
+
+        assert_eq!(
+            options.to_query().unwrap(),
+            json!({
+                "ttl": "null",
+                "include": "entitlements,product",
+                "algorithm": "base64+ed25519"
+            })
+        );
+
+        let invalid = LicenseCheckoutOpts {
+            encrypt: Some(true),
+            algorithm: Some(LicenseFileAlgorithm::Aes256GcmEd25519),
+            ..Default::default()
+        };
+        assert!(invalid.to_query().is_err());
     }
 
     #[cfg(feature = "token")]
     #[tokio::test]
-    async fn test_license_list_pagination_with_page_number() {
+    async fn test_license_list_cursor_pagination() {
         let _m = mock("GET", "/v1/licenses")
             .match_query(mockito::Matcher::AllOf(vec![
-                mockito::Matcher::UrlEncoded("page[number]".into(), "2".into()),
+                mockito::Matcher::UrlEncoded("page[cursor]".into(), "cursor-2".into()),
                 mockito::Matcher::UrlEncoded("page[size]".into(), "15".into()),
             ]))
             .with_status(200)
@@ -2802,7 +3835,12 @@ mod tests {
                                 }
                             }
                         }
-                    ]
+                    ],
+                    "meta": { "count": 1 },
+                    "links": {
+                        "self": "https://api.keygen.sh/v1/licenses?page[cursor]=cursor-2",
+                        "next": "https://api.keygen.sh/v1/licenses?page[cursor]=cursor-3"
+                    }
                 })
                 .to_string(),
             )
@@ -2816,7 +3854,7 @@ mod tests {
         });
 
         let options = LicenseListOptions {
-            page_number: Some(2),
+            page_cursor: Some("cursor-2".to_string()),
             page_size: Some(15),
             ..Default::default()
         };
@@ -2824,9 +3862,44 @@ mod tests {
         let result = License::list(Some(&options)).await;
         assert!(result.is_ok());
         let licenses = result.unwrap();
-        assert_eq!(licenses.len(), 1);
-        assert_eq!(licenses[0].id, "license-1");
+        assert_eq!(licenses.data.len(), 1);
+        assert_eq!(licenses.data[0].id, "license-1");
+        assert_eq!(licenses.meta.as_ref().unwrap()["count"], 1);
+        assert!(licenses.links.as_ref().unwrap()["next"]
+            .as_str()
+            .unwrap()
+            .contains("cursor-3"));
 
+        let _ = reset_config();
+    }
+
+    #[cfg(feature = "token")]
+    #[tokio::test]
+    async fn test_license_list_initial_cursor_pagination() {
+        let _m = mock("GET", "/v1/licenses")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("page[cursor]".into(), String::new()),
+                mockito::Matcher::UrlEncoded("page[size]".into(), "15".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({ "data": [] }).to_string())
+            .create();
+
+        let _ = set_config(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            token: Some("admin-token".to_string()),
+            ..Default::default()
+        });
+        let options = LicenseListOptions {
+            page_size: Some(15),
+            ..Default::default()
+        };
+
+        let result = License::list(Some(&options)).await;
+
+        assert!(result.is_ok());
         let _ = reset_config();
     }
 
@@ -2867,7 +3940,7 @@ mod tests {
     async fn test_pagination_options_with_new_parameters() {
         let _m = mock("GET", "/v1/licenses/test_license_id/machines")
             .match_query(mockito::Matcher::AllOf(vec![
-                mockito::Matcher::UrlEncoded("page[number]".into(), "3".into()),
+                mockito::Matcher::UrlEncoded("page[cursor]".into(), "cursor-3".into()),
                 mockito::Matcher::UrlEncoded("page[size]".into(), "25".into()),
                 mockito::Matcher::UrlEncoded("limit".into(), "50".into()),
             ]))
@@ -2892,11 +3965,42 @@ mod tests {
         let license = create_test_license().with_config(config);
         let pagination_options = PaginationOptions {
             limit: Some(50),
-            page_number: Some(3),
             page_size: Some(25),
+            page_cursor: Some("cursor-3".to_string()),
         };
 
         let result = license.machines(Some(&pagination_options)).await;
+        assert!(result.is_ok());
+        let _ = reset_config();
+    }
+
+    #[tokio::test]
+    async fn test_pagination_options_start_with_an_empty_cursor() {
+        let _m = mock("GET", "/v1/licenses/test_license_id/machines")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("page[cursor]".into(), String::new()),
+                mockito::Matcher::UrlEncoded("page[size]".into(), "25".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({ "data": [] }).to_string())
+            .create();
+
+        let config = KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            product: "test_product".to_string(),
+            ..Default::default()
+        };
+        let _ = set_config(config.clone());
+        let license = create_test_license().with_config(config);
+        let pagination_options = PaginationOptions {
+            page_size: Some(25),
+            ..Default::default()
+        };
+
+        let result = license.machines(Some(&pagination_options)).await;
+
         assert!(result.is_ok());
         let _ = reset_config();
     }
@@ -2998,6 +4102,9 @@ mod tests {
             "POST",
             "/v1/licenses/test_license_id/actions/increment-usage",
         )
+        .match_body(mockito::Matcher::Json(json!({
+            "meta": { "increment": 3 }
+        })))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(
@@ -3043,7 +4150,7 @@ mod tests {
             ..Default::default()
         });
 
-        let result = license.increment_usage().await;
+        let result = license.increment_usage(Some(3)).await;
         assert!(result.is_ok());
         let updated_license = result.unwrap();
         assert_eq!(updated_license.uses, Some(6));
@@ -3059,6 +4166,9 @@ mod tests {
             "POST",
             "/v1/licenses/test_license_id/actions/decrement-usage",
         )
+        .match_body(mockito::Matcher::Json(json!({
+            "meta": { "decrement": 2 }
+        })))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(
@@ -3103,7 +4213,7 @@ mod tests {
             ..Default::default()
         });
 
-        let result = license.decrement_usage().await;
+        let result = license.decrement_usage(Some(2)).await;
         assert!(result.is_ok());
         let updated_license = result.unwrap();
         assert_eq!(updated_license.uses, Some(4));

@@ -5,8 +5,8 @@ use chrono::{Duration, Utc};
 use keygen_rs::{
     errors::Error,
     group::{CreateGroupRequest, Group},
-    license::{License, LicenseCreateRequest, PaginationOptions},
-    token::{CreateTokenRequest, Token},
+    license::{License, LicenseCreateRequest, LicenseTokenCreateRequest, PaginationOptions},
+    token::Token,
     user::{CreateUserRequest, User, UserRole},
 };
 use std::collections::HashMap;
@@ -86,11 +86,11 @@ async fn main() -> Result<(), Error> {
         let attached_users = license
             .users(Some(&PaginationOptions {
                 limit: Some(10),
-                page_number: None,
                 page_size: None,
+                page_cursor: None,
             }))
             .await?;
-        println!("Attached users: {}", attached_users.len());
+        println!("Attached users: {}", attached_users.data.len());
 
         let license = license.change_group(&group.id).await?;
         println!("Changed license group to {}", group.id);
@@ -100,11 +100,12 @@ async fn main() -> Result<(), Error> {
         created_license = Some(license.clone());
 
         let token = license
-            .generate_token(Some(CreateTokenRequest {
+            .generate_token(Some(LicenseTokenCreateRequest {
                 name: Some(format!("example-license-token-{suffix}")),
                 expiry: Some((Utc::now() + Duration::hours(1)).to_rfc3339()),
                 permissions: None,
-                metadata: None,
+                max_activations: Some(1),
+                max_deactivations: Some(1),
             }))
             .await?;
         println!(

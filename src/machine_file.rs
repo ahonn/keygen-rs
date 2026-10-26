@@ -109,6 +109,7 @@ impl MachineFile {
                             suspended: None,
                             permissions: None,
                             metadata: HashMap::new(),
+                            ..Default::default()
                         },
                         relationships: crate::KeygenRelationships::default(),
                     }),

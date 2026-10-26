@@ -3,12 +3,58 @@ import { invoke } from '@tauri-apps/api/core';
 export interface KeygenLicense {
   id: string;
   key: string;
-  name: string;
-  expiry: string;
-  status: string;
-  policy: string;
+  scheme?: string | null;
+  name?: string | null;
+  expiry?: string | null;
+  status?: string | null;
+  uses?: number | null;
+  version?: string | null;
+  floating?: boolean | null;
+  encrypted?: boolean | null;
+  strict?: boolean | null;
+  max_machines?: number | null;
+  max_processes?: number | null;
+  max_users?: number | null;
+  max_cores?: number | null;
+  max_memory?: number | null;
+  max_disk?: number | null;
+  max_uses?: number | null;
+  protected?: boolean | null;
+  suspended?: boolean | null;
+  require_heartbeat?: boolean | null;
+  require_check_in?: boolean | null;
+  last_validated?: string | null;
+  last_check_out?: string | null;
+  last_check_in?: string | null;
+  next_check_in?: string | null;
+  permissions?: string[] | null;
+  policy?: string | null;
   valid: boolean;
-  metadata?: Record<string, any>;
+  metadata: Record<string, unknown>;
+  account_id?: string | null;
+  product_id?: string | null;
+  group_id?: string | null;
+  owner_id?: string | null;
+  environment_id?: string | null;
+  created?: string | null;
+  updated?: string | null;
+}
+
+export type LicenseFileAlgorithm =
+  | 'aes-256-gcm+ed25519'
+  | 'aes-256-gcm+ecdsa-p256'
+  | 'aes-256-gcm+rsa-pss-sha256'
+  | 'aes-256-gcm+rsa-sha256'
+  | 'base64+ed25519'
+  | 'base64+ecdsa-p256'
+  | 'base64+rsa-pss-sha256'
+  | 'base64+rsa-sha256';
+
+export interface LicenseCheckoutOptions {
+  ttl?: number | null;
+  include?: string[];
+  encrypt?: boolean;
+  algorithm?: LicenseFileAlgorithm;
 }
 
 interface InvokeError {
@@ -52,13 +98,13 @@ export async function getLicenseKey(): Promise<string> {
   }
 }
 
-export async function getLicense(): Promise<KeygenLicense> {
+export async function getLicense(): Promise<KeygenLicense | null> {
   try {
     const [license, valid] = await Promise.all([
-      invoke<Omit<KeygenLicense, 'valid'>>('plugin:keygen-rs2|get_license'),
+      invoke<Omit<KeygenLicense, 'valid'> | null>('plugin:keygen-rs2|get_license'),
       invoke<boolean>('plugin:keygen-rs2|is_license_valid'),
     ]);
-    return createKeygenLicense(license, valid);
+    return license ? createKeygenLicense(license, valid) : null;
   } catch (err) {
     if (isInvokeError(err)) {
       const { code, detail } = err;
@@ -106,11 +152,13 @@ export async function deactivate() {
   }
 }
 
-export async function checkoutLicense(ttl?: number, include?: string[]) {
+export async function checkoutLicense(options: LicenseCheckoutOptions = {}) {
   try {
-    await invoke('plugin:keygen-rs2|checkout_license', {
-      ttl,
-      include,
+    const { ttl, ...rest } = options;
+    return await invoke('plugin:keygen-rs2|checkout_license', {
+      ...rest,
+      ttl: typeof ttl === 'number' ? ttl : undefined,
+      perpetual: ttl === null,
     });
   } catch (err) {
     if (isInvokeError(err)) {
@@ -160,4 +208,3 @@ export async function getLicenseMetadata(): Promise<Record<string, any> | null> 
     throw new KeygenError('ERROR', (err as Error).message);
   }
 }
-

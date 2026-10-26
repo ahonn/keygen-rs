@@ -2,6 +2,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
+    license::LicenseValidationRequest,
     machine::MachineCheckoutOpts,
 };
 use std::env;
@@ -23,18 +24,18 @@ async fn main() -> Result<(), Error> {
     let license_key = config.license_key.clone().expect("License key required");
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    let license = match keygen_rs::validate(std::slice::from_ref(&fingerprint), &[]).await {
-        Ok(license) => license,
-        Err(Error::LicenseNotActivated { license, .. }) => *license,
-        Err(e) => return Err(e),
-    };
+    let license = keygen_rs::validate(&LicenseValidationRequest::for_fingerprint(
+        fingerprint.clone(),
+    ))
+    .await?
+    .into_license()?;
 
     // Get the machine for checkout
     let machine = license.machine(&fingerprint).await?;
 
     // Compare online vs offline entitlements access
     let online_entitlements = license.entitlements(None).await?;
-    let online_count = online_entitlements.len();
+    let online_count = online_entitlements.data.len();
     println!("Online entitlements: {online_count}");
 
     // Checkout machine file with included relationships

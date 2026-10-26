@@ -22,27 +22,29 @@ pub struct KeygenConfig {
     pub token: Option<String>,
 }
 
-impl From<&KeygenConfig> for keygen_rs::config::KeygenConfig {
-    fn from(cfg: &KeygenConfig) -> Self {
-        keygen_rs::config::KeygenConfig {
-            account: cfg.account.clone(),
-            api_url: cfg
-                .api_url
-                .clone()
-                .unwrap_or_else(|| "https://api.keygen.sh".to_string()),
-            api_version: cfg.api_version.clone().unwrap_or_else(|| "1.7".to_string()),
-            api_prefix: cfg.api_prefix.clone().unwrap_or_else(|| "v1".to_string()),
-            environment: cfg.environment.clone(),
-            user_agent: cfg.user_agent.clone(),
-            product: cfg.product.clone(),
-            package: cfg.package.clone().unwrap_or_default(),
-            license_key: cfg.license_key.clone(),
-            public_key: cfg.public_key.clone(),
-            platform: cfg.platform.clone(),
-            max_clock_drift: cfg.max_clock_drift.or(Some(5)),
-            verify_keygen_signature: cfg.verify_keygen_signature.or(Some(true)),
-            token: cfg.token.clone(),
-        }
+impl TryFrom<&KeygenConfig> for keygen_rs::config::KeygenConfig {
+    type Error = keygen_rs::api_version::ApiVersionParseError;
+
+    fn try_from(cfg: &KeygenConfig) -> std::result::Result<Self, Self::Error> {
+        let mut config = keygen_rs::config::KeygenConfig::default();
+        config.account.clone_from(&cfg.account);
+        config.product.clone_from(&cfg.product);
+        config.license_key.clone_from(&cfg.license_key);
+        config.public_key.clone_from(&cfg.public_key);
+        config.environment.clone_from(&cfg.environment);
+        config.user_agent.clone_from(&cfg.user_agent);
+        config.platform.clone_from(&cfg.platform);
+        config.token.clone_from(&cfg.token);
+        config.api_url = cfg
+            .api_url
+            .clone()
+            .unwrap_or_else(|| "https://api.keygen.sh".to_string());
+        config.api_version = cfg.api_version.as_deref().unwrap_or("1.8").parse()?;
+        config.api_prefix = cfg.api_prefix.clone().unwrap_or_else(|| "v1".to_string());
+        config.package = cfg.package.clone().unwrap_or_default();
+        config.max_clock_drift = cfg.max_clock_drift.or(Some(5));
+        config.verify_keygen_signature = cfg.verify_keygen_signature.or(Some(true));
+        Ok(config)
     }
 }
 
@@ -54,7 +56,7 @@ impl From<keygen_rs::config::KeygenConfig> for KeygenConfig {
             license_key: cfg.license_key,
             public_key: cfg.public_key,
             api_url: Some(cfg.api_url),
-            api_version: Some(cfg.api_version),
+            api_version: Some(cfg.api_version.to_string()),
             api_prefix: Some(cfg.api_prefix),
             environment: cfg.environment,
             user_agent: cfg.user_agent,
@@ -69,7 +71,9 @@ impl From<keygen_rs::config::KeygenConfig> for KeygenConfig {
 
 #[napi]
 pub fn set_config(config: KeygenConfig) -> Result<()> {
-    keygen_rs::config::set_config((&config).into()).map_err(to_napi_error)
+    let config = keygen_rs::config::KeygenConfig::try_from(&config)
+        .map_err(|error| napi::Error::new(Status::InvalidArg, error.to_string()))?;
+    keygen_rs::config::set_config(config).map_err(to_napi_error)
 }
 
 #[napi]

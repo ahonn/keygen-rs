@@ -1,11 +1,252 @@
 use reqwest::header::InvalidHeaderValue;
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use serde_urlencoded::ser::Error as UrlEncodedError;
+use std::fmt;
 use thiserror::Error;
 use url::ParseError;
 
 use crate::{license::License, license_file::LicenseFileDataset, machine_file::MachineFileDataset};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ApiErrorKind {
+    InvalidCredentials,
+    EmailRequired,
+    EmailInvalid,
+    PasswordRequired,
+    PasswordInvalid,
+    PasswordNotSupported,
+    SsoRequired,
+    OtpRequired,
+    OtpInvalid,
+    TokenNotAllowed,
+    TokenFormatInvalid,
+    TokenInvalid,
+    TokenExpired,
+    LicenseSuspended,
+    LicenseExpired,
+    LicenseNotAllowed,
+    LicenseNotActivated,
+    LicenseKeyInvalid,
+    LicenseTokenInvalid,
+    LicenseTooManyMachines,
+    LicenseTooManyCores,
+    LicenseTooManyProcesses,
+    MachineAlreadyActivated,
+    FingerprintTaken,
+    MachineLimitExceeded,
+    ProcessLimitExceeded,
+    ComponentConflict,
+    ComponentAlreadyActivated,
+    ComponentNotActivated,
+    HeartbeatDead,
+    HeartbeatPingFailed,
+    HeartbeatRequired,
+    ValidationFingerprintMissing,
+    ValidationComponentsMissing,
+    ValidationProductMissing,
+    NotFound,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct ApiErrorSource {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pointer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameter: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub header: Option<String>,
+    #[serde(flatten)]
+    pub extensions: Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct ApiErrorObject {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source: Option<ApiErrorSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    links: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    meta: Option<Value>,
+    #[serde(flatten)]
+    extensions: Map<String, Value>,
+}
+
+impl ApiErrorObject {
+    pub fn id(&self) -> Option<&str> {
+        self.id.as_deref()
+    }
+
+    pub fn status(&self) -> Option<&str> {
+        self.status.as_deref()
+    }
+
+    pub fn code(&self) -> Option<&str> {
+        self.code.as_deref()
+    }
+
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_deref()
+    }
+
+    pub fn detail(&self) -> Option<&str> {
+        self.detail.as_deref()
+    }
+
+    pub fn source(&self) -> Option<&ApiErrorSource> {
+        self.source.as_ref()
+    }
+
+    pub fn links(&self) -> Option<&Value> {
+        self.links.as_ref()
+    }
+
+    pub fn meta(&self) -> Option<&Value> {
+        self.meta.as_ref()
+    }
+
+    pub fn extensions(&self) -> &Map<String, Value> {
+        &self.extensions
+    }
+
+    pub fn kind(&self) -> ApiErrorKind {
+        match self.code() {
+            Some("CREDENTIALS_INVALID") => ApiErrorKind::InvalidCredentials,
+            Some("EMAIL_REQUIRED") => ApiErrorKind::EmailRequired,
+            Some("EMAIL_INVALID") => ApiErrorKind::EmailInvalid,
+            Some("PASSWORD_REQUIRED") => ApiErrorKind::PasswordRequired,
+            Some("PASSWORD_INVALID") => ApiErrorKind::PasswordInvalid,
+            Some("PASSWORD_NOT_SUPPORTED") => ApiErrorKind::PasswordNotSupported,
+            Some("SSO_REQUIRED") => ApiErrorKind::SsoRequired,
+            Some("OTP_REQUIRED") => ApiErrorKind::OtpRequired,
+            Some("OTP_INVALID") => ApiErrorKind::OtpInvalid,
+            Some("TOKEN_NOT_ALLOWED") => ApiErrorKind::TokenNotAllowed,
+            Some("TOKEN_FORMAT_INVALID") => ApiErrorKind::TokenFormatInvalid,
+            Some("TOKEN_INVALID") => ApiErrorKind::TokenInvalid,
+            Some("TOKEN_EXPIRED") => ApiErrorKind::TokenExpired,
+            Some("LICENSE_SUSPENDED") => ApiErrorKind::LicenseSuspended,
+            Some("LICENSE_EXPIRED") => ApiErrorKind::LicenseExpired,
+            Some("LICENSE_NOT_ALLOWED") => ApiErrorKind::LicenseNotAllowed,
+            Some("LICENSE_NOT_ACTIVATED") => ApiErrorKind::LicenseNotActivated,
+            Some("LICENSE_INVALID" | "LICENSE_KEY_INVALID") => ApiErrorKind::LicenseKeyInvalid,
+            Some("LICENSE_TOKEN_INVALID") => ApiErrorKind::LicenseTokenInvalid,
+            Some("LICENSE_TOO_MANY_MACHINES") => ApiErrorKind::LicenseTooManyMachines,
+            Some("LICENSE_TOO_MANY_CORES") => ApiErrorKind::LicenseTooManyCores,
+            Some("LICENSE_TOO_MANY_PROCESSES") => ApiErrorKind::LicenseTooManyProcesses,
+            Some("MACHINE_ALREADY_ACTIVATED") => ApiErrorKind::MachineAlreadyActivated,
+            Some("FINGERPRINT_TAKEN") => ApiErrorKind::FingerprintTaken,
+            Some("MACHINE_LIMIT_EXCEEDED") => ApiErrorKind::MachineLimitExceeded,
+            Some("PROCESS_LIMIT_EXCEEDED") => ApiErrorKind::ProcessLimitExceeded,
+            Some("COMPONENT_CONFLICT") => ApiErrorKind::ComponentConflict,
+            Some("COMPONENT_ALREADY_ACTIVATED") => ApiErrorKind::ComponentAlreadyActivated,
+            Some("COMPONENT_NOT_ACTIVATED") => ApiErrorKind::ComponentNotActivated,
+            Some("HEARTBEAT_DEAD") => ApiErrorKind::HeartbeatDead,
+            Some("HEARTBEAT_PING_FAILED") => ApiErrorKind::HeartbeatPingFailed,
+            Some("HEARTBEAT_REQUIRED") => ApiErrorKind::HeartbeatRequired,
+            Some("VALIDATION_FINGERPRINT_SCOPE_MISSING") => {
+                ApiErrorKind::ValidationFingerprintMissing
+            }
+            Some("VALIDATION_COMPONENTS_SCOPE_MISSING") => {
+                ApiErrorKind::ValidationComponentsMissing
+            }
+            Some("VALIDATION_PRODUCT_SCOPE_MISSING") => ApiErrorKind::ValidationProductMissing,
+            Some("NOT_FOUND") => ApiErrorKind::NotFound,
+            _ => ApiErrorKind::Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ApiErrorDocument {
+    status: StatusCode,
+    errors: Vec<ApiErrorObject>,
+    body: Value,
+}
+
+impl ApiErrorDocument {
+    pub(crate) fn from_response(status: StatusCode, body: Value) -> Self {
+        #[derive(Deserialize)]
+        struct ErrorEnvelope {
+            #[serde(default)]
+            errors: Vec<ApiErrorObject>,
+        }
+
+        let errors = serde_json::from_value::<ErrorEnvelope>(body.clone())
+            .map(|envelope| envelope.errors)
+            .unwrap_or_default();
+
+        Self {
+            status,
+            errors,
+            body,
+        }
+    }
+
+    pub fn status(&self) -> StatusCode {
+        self.status
+    }
+
+    pub fn errors(&self) -> &[ApiErrorObject] {
+        &self.errors
+    }
+
+    pub fn primary(&self) -> Option<&ApiErrorObject> {
+        self.errors.first()
+    }
+
+    pub fn kind(&self) -> ApiErrorKind {
+        self.primary()
+            .map(ApiErrorObject::kind)
+            .unwrap_or(ApiErrorKind::Unknown)
+    }
+
+    pub fn contains_kind(&self, expected: ApiErrorKind) -> bool {
+        self.errors.iter().any(|error| error.kind() == expected)
+    }
+
+    pub fn has_code(&self, expected: &str) -> bool {
+        self.errors
+            .iter()
+            .any(|error| error.code() == Some(expected))
+    }
+
+    pub fn body(&self) -> &Value {
+        &self.body
+    }
+}
+
+impl fmt::Display for ApiErrorDocument {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(error) = self.primary() {
+            let code = error.code().unwrap_or("API_ERROR");
+            let detail = error.detail().unwrap_or("unknown API error");
+            write!(formatter, "Keygen API error {code}: {detail}")
+        } else {
+            write!(formatter, "Keygen API error with status {}", self.status)
+        }
+    }
+}
+
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     #[error("Unexpected error: {0}")]
     UnexpectedError(String),
@@ -28,11 +269,20 @@ pub enum Error {
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
 
+    #[error("Invalid API response: {0}")]
+    InvalidResponse(String),
+
     #[error("Invalid header value: {0}")]
     InvalidHeader(#[from] InvalidHeaderValue),
 
     #[error("URL encoding error: {0}")]
     UrlEncode(#[from] UrlEncodedError),
+
+    #[error("Unsupported Keygen API version: {0}")]
+    UnsupportedApiVersion(String),
+
+    #[error("{0}")]
+    Api(ApiErrorDocument),
 
     #[error("Rate limit exceeded")]
     RateLimitExceeded {
@@ -88,6 +338,9 @@ pub enum Error {
 
     #[error("License file not supported: {0}")]
     LicenseFileNotSupported(String),
+
+    #[error("License file algorithm mismatch: expected {expected}, got {actual}")]
+    LicenseFileAlgorithmMismatch { expected: String, actual: String },
 
     #[error("License file not encrypted")]
     LicenseFileNotEncrypted,
@@ -215,6 +468,55 @@ pub enum Error {
     MissingConfiguration,
 }
 
+impl Error {
+    pub fn api_error(&self) -> Option<&ApiErrorDocument> {
+        match self {
+            Self::Api(document) => Some(document),
+            _ => None,
+        }
+    }
+
+    pub fn is_api_code(&self, expected: &str) -> bool {
+        self.api_error()
+            .is_some_and(|document| document.has_code(expected))
+    }
+
+    pub fn api_error_kind(&self) -> ApiErrorKind {
+        match self {
+            Self::Api(document) => document.kind(),
+            Self::TokenNotAllowed { .. } => ApiErrorKind::TokenNotAllowed,
+            Self::TokenFormatInvalid { .. } => ApiErrorKind::TokenFormatInvalid,
+            Self::TokenInvalid { .. } => ApiErrorKind::TokenInvalid,
+            Self::TokenExpired { .. } => ApiErrorKind::TokenExpired,
+            Self::LicenseSuspended { .. } => ApiErrorKind::LicenseSuspended,
+            Self::LicenseExpired { .. } => ApiErrorKind::LicenseExpired,
+            Self::LicenseNotAllowed { .. } => ApiErrorKind::LicenseNotAllowed,
+            Self::LicenseNotActivated { .. } => ApiErrorKind::LicenseNotActivated,
+            Self::LicenseKeyInvalid { .. } => ApiErrorKind::LicenseKeyInvalid,
+            Self::LicenseTokenInvalid { .. } => ApiErrorKind::LicenseTokenInvalid,
+            Self::LicenseTooManyMachines { .. } => ApiErrorKind::LicenseTooManyMachines,
+            Self::LicenseTooManyCores { .. } => ApiErrorKind::LicenseTooManyCores,
+            Self::LicenseTooManyProcesses { .. } => ApiErrorKind::LicenseTooManyProcesses,
+            Self::MachineAlreadyActivated { .. } => ApiErrorKind::MachineAlreadyActivated,
+            Self::MachineLimitExceeded { .. } => ApiErrorKind::MachineLimitExceeded,
+            Self::ProcessLimitExceeded { .. } => ApiErrorKind::ProcessLimitExceeded,
+            Self::ComponentConflict { .. } => ApiErrorKind::ComponentConflict,
+            Self::ComponentAlreadyActivated { .. } => ApiErrorKind::ComponentAlreadyActivated,
+            Self::ComponentNotActivated { .. } => ApiErrorKind::ComponentNotActivated,
+            Self::HeartbeatDead { .. } => ApiErrorKind::HeartbeatDead,
+            Self::HeartbeatPingFailed { .. } => ApiErrorKind::HeartbeatPingFailed,
+            Self::HeartbeatRequired { .. } => ApiErrorKind::HeartbeatRequired,
+            Self::ValidationFingerprintMissing { .. } => ApiErrorKind::ValidationFingerprintMissing,
+            Self::ValidationComponentsMissing { .. } => ApiErrorKind::ValidationComponentsMissing,
+            Self::ValidationProductMissing { .. } => ApiErrorKind::ValidationProductMissing,
+            Self::NotFound { .. } | Self::MachineNotFound | Self::ProcessNotFound => {
+                ApiErrorKind::NotFound
+            }
+            _ => ApiErrorKind::Unknown,
+        }
+    }
+}
+
 pub trait ErrorMeta {
     fn code(&self) -> String;
     fn detail(&self) -> String;
@@ -223,6 +525,11 @@ pub trait ErrorMeta {
 impl ErrorMeta for Error {
     fn code(&self) -> String {
         match self {
+            Error::Api(document) => document
+                .primary()
+                .and_then(ApiErrorObject::code)
+                .unwrap_or("API_ERROR")
+                .to_string(),
             Error::KeygenApiError { code, .. }
             | Error::TokenNotAllowed { code, .. }
             | Error::TokenFormatInvalid { code, .. }
@@ -257,6 +564,11 @@ impl ErrorMeta for Error {
 
     fn detail(&self) -> String {
         match self {
+            Error::Api(document) => document
+                .primary()
+                .and_then(ApiErrorObject::detail)
+                .map(str::to_owned)
+                .unwrap_or_else(|| document.to_string()),
             Error::KeygenApiError { detail, .. }
             | Error::TokenNotAllowed { detail, .. }
             | Error::TokenFormatInvalid { detail, .. }
@@ -287,5 +599,121 @@ impl ErrorMeta for Error {
             | Error::NotFound { detail, .. } => detail.to_string(),
             _ => self.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod api_error_tests {
+    use super::*;
+    use reqwest::StatusCode;
+    use serde_json::json;
+
+    #[test]
+    fn classifies_v1_7_and_v1_8_credential_errors_without_losing_raw_codes() {
+        let v1_7 = ApiErrorDocument::from_response(
+            StatusCode::UNAUTHORIZED,
+            json!({
+                "errors": [{
+                    "code": "CREDENTIALS_INVALID",
+                    "detail": "email and password must be valid"
+                }]
+            }),
+        );
+        let v1_8 = ApiErrorDocument::from_response(
+            StatusCode::UNAUTHORIZED,
+            json!({
+                "errors": [{
+                    "code": "PASSWORD_REQUIRED",
+                    "detail": "password is required",
+                    "meta": { "attempt": 1 },
+                    "futureField": true
+                }]
+            }),
+        );
+
+        assert_eq!(v1_7.kind(), ApiErrorKind::InvalidCredentials);
+        assert_eq!(v1_8.kind(), ApiErrorKind::PasswordRequired);
+        assert_eq!(
+            v1_7.primary().and_then(|error| error.code()),
+            Some("CREDENTIALS_INVALID")
+        );
+        assert_eq!(
+            v1_8.primary().and_then(|error| error.code()),
+            Some("PASSWORD_REQUIRED")
+        );
+        assert_eq!(v1_8.errors()[0].extensions()["futureField"], true);
+    }
+
+    #[test]
+    fn preserves_multiple_and_unknown_api_errors() {
+        let document = ApiErrorDocument::from_response(
+            StatusCode::BAD_REQUEST,
+            json!({
+                "errors": [
+                    { "code": "FUTURE_ERROR", "detail": "first" },
+                    { "detail": "second" }
+                ],
+                "meta": { "requestId": "req-1" }
+            }),
+        );
+
+        assert_eq!(document.kind(), ApiErrorKind::Unknown);
+        assert_eq!(document.errors().len(), 2);
+        assert_eq!(document.body()["meta"]["requestId"], "req-1");
+    }
+
+    #[test]
+    fn classifies_license_errors_and_searches_all_error_objects() {
+        let document = ApiErrorDocument::from_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({
+                "errors": [
+                    { "code": "FUTURE_ERROR", "detail": "first" },
+                    { "code": "LICENSE_SUSPENDED", "detail": "second" }
+                ]
+            }),
+        );
+
+        assert_eq!(document.kind(), ApiErrorKind::Unknown);
+        assert!(document.contains_kind(ApiErrorKind::LicenseSuspended));
+        assert!(document.has_code("LICENSE_SUSPENDED"));
+        assert!(!document.has_code("LICENSE_EXPIRED"));
+    }
+
+    #[test]
+    fn classifies_codes_sent_by_keygen_server() {
+        for (code, kind) in [
+            ("LICENSE_INVALID", ApiErrorKind::LicenseKeyInvalid),
+            ("FINGERPRINT_TAKEN", ApiErrorKind::FingerprintTaken),
+        ] {
+            let document = ApiErrorDocument::from_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                json!({ "errors": [{ "code": code }] }),
+            );
+            assert_eq!(document.kind(), kind, "{code}");
+        }
+    }
+
+    #[test]
+    fn legacy_and_json_api_license_errors_share_semantic_kinds() {
+        let legacy = Error::LicenseExpired {
+            code: "LICENSE_EXPIRED".into(),
+            detail: "expired".into(),
+        };
+        let document = ApiErrorDocument::from_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({
+                "errors": [{
+                    "code": "LICENSE_EXPIRED",
+                    "detail": "expired"
+                }]
+            }),
+        );
+
+        assert_eq!(legacy.api_error_kind(), ApiErrorKind::LicenseExpired);
+        assert_eq!(
+            Error::Api(document).api_error_kind(),
+            ApiErrorKind::LicenseExpired
+        );
     }
 }

@@ -2,6 +2,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
+    license::LicenseValidationRequest,
     machine::MachineCheckoutOpts,
 };
 use std::env;
@@ -20,7 +21,12 @@ async fn main() -> Result<(), Error> {
     })?;
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Ok(license) = keygen_rs::validate(std::slice::from_ref(&fingerprint), &[]).await {
+    if let Ok(license) = keygen_rs::validate(&LicenseValidationRequest::for_fingerprint(
+        fingerprint.clone(),
+    ))
+    .await
+    .and_then(|result| result.into_license())
+    {
         let machine = license.machine(&fingerprint).await?;
         let options = MachineCheckoutOpts {
             ttl: Some(604800), // 7 days in seconds

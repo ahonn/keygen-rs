@@ -52,24 +52,31 @@ impl LicenseState {
         let mut config = config_state.lock().await;
         config.license_key = Some(key.to_string());
 
-        let license =
-            keygen_rs::validate_with_config(config.clone(), fingerprints, entitlements).await;
-        if let Ok(license) = license {
+        let request = keygen_rs::license::LicenseValidationRequest::new(
+            keygen_rs::license::LicenseValidationScope {
+                fingerprint: fingerprints.first().cloned(),
+                components: (fingerprints.len() > 1).then(|| fingerprints[1..].to_vec()),
+                entitlements: (!entitlements.is_empty()).then(|| entitlements.to_vec()),
+                ..Default::default()
+            },
+        );
+        let validation = keygen_rs::validate_with_config(config.clone(), &request).await?;
+        if validation.meta.valid {
+            let license = validation.into_license()?;
             self.license = Some(license.clone());
             Self::save_license_key_cache(app_handle, &license)?;
             self.set_valid(true).await;
             Ok(license)
         } else {
-            let error = license.unwrap_err();
             self.set_valid(false).await;
-            match error {
-                KeygenError::LicenseNotActivated { ref license, .. } => {
-                    self.license = Some((**license).clone());
-                    return Err(error.into());
-                }
-                _ => {}
+            if let Some(license) = validation.license {
+                self.license = Some(license);
             }
-            Err(error.into())
+            Err(KeygenError::LicenseKeyInvalid {
+                code: validation.meta.code,
+                detail: validation.meta.detail,
+            }
+            .into())
         }
     }
 
@@ -88,7 +95,7 @@ impl LicenseState {
                 .with_config(config.clone())
                 .activate(fingerprint, components)
                 .await?;
-            Self::save_license_key_cache(app_handle, &license)?;
+            Self::save_license_key_cache(app_handle, license)?;
             self.set_valid(true).await;
             Ok(machine)
         } else {
@@ -112,7 +119,12 @@ impl LicenseState {
                 .await
             {
                 // if the machines are not found, remove the license file
-                Ok(_) | Err(KeygenError::NotFound { .. }) => {
+                Ok(_) => {
+                    Self::remove_license_file(app_handle)?;
+                    MachineState::remove_machine_file(app_handle)?;
+                    self.set_valid(false).await;
+                }
+                Err(err) if err.is_api_code("NOT_FOUND") => {
                     Self::remove_license_file(app_handle)?;
                     MachineState::remove_machine_file(app_handle)?;
                     self.set_valid(false).await;

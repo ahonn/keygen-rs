@@ -2,6 +2,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
+    license::LicenseValidationRequest,
 };
 use std::env;
 
@@ -20,7 +21,9 @@ async fn main() -> Result<(), Error> {
     .expect("Failed to set config");
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    let license = keygen_rs::validate(&[fingerprint], &[]).await?;
+    let license = keygen_rs::validate(&LicenseValidationRequest::for_fingerprint(fingerprint))
+        .await?
+        .into_license()?;
 
     println!("\nAll metadata fields:");
     for (key, value) in &license.metadata {

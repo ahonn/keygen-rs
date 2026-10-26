@@ -4,14 +4,6 @@ Tauri plugin for Keygen.sh licensing, based on the keygen-rs SDK.
 
 > For Tauri v2 support, please use [tauri-plugin-keygen-rs2](../tauri-plugin-keygen-rs2).
 
-### Sponsored by
-
-<a href="https://keymana.com?ref=keygen-rs" style="margin-right: 10px">
-    <img src="https://keymana.com/logo-pill.png" width="200" alt="Keygen">
-</a>
-
-Keymana is a desktop interface for Keygen.sh that eliminates API calls, offering intuitive license management with multi-account support, advanced filtering, and compatibility with both cloud and self-hosted instances.
-
 ## Features
 
 - License validation and management

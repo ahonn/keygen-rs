@@ -43,6 +43,7 @@ pub(crate) struct ArtifactsResponse {
 }
 
 /// Request to create a new artifact
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateArtifactRequest {
     /// The filename of the artifact
@@ -66,6 +67,7 @@ pub struct CreateArtifactRequest {
 }
 
 /// Request to update an existing artifact
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UpdateArtifactRequest {
     pub filename: Option<String>,
@@ -164,6 +166,30 @@ impl Artifact {
         }
     }
 
+    /// List artifacts with optional filtering and pagination
+    pub async fn list(options: Option<ListArtifactsOptions>) -> Result<Vec<Artifact>, Error> {
+        let client = Client::from_global_config()?;
+        let response = client.get("artifacts", options.as_ref()).await?;
+        let artifacts_response: ArtifactsResponse = serde_json::from_value(response.body)?;
+        Ok(artifacts_response
+            .data
+            .into_iter()
+            .map(Artifact::from)
+            .collect())
+    }
+
+    /// Get an artifact by ID
+    pub async fn get(id: &str) -> Result<Artifact, Error> {
+        let client = Client::from_global_config()?;
+        let endpoint = format!("artifacts/{id}");
+        let response = client.get(&endpoint, None::<&()>).await?;
+        let artifact_response: ArtifactResponse = serde_json::from_value(response.body)?;
+        Ok(Artifact::from(artifact_response.data))
+    }
+}
+
+#[cfg(feature = "token")]
+impl Artifact {
     /// Create a new artifact
     ///
     /// Note: After creating an artifact, you need to upload the actual file
@@ -218,27 +244,6 @@ impl Artifact {
         });
 
         let response = client.post("artifacts", Some(&body), None::<&()>).await?;
-        let artifact_response: ArtifactResponse = serde_json::from_value(response.body)?;
-        Ok(Artifact::from(artifact_response.data))
-    }
-
-    /// List artifacts with optional filtering and pagination
-    pub async fn list(options: Option<ListArtifactsOptions>) -> Result<Vec<Artifact>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("artifacts", options.as_ref()).await?;
-        let artifacts_response: ArtifactsResponse = serde_json::from_value(response.body)?;
-        Ok(artifacts_response
-            .data
-            .into_iter()
-            .map(Artifact::from)
-            .collect())
-    }
-
-    /// Get an artifact by ID
-    pub async fn get(id: &str) -> Result<Artifact, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("artifacts/{id}");
-        let response = client.get(&endpoint, None::<&()>).await?;
         let artifact_response: ArtifactResponse = serde_json::from_value(response.body)?;
         Ok(Artifact::from(artifact_response.data))
     }

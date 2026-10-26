@@ -2,7 +2,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    license::LicenseCheckoutOpts,
+    license::{LicenseCheckoutOpts, LicenseValidationRequest},
 };
 use std::env;
 
@@ -26,17 +26,16 @@ async fn main() -> Result<(), Error> {
         .expect("License key required for decryption");
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    let license = match keygen_rs::validate(&[fingerprint], &[]).await {
-        Ok(license) => license,
-        Err(Error::LicenseNotActivated { license, .. }) => *license,
-        Err(e) => return Err(e),
-    };
+    let license = keygen_rs::validate(&LicenseValidationRequest::for_fingerprint(fingerprint))
+        .await?
+        .into_license()?;
 
     // Compare online vs offline entitlements access
     let online_entitlements = license.entitlements(None).await?;
-    println!("Online entitlements: {}", online_entitlements.len());
+    println!("Online entitlements: {}", online_entitlements.data.len());
 
-    let options = LicenseCheckoutOpts::with_include(vec!["entitlements".to_string()]);
+    let options =
+        LicenseCheckoutOpts::with_include(vec!["entitlements".to_string()]).with_encrypt(true);
     let license_file = license.checkout(&options).await?;
 
     let offline_entitlements = license_file.entitlements(&decryption_key)?;

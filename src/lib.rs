@@ -1,7 +1,6 @@
-use client::{Client, ClientOptions};
 use config::get_config;
 use errors::Error;
-use license::{License, SchemeCode};
+use license::{License, LicenseValidationRequest, LicenseValidationResult, SchemeCode};
 use serde::{Deserialize, Serialize};
 
 use crate::config::KeygenConfig;
@@ -24,19 +23,23 @@ pub(crate) mod client;
 pub(crate) mod decryptor;
 pub(crate) mod verifier;
 
+pub mod api_version;
 pub mod component;
 pub mod config;
 pub mod entitlement;
 pub mod errors;
 pub mod group;
+pub mod keygen_client;
 pub mod license;
 pub mod license_file;
 pub mod machine;
 pub mod machine_file;
 pub mod service;
-
 #[cfg(feature = "specta")]
 pub mod specta_support;
+
+pub use api_version::ApiContractVersion;
+pub use keygen_client::{KeygenClient, KeygenClientBuilder};
 
 // Management features only available with "token" feature flag
 #[cfg(feature = "token")]
@@ -46,7 +49,7 @@ pub mod policy;
 #[cfg(feature = "token")]
 pub mod product;
 #[cfg(feature = "token")]
-pub mod release;
+pub mod profile;
 #[cfg(feature = "token")]
 pub mod token;
 #[cfg(feature = "token")]
@@ -54,17 +57,13 @@ pub mod user;
 #[cfg(feature = "token")]
 pub mod webhook;
 
-// Distribution modules (only available with "token" feature flag)
-#[cfg(feature = "token")]
+// Distribution modules (write operations require "token" feature flag)
 pub mod arch;
-#[cfg(feature = "token")]
 pub mod artifact;
-#[cfg(feature = "token")]
 pub mod channel;
-#[cfg(feature = "token")]
 pub mod package;
-#[cfg(feature = "token")]
 pub mod platform;
+pub mod release;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct KeygenRelationshipData {
@@ -168,27 +167,31 @@ pub(crate) struct KeygenResponseData<T> {
 ///     });
 ///
 ///     let fingerprint = machine_uid::get().unwrap_or("".into());
-///     let license = keygen_rs::validate(&[fingerprint]).await?;
-///     println!("License validated successfully: {:?}", license);
+///     let request = keygen_rs::license::LicenseValidationRequest::for_fingerprint(fingerprint);
+///     let result = keygen_rs::validate(&request).await?;
+///     println!("License validation result: {:?}", result);
 ///     Ok(())
 /// }
 /// ```
-pub async fn validate(fingerprints: &[String], entitlements: &[String]) -> Result<License, Error> {
+pub async fn validate(
+    request: &LicenseValidationRequest,
+) -> Result<LicenseValidationResult, Error> {
     let config = get_config()?;
-    validate_with_config(config, fingerprints, entitlements).await
+    validate_with_config(config, request).await
 }
 
 pub async fn validate_with_config(
     config: KeygenConfig,
-    fingerprints: &[String],
-    entitlements: &[String],
-) -> Result<License, Error> {
-    let client = Client::new(ClientOptions::from(config.clone()))?;
-    let response = client.get("me", None::<&()>).await?;
-    let profile: license::LicenseResponse<()> = serde_json::from_value(response.body)?;
-    License::from(profile.data)
+    request: &LicenseValidationRequest,
+) -> Result<LicenseValidationResult, Error> {
+    let key = config.license_key.clone().ok_or(Error::LicenseKeyMissing)?;
+    let mut request = request.clone();
+    if request.scope.product.is_none() {
+        request.scope.product = Some(config.product.clone());
+    }
+    License::from_key(&key)
         .with_config(config)
-        .validate_key(fingerprints, entitlements)
+        .validate_key(&request)
         .await
 }
 

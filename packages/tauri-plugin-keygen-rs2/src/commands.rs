@@ -51,7 +51,7 @@ pub async fn validate_key<R: Runtime>(
     let machine_state = app_handle.get_machine_state();
     let machine_state = machine_state.lock().await;
 
-    let mut fingerprints = components.unwrap_or_else(|| vec![]);
+    let mut fingerprints = components.unwrap_or_default();
     fingerprints.insert(0, machine_state.fingerprint.clone());
 
     let license = license_state
@@ -103,13 +103,26 @@ pub async fn deactivate<R: Runtime>(app_handle: AppHandle<R>) -> Result<()> {
 #[command]
 pub async fn checkout_license<R: Runtime>(
     ttl: Option<i64>,
+    perpetual: Option<bool>,
     include: Option<Vec<String>>,
+    encrypt: Option<bool>,
+    algorithm: Option<keygen_rs::license::LicenseFileAlgorithm>,
     app_handle: AppHandle<R>,
 ) -> Result<LicenseFile> {
     let license_state = app_handle.get_license_state();
     let mut license_state = license_state.lock().await;
 
-    let options = LicenseCheckoutOpts { ttl, include };
+    let options = LicenseCheckoutOpts {
+        ttl: if perpetual.unwrap_or(false) {
+            keygen_rs::license::UpdateField::Clear
+        } else {
+            ttl.map(keygen_rs::license::UpdateField::Set)
+                .unwrap_or_default()
+        },
+        include,
+        encrypt,
+        algorithm,
+    };
     let license_file = license_state.checkout(&app_handle, &options).await?;
     Ok(license_file)
 }

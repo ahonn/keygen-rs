@@ -46,7 +46,7 @@ async fn main() -> Result<(), Error> {
 
     // Display current entitlements before attaching
     let current_entitlements = license.entitlements(None).await?;
-    println!("Current entitlements: {}", current_entitlements.len());
+    println!("Current entitlements: {}", current_entitlements.data.len());
 
     // Attach the entitlements
     license.attach_entitlements(&entitlement_ids).await?;
@@ -56,8 +56,8 @@ async fn main() -> Result<(), Error> {
     // Verify the entitlements were attached
     let updated_entitlements = license.entitlements(None).await?;
 
-    println!("Total entitlements: {}", updated_entitlements.len());
-    for entitlement in &updated_entitlements {
+    println!("Total entitlements: {}", updated_entitlements.data.len());
+    for entitlement in &updated_entitlements.data {
         println!("  {} ({})", entitlement.code, entitlement.id);
     }
 

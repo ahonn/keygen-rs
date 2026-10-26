@@ -33,8 +33,10 @@ describe("exports", () => {
     "decrementLicenseUsage",
     "resetLicenseUsage",
     "checkoutLicense",
+    "checkoutLicenseCertificate",
     "attachLicenseEntitlements",
     "detachLicenseEntitlements",
+    "listLicenseEntitlements",
     // Machine
     "createMachine",
     "listMachines",
@@ -47,7 +49,6 @@ describe("exports", () => {
     // Service
     "getServiceInfo",
     "ping",
-    "supportsProductCode",
     // License/Machine file
     "licenseFileFromCert",
     "verifyLicenseFile",
@@ -183,10 +184,17 @@ describe("config", () => {
     const cfg = keygen.getConfig();
 
     assert.equal(cfg.apiUrl, "https://api.keygen.sh");
-    assert.equal(cfg.apiVersion, "1.7");
+    assert.equal(cfg.apiVersion, "1.8");
     assert.equal(cfg.apiPrefix, "v1");
     assert.equal(cfg.maxClockDrift, 5);
     assert.equal(cfg.verifyKeygenSignature, true);
+  });
+
+  it("rejects unsupported API contract versions", () => {
+    assert.throws(
+      () => keygen.setConfig({ account: "a", product: "p", apiVersion: "2.0" }),
+      /supported versions are 1\.7 and 1\.8/,
+    );
   });
 
   it("optional fields default to undefined/null", () => {
@@ -309,7 +317,7 @@ describe("validate", () => {
       publicKey: "test-pk",
     });
 
-    const result = keygen.validate(["fp1"]);
+    const result = keygen.validate({ scope: { fingerprint: "fp1" } });
     assert.ok(result instanceof Promise);
     // will reject because API is not reachable, but it IS a promise
     result.catch(() => {});
@@ -321,13 +329,13 @@ describe("validate", () => {
       product: "test-product",
     });
 
-    await assert.rejects(() => keygen.validate(["fp1"]), (err) => {
+    await assert.rejects(() => keygen.validate({ scope: { fingerprint: "fp1" } }), (err) => {
       assert.ok(err instanceof Error);
       return true;
     });
   });
 
-  it("accepts optional entitlements parameter", () => {
+  it("accepts the complete validation scope", () => {
     keygen.setConfig({
       account: "a",
       product: "p",
@@ -335,14 +343,17 @@ describe("validate", () => {
       publicKey: "pk",
     });
 
-    // Both forms should be valid
-    const p1 = keygen.validate(["fp1"]);
-    const p2 = keygen.validate(["fp1"], ["ent1", "ent2"]);
-    const p3 = keygen.validate(["fp1"], null);
-
-    p1.catch(() => {});
-    p2.catch(() => {});
-    p3.catch(() => {});
+    const result = keygen.validate({
+      nonce: 42,
+      scope: {
+        fingerprints: ["fp1", "fp2"],
+        components: ["component-1"],
+        entitlements: ["ent1", "ent2"],
+        version: "1.2.3",
+        checksum: "checksum",
+      },
+    });
+    result.catch(() => {});
   });
 });
 
@@ -448,7 +459,6 @@ describe("async API functions", () => {
     { name: "resetMachine", args: ["m-1"] },
     { name: "getServiceInfo", args: [] },
     { name: "ping", args: [] },
-    { name: "supportsProductCode", args: [] },
     { name: "createProduct", args: [{ name: "p", code: "c" }] },
     { name: "listProducts", args: [] },
     { name: "getProduct", args: ["prod-1"] },
@@ -544,7 +554,7 @@ describe("type safety", () => {
       licenseKey: "lk",
       publicKey: "pk",
       apiUrl: "https://example.com",
-      apiVersion: "2.0",
+      apiVersion: "1.8",
       apiPrefix: "v2",
       environment: "sandbox",
       userAgent: "test/1.0",
@@ -572,6 +582,28 @@ describe("type safety", () => {
     assert.equal(typeof cfg.token, "string");
 
     keygen.resetConfig();
+  });
+
+  it("rejects license integers outside the core API range", async () => {
+    await assert.rejects(
+      () => keygen.listLicenses({ limit: 4_294_967_295 }),
+      /limit exceeds i32/,
+    );
+    await assert.rejects(
+      () => keygen.updateLicense("lic-1", { maxMachines: 2_147_483_648 }),
+      /maxMachines exceeds i32/,
+    );
+  });
+
+  it("rejects malformed license metadata and checkout options", async () => {
+    await assert.rejects(
+      () => keygen.createLicense({ policyId: "pol-1", metadata: [] }),
+      /Invalid metadata/,
+    );
+    await assert.rejects(
+      () => keygen.checkoutLicense("lic-1", { encrypt: "yes" }),
+      /encrypt must be a boolean/,
+    );
   });
 });
 

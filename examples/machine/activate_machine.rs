@@ -2,6 +2,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
+    license::LicenseValidationRequest,
 };
 use std::env;
 
@@ -19,18 +20,24 @@ async fn main() -> Result<(), Error> {
     })?;
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Err(err) = keygen_rs::validate(std::slice::from_ref(&fingerprint), &[]).await {
-        match err {
-            Error::LicenseNotActivated { license, .. } => {
-                let machine = license.activate(&fingerprint, &[]).await?;
-                println!("License activated successfully: {machine:?}");
-            }
-            _ => {
-                println!("License validation failed: {err:?}");
-            }
+    let validation = keygen_rs::validate(&LicenseValidationRequest::for_fingerprint(
+        fingerprint.clone(),
+    ))
+    .await?;
+    if validation.meta.valid {
+        println!("License validated successfully");
+    } else if let Some(license) = validation.license {
+        if matches!(
+            validation.meta.code.as_str(),
+            "NO_MACHINE" | "NO_MACHINES" | "FINGERPRINT_SCOPE_MISMATCH"
+        ) {
+            let machine = license.activate(&fingerprint, &[]).await?;
+            println!("License activated successfully: {machine:?}");
+        } else {
+            println!("License validation failed: {}", validation.meta.detail);
         }
     } else {
-        println!("License validated successfully");
+        println!("License validation failed: {}", validation.meta.detail);
     }
 
     Ok(())

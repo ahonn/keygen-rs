@@ -2,7 +2,7 @@ use dotenv::dotenv;
 use keygen_rs::{
     config::{self, KeygenConfig},
     errors::Error,
-    license::LicenseCheckoutOpts,
+    license::{LicenseCheckoutOpts, LicenseValidationRequest},
 };
 use std::env;
 
@@ -21,8 +21,13 @@ async fn main() -> Result<(), Error> {
     let config = config::get_config().expect("Failed to get config");
 
     let fingerprint = machine_uid::get().unwrap_or("".into());
-    if let Ok(license) = keygen_rs::validate(&[fingerprint], &[]).await {
-        let options = LicenseCheckoutOpts::with_ttl(chrono::Duration::days(7).num_seconds());
+    if let Ok(license) =
+        keygen_rs::validate(&LicenseValidationRequest::for_fingerprint(fingerprint))
+            .await
+            .and_then(|result| result.into_license())
+    {
+        let options = LicenseCheckoutOpts::with_ttl(chrono::Duration::days(7).num_seconds())
+            .with_encrypt(true);
         let license_file = license.checkout(&options).await?;
         if license_file.verify().is_ok() {
             let dataset = license_file.decrypt(&config.license_key.unwrap())?;
