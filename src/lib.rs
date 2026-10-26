@@ -35,6 +35,8 @@ pub mod license_file;
 pub mod machine;
 pub mod machine_file;
 pub mod service;
+#[cfg(feature = "specta")]
+pub mod specta_support;
 
 pub use api_version::ApiContractVersion;
 pub use keygen_client::{KeygenClient, KeygenClientBuilder};

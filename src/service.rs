@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct PingResponse {
     pub message: String,
     pub version: Option<String>,
@@ -12,6 +13,7 @@ pub struct PingResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ServiceInfo {
     /// Server timestamp
     pub timestamp: Option<String>,

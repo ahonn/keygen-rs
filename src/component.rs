@@ -68,10 +68,15 @@ pub struct UpdateComponentRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Component {
     pub id: String,
     pub fingerprint: String,
     pub name: String,
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = Option<crate::specta_support::JsonMetadata>)
+    )]
     pub metadata: Option<HashMap<String, Value>>,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,

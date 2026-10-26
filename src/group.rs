@@ -99,12 +99,17 @@ pub struct UpdateGroupRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Group {
     pub id: String,
     pub name: String,
     pub max_users: Option<i32>,
     pub max_licenses: Option<i32>,
     pub max_machines: Option<i32>,
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = Option<crate::specta_support::JsonMetadata>)
+    )]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,

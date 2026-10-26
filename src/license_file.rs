@@ -22,6 +22,7 @@ use crate::{
 /// `resources` preserves every resource losslessly. The typed collections are
 /// compatibility views for resource types supported by earlier SDK versions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct IncludedResources {
     #[serde(default)]
     pub resources: Vec<IncludedResource>,
@@ -35,15 +36,28 @@ pub struct IncludedResources {
 
 /// A lossless JSON:API resource included in an offline license dataset.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct IncludedResource {
     pub id: String,
     #[serde(rename = "type")]
     pub resource_type: String,
     #[serde(default)]
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = crate::specta_support::KeygenJsonValue)
+    )]
     pub attributes: Value,
     #[serde(default)]
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = crate::specta_support::KeygenJsonValue)
+    )]
     pub relationships: Value,
     #[serde(default)]
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = crate::specta_support::KeygenJsonValue)
+    )]
     pub links: Value,
 }
 
@@ -159,6 +173,7 @@ impl IncludedResources {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LicenseFileDataset {
     pub license: License,
     pub issued: DateTime<Utc>,
@@ -169,6 +184,7 @@ pub struct LicenseFileDataset {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LicenseFile {
     pub id: String,
     pub certificate: String,

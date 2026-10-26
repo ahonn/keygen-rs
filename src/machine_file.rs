@@ -20,6 +20,7 @@ use crate::{
 };
 
 #[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct MachineFileDataset {
     pub license: License,
     pub machine: Machine,
@@ -31,6 +32,7 @@ pub struct MachineFileDataset {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct MachineFile {
     pub id: String,
     pub certificate: String,

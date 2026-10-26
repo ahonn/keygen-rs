@@ -62,6 +62,7 @@ impl<T: Serialize> UpdateField<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum SchemeCode {
     #[serde(rename = "ED25519_SIGN")]
     Ed25519Sign,
@@ -85,6 +86,7 @@ pub enum SchemeCode {
 
 /// License status as returned by the Keygen API
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum LicenseStatus {
     Active,
@@ -453,6 +455,7 @@ pub(crate) struct LicenseAttributes {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct License {
     pub id: String,
     #[serde(skip_serializing)]
@@ -471,7 +474,11 @@ pub struct License {
     pub max_uses: Option<i32>,
     pub max_processes: Option<i32>,
     pub max_users: Option<i32>,
+    // specta-typescript rejects 64-bit integers. Byte counts stay far below
+    // 2^53, so exporting them as a JS `number` loses no precision.
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub max_memory: Option<i64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub max_disk: Option<i64>,
     pub protected: Option<bool>,
     pub suspended: Option<bool>,
@@ -483,6 +490,10 @@ pub struct License {
     pub next_check_in: Option<DateTime<Utc>>,
     pub permissions: Option<Vec<String>>,
     pub policy: Option<String>,
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = crate::specta_support::JsonMetadata)
+    )]
     pub metadata: HashMap<String, Value>,
     pub account_id: Option<String>,
     pub product_id: Option<String>,
