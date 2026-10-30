@@ -451,6 +451,10 @@ name = "get_release"
 path = "examples/release/get_release.rs"
 
 [[example]]
+name = "check_for_upgrade"
+path = "examples/release/check_for_upgrade.rs"
+
+[[example]]
 name = "update_release"
 path = "examples/release/update_release.rs"
 

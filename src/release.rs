@@ -1,6 +1,7 @@
 use crate::artifact::{Artifact, ListArtifactsOptions};
-use crate::client::Client;
-use crate::errors::Error;
+use crate::client::{Client, ClientOptions};
+use crate::config::{get_config, KeygenConfig};
+use crate::errors::{ApiErrorKind, Error};
 #[cfg(feature = "token")]
 use crate::insert_optional;
 use crate::license::PaginationOptions;
@@ -161,6 +162,38 @@ pub struct ReleaseUpgradeRequest {
     pub channel: Option<ReleaseChannel>,
 }
 
+impl ReleaseUpgradeRequest {
+    /// Fill unset `product`/`package` from the config and `channel` with stable.
+    fn with_defaults(request: Option<&Self>, config: &KeygenConfig) -> Self {
+        let request = request.cloned().unwrap_or_default();
+        let non_empty = |value: &str| (!value.is_empty()).then(|| value.to_string());
+        Self {
+            product: request.product.or_else(|| non_empty(&config.product)),
+            package: request.package.or_else(|| non_empty(&config.package)),
+            constraint: request.constraint,
+            channel: Some(request.channel.unwrap_or(ReleaseChannel::Stable)),
+        }
+    }
+}
+
+pub(crate) async fn upgrade_from_with_client(
+    client: &Client,
+    config: &KeygenConfig,
+    current_version: &str,
+    request: Option<&ReleaseUpgradeRequest>,
+) -> Result<Option<Release>, Error> {
+    let endpoint = format!("releases/{current_version}/upgrade");
+    let request = ReleaseUpgradeRequest::with_defaults(request, config);
+    match client.get(&endpoint, Some(&request)).await {
+        Ok(response) => {
+            let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
+            Ok(Some(Release::from(release_response.data)))
+        }
+        Err(err) if err.api_error_kind() == ApiErrorKind::NotFound => Ok(None),
+        Err(err) => Err(err),
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone)]
 pub struct ReleaseArtifactDownload {
@@ -271,6 +304,23 @@ impl Release {
         let response = client.get(&endpoint, request).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
         Ok(Release::from(release_response.data))
+    }
+
+    /// Check whether an upgrade is available for `current_version` (e.g., `1.0.0`).
+    ///
+    /// Unset `product` and `package` default to [`KeygenConfig::product`] and
+    /// [`KeygenConfig::package`]. Unset `channel` defaults to [`ReleaseChannel::Stable`].
+    ///
+    /// Returns `Ok(None)` when Keygen responds with `NOT_FOUND`. Keygen also does that
+    /// for unknown versions and inaccessible products, so a misconfigured product
+    /// looks like "no upgrade available".
+    pub async fn upgrade_from(
+        current_version: &str,
+        request: Option<&ReleaseUpgradeRequest>,
+    ) -> Result<Option<Release>, Error> {
+        let config = get_config()?;
+        let client = Client::new(ClientOptions::from(config.clone()))?;
+        upgrade_from_with_client(&client, &config, current_version, request).await
     }
 
     /// Build the download URL for an artifact by ID or filename.
@@ -691,5 +741,30 @@ mod tests {
         // Verify None values are not included
         assert!(!query.contains("page"));
         assert!(!query.contains("status"));
+    }
+
+    #[test]
+    fn test_upgrade_request_defaults() {
+        let config = KeygenConfig {
+            product: "config-product".to_string(),
+            package: "config-package".to_string(),
+            ..Default::default()
+        };
+        let request = ReleaseUpgradeRequest {
+            product: Some("other-product".to_string()),
+            channel: Some(ReleaseChannel::Beta),
+            ..Default::default()
+        };
+
+        let query = serde_urlencoded::to_string(ReleaseUpgradeRequest::with_defaults(
+            Some(&request),
+            &config,
+        ))
+        .unwrap();
+
+        assert!(query.contains("product=other-product"));
+        assert!(query.contains("package=config-package"));
+        assert!(query.contains("channel=beta"));
+        assert!(!query.contains("constraint"));
     }
 }
