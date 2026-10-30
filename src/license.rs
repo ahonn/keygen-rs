@@ -387,17 +387,61 @@ pub struct LicenseValidationResult {
 }
 
 impl LicenseValidationResult {
+    /// Return the validated license, or an error that explains why validation failed.
+    ///
+    /// Each failure code from Keygen gets its own error: for example `NO_MACHINE`
+    /// becomes [`Error::LicenseNotActivated`] and `EXPIRED` becomes
+    /// [`Error::LicenseExpired`]. Codes without a dedicated error become
+    /// [`Error::LicenseKeyInvalid`].
     pub fn into_license(self) -> Result<License, Error> {
         if !self.meta.valid {
-            return Err(Error::LicenseKeyInvalid {
-                code: self.meta.code,
-                detail: self.meta.detail,
-            });
+            return Err(validation_error(self.meta, self.license));
         }
         self.license.ok_or(Error::LicenseKeyInvalid {
             code: self.meta.code,
             detail: self.meta.detail,
         })
+    }
+}
+
+fn validation_error(meta: LicenseValidationMeta, license: Option<License>) -> Error {
+    let code = meta.code;
+    let detail = meta.detail;
+
+    // A not-activated error carries the license so the caller can activate it.
+    // If the response has no license, there is nothing to activate, so these
+    // codes fall through to the generic error below.
+    let is_not_activated =
+        code == "NO_MACHINE" || code == "NO_MACHINES" || code == "FINGERPRINT_SCOPE_MISMATCH";
+    if is_not_activated {
+        if let Some(license) = license {
+            return Error::LicenseNotActivated {
+                code,
+                detail,
+                license: Box::new(license),
+            };
+        }
+    }
+
+    match code.as_str() {
+        "EXPIRED" => Error::LicenseExpired { code, detail },
+        "SUSPENDED" => Error::LicenseSuspended { code, detail },
+        "TOO_MANY_MACHINES" => Error::LicenseTooManyMachines { code, detail },
+        "TOO_MANY_CORES" => Error::LicenseTooManyCores { code, detail },
+        "TOO_MANY_PROCESSES" => Error::LicenseTooManyProcesses { code, detail },
+        "FINGERPRINT_SCOPE_REQUIRED" | "FINGERPRINT_SCOPE_EMPTY" => {
+            Error::ValidationFingerprintMissing { code, detail }
+        }
+        "COMPONENTS_SCOPE_REQUIRED" | "COMPONENTS_SCOPE_EMPTY" => {
+            Error::ValidationComponentsMissing { code, detail }
+        }
+        "COMPONENTS_SCOPE_MISMATCH" => Error::ComponentNotActivated { code, detail },
+        "HEARTBEAT_NOT_STARTED" => Error::HeartbeatRequired { code, detail },
+        "HEARTBEAT_DEAD" => Error::HeartbeatDead { code, detail },
+        "PRODUCT_SCOPE_REQUIRED" | "PRODUCT_SCOPE_EMPTY" => {
+            Error::ValidationProductMissing { code, detail }
+        }
+        _ => Error::LicenseKeyInvalid { code, detail },
     }
 }
 
@@ -567,10 +611,17 @@ impl LicenseFileAlgorithm {
     }
 }
 
+/// Relationships included in a license checkout when the caller does not choose any.
+const DEFAULT_CHECKOUT_INCLUDE: &str = "entitlements";
+
 #[derive(Debug, Clone, Default)]
 pub struct LicenseCheckoutOpts {
     pub ttl: UpdateField<i64>,
+    /// Relationships to include in the license file. When not set, entitlements
+    /// are included. An empty list includes nothing.
     pub include: Option<Vec<String>>,
+    /// Whether to encrypt the license file. When not set, the file is encrypted
+    /// unless `algorithm` is given.
     pub encrypt: Option<bool>,
     pub algorithm: Option<LicenseFileAlgorithm>,
 }
@@ -627,11 +678,22 @@ impl LicenseCheckoutOpts {
             UpdateField::Clear => query["ttl"] = json!("null"),
             UpdateField::Set(ttl) => query["ttl"] = json!(ttl),
         }
-        if let Some(include) = &self.include {
-            query["include"] = json!(include.join(","));
+        // When not set, include the default relationships. An empty list is how
+        // a caller asks for no included data, so nothing is sent in that case.
+        let include = match &self.include {
+            Some(include) => include.join(","),
+            None => DEFAULT_CHECKOUT_INCLUDE.to_string(),
+        };
+        if !include.is_empty() {
+            query["include"] = json!(include);
         }
+
+        // Encrypt by default, but not when an algorithm is given: the algorithm
+        // already decides whether the file is encrypted.
         if let Some(encrypt) = self.encrypt {
             query["encrypt"] = json!(encrypt);
+        } else if self.algorithm.is_none() {
+            query["encrypt"] = json!(true);
         }
         if let Some(algorithm) = &self.algorithm {
             query["algorithm"] = serde_json::to_value(algorithm)?;
@@ -2785,7 +2847,7 @@ mod tests {
         assert_eq!(result.meta.code, "EXPIRED");
         assert!(matches!(
             result.into_license(),
-            Err(Error::LicenseKeyInvalid { code, .. }) if code == "EXPIRED"
+            Err(Error::LicenseExpired { code, .. }) if code == "EXPIRED"
         ));
         let _ = reset_config();
     }
@@ -3794,6 +3856,92 @@ mod tests {
             ..Default::default()
         };
         assert!(invalid.to_query().is_err());
+    }
+
+    #[test]
+    fn test_checkout_query_includes_entitlements_and_encrypts_by_default() {
+        assert_eq!(
+            LicenseCheckoutOpts::with_ttl(3600).to_query().unwrap(),
+            json!({
+                "ttl": 3600,
+                "include": "entitlements",
+                "encrypt": true
+            })
+        );
+    }
+
+    #[test]
+    fn test_checkout_query_can_opt_out_of_defaults() {
+        assert_eq!(
+            LicenseCheckoutOpts::with_include(vec![])
+                .with_encrypt(false)
+                .to_query()
+                .unwrap(),
+            json!({ "encrypt": false })
+        );
+    }
+
+    #[test]
+    fn test_checkout_query_algorithm_replaces_default_encrypt() {
+        assert_eq!(
+            LicenseCheckoutOpts::new()
+                .with_algorithm(LicenseFileAlgorithm::Base64Ed25519)
+                .to_query()
+                .unwrap(),
+            json!({
+                "include": "entitlements",
+                "algorithm": "base64+ed25519"
+            })
+        );
+    }
+
+    fn failed_validation(code: &str, license: Option<License>) -> LicenseValidationResult {
+        LicenseValidationResult {
+            license,
+            meta: LicenseValidationMeta {
+                ts: Utc::now(),
+                valid: false,
+                detail: "detail".to_string(),
+                code: code.to_string(),
+                scope: LicenseValidationScope::default(),
+                nonce: None,
+            },
+        }
+    }
+
+    #[test]
+    fn test_into_license_maps_invalid_codes_to_typed_errors() {
+        let license = create_test_license();
+
+        assert!(matches!(
+            failed_validation("NO_MACHINE", Some(license.clone())).into_license(),
+            Err(Error::LicenseNotActivated { code, license, .. })
+                if code == "NO_MACHINE" && license.id == "test_license_id"
+        ));
+        assert!(matches!(
+            failed_validation("NO_MACHINE", None).into_license(),
+            Err(Error::LicenseKeyInvalid { code, .. }) if code == "NO_MACHINE"
+        ));
+        assert!(matches!(
+            failed_validation("SUSPENDED", Some(license.clone())).into_license(),
+            Err(Error::LicenseSuspended { .. })
+        ));
+        assert!(matches!(
+            failed_validation("TOO_MANY_MACHINES", Some(license.clone())).into_license(),
+            Err(Error::LicenseTooManyMachines { .. })
+        ));
+        assert!(matches!(
+            failed_validation("HEARTBEAT_DEAD", Some(license.clone())).into_license(),
+            Err(Error::HeartbeatDead { .. })
+        ));
+        assert!(matches!(
+            failed_validation("FINGERPRINT_SCOPE_REQUIRED", Some(license.clone())).into_license(),
+            Err(Error::ValidationFingerprintMissing { .. })
+        ));
+        assert!(matches!(
+            failed_validation("NOT_FOUND", Some(license)).into_license(),
+            Err(Error::LicenseKeyInvalid { code, .. }) if code == "NOT_FOUND"
+        ));
     }
 
     #[cfg(feature = "token")]
