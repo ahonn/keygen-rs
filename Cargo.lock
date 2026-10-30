@@ -2190,7 +2190,7 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "aes-gcm",
  "base64 0.21.7",
@@ -2227,7 +2227,7 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs-napi"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "chrono",
  "keygen-rs",
@@ -2240,7 +2240,7 @@ dependencies = [
 
 [[package]]
 name = "keygen-rs-wasm"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "chrono",
  "getrandom 0.2.15",
@@ -4809,7 +4809,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-keygen-rs2"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "keygen-rs",
  "lazy_static",
