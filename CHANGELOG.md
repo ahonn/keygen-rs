@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-30
+
+### Added
+
+- Check for upgrade by current version ([6f4574e](https://github.com/ahonn/keygen-rs/commit/6f4574e4d9084c1fd7e6a51326a5bf70d6d64bfa))
+
+### Other
+
+- Bump the minor-updates group across 1 directory with 9 updates ([8085d75](https://github.com/ahonn/keygen-rs/commit/8085d7536c19a32663aa1ea6f6801469a4ddd07c))
+
+
 ## [0.14.0] - 2026-10-26
 
 ### Added
