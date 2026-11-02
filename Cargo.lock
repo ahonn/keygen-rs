@@ -2193,7 +2193,7 @@ name = "keygen-rs"
 version = "0.14.0"
 dependencies = [
  "aes-gcm",
- "base64 0.21.7",
+ "base64 0.23.1",
  "chrono",
  "dotenv",
  "ed25519-dalek",
