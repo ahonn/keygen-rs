@@ -58,6 +58,45 @@ jobs:
       - name: Build and test Tauri plugin with locked dependencies
         run: cargo test --locked -p tauri-plugin-keygen-rs2 --lib
 
+  napi:
+    name: NAPI Build and Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/keygen-rs-napi
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/keygen-rs-napi/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: npm run build:debug -- -- --locked
+      - run: npm test
+
+  tauri-api:
+    name: Tauri JavaScript Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/tauri-plugin-keygen-rs2
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: packages/tauri-plugin-keygen-rs2/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: packages/tauri-plugin-keygen-rs2/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm build
+
   wasm-build:
     name: WASM Build
     runs-on: ubuntu-latest
