@@ -464,6 +464,21 @@ pub enum Error {
     #[error("Keygen signature missing")]
     KeygenSignatureMissing,
 
+    #[error("Artifact checksum does not match")]
+    ArtifactChecksumMismatch,
+
+    #[error("Artifact checksum is missing")]
+    ArtifactChecksumMissing,
+
+    #[error("Artifact signature is invalid: {0}")]
+    ArtifactSignatureInvalid(String),
+
+    #[error("Artifact signature is missing")]
+    ArtifactSignatureMissing,
+
+    #[error("Artifact public key is invalid: {0}")]
+    ArtifactPublicKeyInvalid(String),
+
     #[error("Configuration missing")]
     MissingConfiguration,
 }

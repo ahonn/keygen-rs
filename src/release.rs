@@ -1,3 +1,5 @@
+#[cfg(not(target_arch = "wasm32"))]
+use crate::artifact::{parse_signing_public_key, ArtifactResponse, ArtifactVerifier};
 use crate::artifact::{Artifact, ListArtifactsOptions};
 use crate::client::{Client, ClientOptions};
 use crate::config::{get_config, KeygenConfig};
@@ -8,11 +10,13 @@ use crate::license::PaginationOptions;
 use crate::KeygenRelationship;
 use crate::KeygenResponseData;
 #[cfg(not(target_arch = "wasm32"))]
-use reqwest::header::HeaderMap;
-#[cfg(not(target_arch = "wasm32"))]
-use reqwest::{redirect::Policy, Client as ReqwestClient};
+use reqwest::{header::HeaderMap, redirect::Policy, Client as ReqwestClient};
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::{path::Path, time::Duration};
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 fn serialize_string_vec<S>(value: &Option<Vec<String>>, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -201,6 +205,182 @@ pub struct ReleaseArtifactDownload {
     pub headers: HeaderMap,
 }
 
+/// Request the artifact download: returns the redirect URL of the file and
+/// the artifact (with its checksum and signature) from the response body.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) async fn artifact_redirect_with_client(
+    client: &Client,
+    release_id: &str,
+    artifact: &str,
+) -> Result<(String, Artifact), Error> {
+    let path = format!("releases/{release_id}/artifacts/{artifact}");
+    let response = client.get::<(), serde_json::Value>(&path, None).await?;
+
+    let location = response
+        .headers
+        .get(reqwest::header::LOCATION)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| Error::UnexpectedError("Missing redirect Location header".to_string()))?
+        .to_string();
+    if response.body.is_null() {
+        return Err(Error::InvalidResponse(
+            "artifact download response has no artifact".to_string(),
+        ));
+    }
+    let artifact_response: ArtifactResponse = serde_json::from_value(response.body)?;
+
+    Ok((location, Artifact::from(artifact_response.data)))
+}
+
+/// Download progress callback: downloaded bytes and the file size, if known.
+#[cfg(not(target_arch = "wasm32"))]
+pub type DownloadProgress = Box<dyn FnMut(u64, Option<u64>) + Send>;
+
+/// Options for [`Release::download_artifact_to`].
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Default)]
+pub struct ArtifactDownloadOptions {
+    /// Hex Ed25519 public key from `keygen genkey` (not the account public key).
+    /// When set, the artifact must be signed and its checksum is optional;
+    /// when unset, only the checksum is verified and it is required.
+    pub public_key: Option<String>,
+    /// Called with the downloaded byte count and the file size, if known.
+    pub on_progress: Option<DownloadProgress>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::fmt::Debug for ArtifactDownloadOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArtifactDownloadOptions")
+            .field("public_key", &self.public_key)
+            .field("on_progress", &self.on_progress.is_some())
+            .finish()
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) async fn download_to_writer_with_client<W>(
+    client: &Client,
+    config: &KeygenConfig,
+    release: &Release,
+    artifact: &str,
+    writer: &mut W,
+    options: Option<ArtifactDownloadOptions>,
+) -> Result<Artifact, Error>
+where
+    W: AsyncWrite + Unpin,
+{
+    let mut options = options.unwrap_or_default();
+    if let Some(public_key) = &options.public_key {
+        let is_account_key = config
+            .public_key
+            .as_deref()
+            .is_some_and(|account_key| account_key.eq_ignore_ascii_case(public_key));
+        if is_account_key {
+            return Err(Error::ArtifactPublicKeyInvalid(
+                "the account public key does not sign artifacts, use the key from `keygen genkey`"
+                    .to_string(),
+            ));
+        }
+        parse_signing_public_key(public_key)?;
+    }
+
+    let (location, artifact) = artifact_redirect_with_client(client, &release.id, artifact).await?;
+
+    // Ed25519ph context is the product ID, as in keygen-go and `keygen upload`.
+    // The release's product comes first: `upgrade_from` may target another product.
+    let context = release
+        .product_id
+        .as_deref()
+        .or(Some(config.product.as_str()).filter(|product| !product.is_empty()));
+    let context = match (&options.public_key, context) {
+        (Some(_), None) => {
+            return Err(Error::ArtifactSignatureInvalid(
+                "product ID for the signature context is unknown".to_string(),
+            ))
+        }
+        (_, context) => context.unwrap_or_default(),
+    };
+    let mut verifier = ArtifactVerifier::new(&artifact, options.public_key.as_deref(), context)?;
+
+    // Presigned storage URL: no Keygen auth, and no overall timeout so that large
+    // files are not cut off — only stalled connections are.
+    let http = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(30))
+        .read_timeout(Duration::from_secs(30))
+        .build()?;
+    let mut response = http.get(&location).send().await?;
+    if !response.status().is_success() {
+        return Err(Error::UnexpectedError(format!(
+            "Artifact download failed with status {}",
+            response.status()
+        )));
+    }
+
+    let mut downloaded = 0u64;
+    while let Some(chunk) = response.chunk().await? {
+        writer
+            .write_all(&chunk)
+            .await
+            .map_err(|e| Error::UnexpectedError(format!("Failed to write artifact: {e}")))?;
+        verifier.update(&chunk);
+        downloaded += chunk.len() as u64;
+        if let Some(on_progress) = options.on_progress.as_mut() {
+            on_progress(downloaded, artifact.filesize);
+        }
+    }
+    writer
+        .flush()
+        .await
+        .map_err(|e| Error::UnexpectedError(format!("Failed to write artifact: {e}")))?;
+
+    verifier.finish()?;
+    Ok(artifact)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) async fn download_with_client(
+    client: &Client,
+    config: &KeygenConfig,
+    release: &Release,
+    artifact: &str,
+    path: &Path,
+    options: Option<ArtifactDownloadOptions>,
+) -> Result<Artifact, Error> {
+    let io_error =
+        |e: std::io::Error| Error::UnexpectedError(format!("Failed to write artifact: {e}"));
+    let directory = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
+        .to_owned();
+    // Exclusive creation isolates concurrent downloads and avoids existing symlinks.
+    // If cancelled during creation, the blocking task's result still owns cleanup.
+    let temporary = tokio::task::spawn_blocking(move || {
+        tempfile::Builder::new()
+            .prefix(".keygen-")
+            .suffix(".part")
+            .tempfile_in(directory)
+    })
+    .await
+    .map_err(|e| Error::UnexpectedError(format!("Failed to create artifact temporary file: {e}")))?
+    .map_err(io_error)?;
+    let (file, temporary_path) = temporary.into_parts();
+    // Keep the path guard alive across every await so errors and cancellation clean up.
+    let mut file = tokio::fs::File::from_std(file);
+    let artifact =
+        download_to_writer_with_client(client, config, release, artifact, &mut file, options)
+            .await?;
+    file.sync_all().await.map_err(io_error)?;
+    drop(file);
+
+    // Publish without an await: cancellation must not detach a pending rename.
+    temporary_path
+        .persist(path)
+        .map_err(|e| io_error(e.error))?;
+    Ok(artifact)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConstraintAttributes {
     pub created: String,
@@ -372,6 +552,29 @@ impl Release {
             .to_string();
 
         Ok(ReleaseArtifactDownload { location, headers })
+    }
+
+    /// Download an artifact by ID or filename to `path` and verify it.
+    ///
+    /// The file is written to a unique temporary file in the destination directory.
+    /// Verification must succeed before the file atomically replaces `path`.
+    /// On error or cancellation, the temporary file is removed and `path` is unchanged.
+    /// With [`ArtifactDownloadOptions::public_key`], the signature is required and
+    /// covers the SHA-512 of the file. The checksum is also checked if present.
+    /// Without a public key, the checksum is required.
+    ///
+    /// The signature context is the release's product, falling back to
+    /// [`KeygenConfig::product`]. Replacing the running executable is left to the application.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn download_artifact_to(
+        &self,
+        artifact: &str,
+        path: impl AsRef<Path>,
+        options: Option<ArtifactDownloadOptions>,
+    ) -> Result<Artifact, Error> {
+        let config = get_config()?;
+        let client = Client::new(ClientOptions::from(config.clone()))?;
+        download_with_client(&client, &config, self, artifact, path.as_ref(), options).await
     }
 
     /// List artifacts scoped to this release.
@@ -593,9 +796,22 @@ impl Constraint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::errors::ApiErrorKind;
     use crate::{
         KeygenRelationship, KeygenRelationshipData, KeygenRelationships, KeygenResponseData,
     };
+    use mockito::{mock, server_url};
+    use serde_json::json;
+
+    fn create_test_client() -> Client {
+        Client::new(ClientOptions::from(KeygenConfig {
+            api_url: server_url(),
+            account: "test_account".to_string(),
+            license_key: Some("test-license-key".to_string()),
+            ..Default::default()
+        }))
+        .expect("Failed to create test client")
+    }
 
     #[test]
     fn test_release_from_response_data() {
@@ -741,6 +957,70 @@ mod tests {
         // Verify None values are not included
         assert!(!query.contains("page"));
         assert!(!query.contains("status"));
+    }
+
+    #[tokio::test]
+    async fn test_artifact_redirect_returns_location_and_artifact() {
+        let _m = mock("GET", "/v1/releases/release-1/artifacts/app.zip")
+            .match_header("authorization", "License test-license-key")
+            .with_status(303)
+            .with_header("content-type", "application/vnd.api+json")
+            .with_header("location", "https://s3.example.com/app.zip")
+            .with_body(
+                json!({
+                    "data": {
+                        "id": "artifact-1",
+                        "type": "artifacts",
+                        "attributes": {
+                            "filename": "app.zip",
+                            "filesize": 1024,
+                            "checksum": "Y2hlY2tzdW0",
+                            "signature": "c2lnbmF0dXJl",
+                            "status": "UPLOADED",
+                            "created": "2024-01-01T00:00:00Z",
+                            "updated": "2024-01-01T00:00:00Z"
+                        },
+                        "relationships": {}
+                    }
+                })
+                .to_string(),
+            )
+            .create();
+
+        let (location, artifact) =
+            artifact_redirect_with_client(&create_test_client(), "release-1", "app.zip")
+                .await
+                .expect("redirect should succeed");
+
+        assert_eq!(location, "https://s3.example.com/app.zip");
+        assert_eq!(artifact.id, "artifact-1");
+        assert_eq!(artifact.checksum.as_deref(), Some("Y2hlY2tzdW0"));
+        assert_eq!(artifact.signature.as_deref(), Some("c2lnbmF0dXJl"));
+    }
+
+    #[tokio::test]
+    async fn test_artifact_redirect_returns_api_error_when_artifact_is_missing() {
+        let _m = mock("GET", "/v1/releases/release-1/artifacts/missing.zip")
+            .with_status(404)
+            .with_header("content-type", "application/vnd.api+json")
+            .with_body(
+                json!({
+                    "errors": [{
+                        "title": "Not found",
+                        "detail": "The requested artifact was not found",
+                        "code": "NOT_FOUND"
+                    }]
+                })
+                .to_string(),
+            )
+            .create();
+
+        let err = artifact_redirect_with_client(&create_test_client(), "release-1", "missing.zip")
+            .await
+            .expect_err("missing artifact should be an error");
+
+        assert!(matches!(err, Error::Api(_)));
+        assert_eq!(err.api_error_kind(), ApiErrorKind::NotFound);
     }
 
     #[test]

@@ -999,6 +999,7 @@ dependencies = [
  "rand_core 0.6.4",
  "serde",
  "sha2",
+ "signature",
  "subtle",
  "zeroize",
 ]
@@ -2217,6 +2218,7 @@ dependencies = [
  "specta-serde",
  "specta-typescript",
  "subtle",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "url",
