@@ -84,6 +84,27 @@ tauri::Builder::default()
 
 For more detailed examples, refer to the [examples](./examples) directory.
 
+### Offline license certificates
+
+The plugin verifies license certificates before saving them and when restoring
+cached license state. It supports encrypted and Base64 certificates and checks
+that each certificate belongs to the cached license key.
+
+By default, certificate verification uses the public key passed to `Builder::new`.
+For RSA or ECDSA certificates, supply the corresponding account public key
+separately from the Ed25519 key used to verify API responses:
+
+```rust
+Builder::new(account, product, ed25519_public_key)
+    .license_file_public_key(certificate_public_key_pem)
+    .build()
+```
+
+Use the same certificate signing algorithm for each checkout in the application.
+The configured certificate public key must match that algorithm. See Keygen's
+[offline licensing reference](https://keygen.sh/docs/api/cryptography/) for the
+supported algorithms and public key formats.
+
 ## Error Handling
 
 The plugin uses a `KeygenError` class for error handling. Catch and handle these errors in your application as needed.

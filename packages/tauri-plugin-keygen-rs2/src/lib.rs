@@ -82,10 +82,13 @@ impl<R: Runtime> AppHandleExt for tauri::AppHandle<R> {
     }
 }
 
+pub(crate) struct LicenseFilePublicKey(pub(crate) String);
+
 pub struct Builder {
     account: String,
     product: String,
     public_key: String,
+    license_file_public_key: Option<String>,
     api_url: Option<String>,
     api_version: Option<ApiContractVersion>,
     api_prefix: Option<String>,
@@ -101,6 +104,7 @@ impl Builder {
             account: account.into(),
             product: product.into(),
             public_key: public_key.into(),
+            license_file_public_key: None,
             api_url: None,
             api_version: None,
             api_prefix: None,
@@ -122,6 +126,22 @@ impl Builder {
         self
     }
 
+    /// Set the public key used to verify checked-out and cached license files.
+    ///
+    /// Defaults to the HTTP response verification key passed to [`Self::new`].
+    /// Set a matching PEM public key when using RSA or ECDSA license files.
+    /// HTTP response verification continues to use the original Ed25519 key.
+    pub fn license_file_public_key(mut self, public_key: impl Into<String>) -> Self {
+        self.license_file_public_key = Some(public_key.into());
+        self
+    }
+
+    fn selected_license_file_public_key(&self) -> &str {
+        self.license_file_public_key
+            .as_deref()
+            .unwrap_or(&self.public_key)
+    }
+
     fn into_config(self) -> KeygenConfig {
         KeygenConfig {
             api_url: self
@@ -137,6 +157,7 @@ impl Builder {
     }
 
     pub fn build<R: Runtime>(self) -> TauriPlugin<R> {
+        let license_file_public_key = self.selected_license_file_public_key().to_string();
         let config = self.into_config();
 
         PluginBuilder::new("keygen-rs2")
@@ -173,8 +194,9 @@ impl Builder {
 
                 app_handle.manage(Mutex::new(keygen_config));
                 app_handle.manage(Mutex::new(machine_state));
+                app_handle.manage(LicenseFilePublicKey(license_file_public_key.clone()));
 
-                let license_state = LicenseState::load(app_handle);
+                let license_state = LicenseState::load(app_handle, &license_file_public_key);
                 match license_state {
                     Ok(license_state) => {
                         app_handle.manage(Mutex::new(license_state));
@@ -235,5 +257,34 @@ mod tests {
             .into_config();
 
         assert_eq!(config.api_version, ApiContractVersion::V1_7);
+    }
+
+    #[test]
+    fn builder_defaults_license_file_key_to_http_response_key() {
+        let builder = Builder::new("account", "product", "http-response-key");
+
+        assert_eq!(
+            builder.selected_license_file_public_key(),
+            "http-response-key"
+        );
+        assert_eq!(
+            builder.into_config().public_key.as_deref(),
+            Some("http-response-key")
+        );
+    }
+
+    #[test]
+    fn builder_keeps_license_file_key_separate_from_http_response_key() {
+        let builder = Builder::new("account", "product", "http-response-key")
+            .license_file_public_key("license-file-key");
+
+        assert_eq!(
+            builder.selected_license_file_public_key(),
+            "license-file-key"
+        );
+        assert_eq!(
+            builder.into_config().public_key.as_deref(),
+            Some("http-response-key")
+        );
     }
 }

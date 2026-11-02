@@ -213,26 +213,55 @@ impl LicenseFile {
         }
     }
 
+    /// Load an encrypted or unencrypted certificate without verifying its signature.
+    ///
+    /// `key` is used only to decrypt encrypted certificates. Prefer
+    /// [`Self::from_cert_verified`] when restoring a license from untrusted storage.
     pub fn from_cert(key: &str, content: &str) -> Result<LicenseFile, Error> {
-        let dataset = Self::_decrypt(key, content)?;
-        let meta = CertificateFileMeta {
+        let certificate = Self::_certificate(content.to_string())?;
+        let dataset = Self::_unpack(key, &certificate)?;
+        Ok(Self::_from_dataset(content, dataset))
+    }
+
+    /// Verify and load a certificate for the expected license key.
+    ///
+    /// The signature is verified before decoding or decrypting the dataset. An
+    /// expired dataset is returned in [`Error::LicenseFileExpired`] only after
+    /// its signature and license key have both been checked.
+    ///
+    /// Verification uses the certificate's declared algorithm and an explicit
+    /// public key. `key` must match the dataset's license key and is also used
+    /// to decrypt encrypted certificates.
+    pub fn from_cert_verified(
+        key: &str,
+        content: &str,
+        public_key: &str,
+    ) -> Result<LicenseFile, Error> {
+        let certificate = Self::_certificate(content.to_string())?;
+        Verifier::new(public_key.to_string()).verify_license_certificate(&certificate)?;
+        let (dataset, expired) = match Self::_unpack(key, &certificate) {
+            Ok(dataset) => (dataset, false),
+            Err(Error::LicenseFileExpired(dataset)) => (*dataset, true),
+            Err(error) => return Err(error),
+        };
+        if dataset.license.key != key {
+            return Err(Error::LicenseFileInvalid(
+                "Certificate license key does not match the expected key".to_string(),
+            ));
+        }
+        if expired {
+            return Err(Error::LicenseFileExpired(Box::new(dataset)));
+        }
+        Ok(Self::_from_dataset(content, dataset))
+    }
+
+    fn _from_dataset(content: &str, dataset: LicenseFileDataset) -> LicenseFile {
+        LicenseFile {
+            id: dataset.license.id,
+            certificate: content.to_string(),
             issued: dataset.issued,
             expiry: dataset.expiry,
             ttl: dataset.ttl,
-        };
-        if let Err(err) = validate_certificate_meta(&meta) {
-            match err {
-                Error::CertificateFileExpired => Err(Error::LicenseFileExpired(Box::new(dataset))),
-                _ => Err(err),
-            }
-        } else {
-            Ok(LicenseFile {
-                id: dataset.license.id.clone(),
-                certificate: content.to_string(),
-                issued: dataset.issued,
-                expiry: dataset.expiry,
-                ttl: dataset.ttl,
-            })
         }
     }
 
@@ -354,6 +383,19 @@ impl LicenseFile {
         Self::_parse_dataset(&data)
     }
 
+    fn _unpack(key: &str, cert: &Certificate) -> Result<LicenseFileDataset, Error> {
+        let algorithm = LicenseFileAlgorithm::from_code(&cert.alg)
+            .ok_or_else(|| Error::LicenseFileNotSupported(cert.alg.clone()))?;
+        let data = if algorithm.is_encrypted() {
+            Decryptor::new(key.to_string()).decrypt_certificate(cert)?
+        } else {
+            general_purpose::STANDARD
+                .decode(&cert.enc)
+                .map_err(|error| Error::LicenseFileInvalid(error.to_string()))?
+        };
+        Self::_parse_dataset(&data)
+    }
+
     fn _decode(content: &str) -> Result<LicenseFileDataset, Error> {
         let cert = Self::_certificate(content.to_string())?;
         let algorithm = LicenseFileAlgorithm::from_code(&cert.alg)
@@ -452,6 +494,217 @@ mod tests {
     use super::*;
     use crate::license::{LicenseCheckoutOpts, UpdateField};
     use serde_json::json;
+
+    const TEST_LICENSE_KEY: &str = "TEST-LICENSE-KEY";
+
+    fn encode_certificate(certificate: &Certificate) -> String {
+        let encoded = general_purpose::STANDARD.encode(serde_json::to_vec(certificate).unwrap());
+        format!("-----BEGIN LICENSE FILE-----\n{encoded}\n-----END LICENSE FILE-----")
+    }
+
+    fn signed_certificate(
+        encrypted: bool,
+        expired: bool,
+        license_key: &str,
+    ) -> (Certificate, String) {
+        use aes_gcm::aead::Aead;
+        use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+        use ed25519_dalek::{Signer, SigningKey};
+        use sha2::{Digest, Sha256};
+
+        let dataset = json!({
+            "meta": {
+                "issued": "2020-01-01T00:00:00Z",
+                "expiry": if expired { "2020-01-01T01:00:00Z" } else { "2999-01-01T00:00:00Z" },
+                "ttl": 3600
+            },
+            "data": {
+                "type": "licenses",
+                "id": "license-1",
+                "attributes": { "key": license_key },
+                "relationships": {}
+            },
+            "included": [{
+                "type": "entitlements",
+                "id": "entitlement-1",
+                "attributes": {
+                    "code": "feature-a",
+                    "created": "2020-01-01T00:00:00Z",
+                    "updated": "2020-01-01T00:00:00Z"
+                },
+                "relationships": {}
+            }]
+        });
+        let payload = serde_json::to_vec(&dataset).unwrap();
+        let (enc, alg) = if encrypted {
+            let cipher =
+                Aes256Gcm::new_from_slice(&Sha256::digest(TEST_LICENSE_KEY.as_bytes())).unwrap();
+            let iv = *b"012345678901";
+            let ciphertext = cipher
+                .encrypt(Nonce::from_slice(&iv), payload.as_ref())
+                .unwrap();
+            let (ciphertext, tag) = ciphertext.split_at(ciphertext.len() - 16);
+            (
+                format!(
+                    "{}.{}.{}",
+                    general_purpose::STANDARD.encode(ciphertext),
+                    general_purpose::STANDARD.encode(iv),
+                    general_purpose::STANDARD.encode(tag)
+                ),
+                "aes-256-gcm+ed25519",
+            )
+        } else {
+            (general_purpose::STANDARD.encode(payload), "base64+ed25519")
+        };
+        let signing_key = SigningKey::from_bytes(&[7; 32]);
+        let signature = signing_key.sign(format!("license/{enc}").as_bytes());
+        (
+            Certificate {
+                enc,
+                sig: general_purpose::STANDARD.encode(signature.to_bytes()),
+                alg: alg.to_string(),
+            },
+            hex::encode(signing_key.verifying_key().to_bytes()),
+        )
+    }
+
+    #[test]
+    fn verified_loading_preserves_metadata_and_entitlements_for_both_encodings() {
+        for encrypted in [false, true] {
+            let (certificate, public_key) = signed_certificate(encrypted, false, TEST_LICENSE_KEY);
+            let content = encode_certificate(&certificate);
+            let file =
+                LicenseFile::from_cert_verified(TEST_LICENSE_KEY, &content, &public_key).unwrap();
+            assert_eq!(file.id, "license-1");
+            assert_eq!(file.certificate, content);
+            assert_eq!(file.ttl, 3600);
+            let dataset = if encrypted {
+                assert!(file.decode().is_err());
+                file.decrypt(TEST_LICENSE_KEY).unwrap()
+            } else {
+                assert!(matches!(
+                    file.decrypt(TEST_LICENSE_KEY),
+                    Err(Error::LicenseFileNotEncrypted)
+                ));
+                file.decode().unwrap()
+            };
+            assert_eq!(file.issued, dataset.issued);
+            assert_eq!(file.expiry, dataset.expiry);
+            assert_eq!(dataset.license.key, TEST_LICENSE_KEY);
+            assert_eq!(dataset.offline_entitlements().unwrap()[0].code, "feature-a");
+        }
+    }
+
+    #[test]
+    fn verified_loading_rejects_tampering_before_unpacking_or_returning_expired_data() {
+        for encrypted in [false, true] {
+            for expired in [false, true] {
+                let (certificate, public_key) =
+                    signed_certificate(encrypted, expired, TEST_LICENSE_KEY);
+                let mut tampered_signature = certificate.clone();
+                tampered_signature.sig = general_purpose::STANDARD.encode([0; 64]);
+                let mut tampered_payload = certificate;
+                // Invalid payload also checks that verification precedes decoding/decryption.
+                tampered_payload.enc = "tampered".to_string();
+                for tampered in [tampered_signature, tampered_payload] {
+                    assert!(matches!(
+                        LicenseFile::from_cert_verified(
+                            TEST_LICENSE_KEY,
+                            &encode_certificate(&tampered),
+                            &public_key
+                        ),
+                        Err(Error::LicenseFileNotGenuine(_))
+                    ));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn verified_loading_rejects_wrong_verification_and_decryption_keys() {
+        let other_public_key = hex::encode(
+            ed25519_dalek::SigningKey::from_bytes(&[8; 32])
+                .verifying_key()
+                .to_bytes(),
+        );
+        for encrypted in [false, true] {
+            let (certificate, public_key) = signed_certificate(encrypted, false, TEST_LICENSE_KEY);
+            let content = encode_certificate(&certificate);
+            assert!(matches!(
+                LicenseFile::from_cert_verified(TEST_LICENSE_KEY, &content, &other_public_key),
+                Err(Error::LicenseFileNotGenuine(_))
+            ));
+            assert!(matches!(
+                LicenseFile::from_cert_verified(TEST_LICENSE_KEY, &content, ""),
+                Err(Error::PublicKeyMissing)
+            ));
+            let result = LicenseFile::from_cert_verified("wrong-key", &content, &public_key);
+            if encrypted {
+                assert!(matches!(result, Err(Error::DecryptionError(_))));
+            } else {
+                assert!(matches!(result, Err(Error::LicenseFileInvalid(_))));
+            }
+        }
+    }
+
+    #[test]
+    fn verified_loading_checks_dataset_key_before_exposing_valid_or_expired_data() {
+        for encrypted in [false, true] {
+            for expired in [false, true] {
+                // Encryption still uses TEST_LICENSE_KEY, so even encrypted files
+                // must check the identity inside the signed dataset.
+                let (certificate, public_key) =
+                    signed_certificate(encrypted, expired, "OTHER-LICENSE-KEY");
+                assert!(matches!(
+                    LicenseFile::from_cert_verified(
+                        TEST_LICENSE_KEY,
+                        &encode_certificate(&certificate),
+                        &public_key
+                    ),
+                    Err(Error::LicenseFileInvalid(_))
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn loading_preserves_expired_datasets_for_both_encodings() {
+        for encrypted in [false, true] {
+            let (certificate, public_key) = signed_certificate(encrypted, true, TEST_LICENSE_KEY);
+            let content = encode_certificate(&certificate);
+            for result in [
+                LicenseFile::from_cert(TEST_LICENSE_KEY, &content),
+                LicenseFile::from_cert_verified(TEST_LICENSE_KEY, &content, &public_key),
+            ] {
+                match result {
+                    Err(Error::LicenseFileExpired(dataset)) => {
+                        assert_eq!(dataset.license.key, TEST_LICENSE_KEY);
+                        assert_eq!(dataset.ttl, 3600);
+                        assert_eq!(dataset.offline_entitlements().unwrap()[0].code, "feature-a");
+                    }
+                    result => panic!("Expected expired dataset, got {result:?}"),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn loading_rejects_malformed_and_unsupported_certificates() {
+        let (mut certificate, public_key) = signed_certificate(false, false, TEST_LICENSE_KEY);
+        certificate.alg = "base64+unknown".to_string();
+        for content in ["invalid".to_string(), encode_certificate(&certificate)] {
+            for result in [
+                LicenseFile::from_cert(TEST_LICENSE_KEY, &content),
+                LicenseFile::from_cert_verified(TEST_LICENSE_KEY, &content, &public_key),
+            ] {
+                if content == "invalid" {
+                    assert!(matches!(result, Err(Error::LicenseFileInvalid(_))));
+                } else {
+                    assert!(matches!(result, Err(Error::LicenseFileNotSupported(_))));
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_included_resources_parsing() {
@@ -648,6 +901,12 @@ mod tests {
                 LicenseFileAlgorithm::from_code(algorithm).unwrap()
             );
             let decoded = file.decode().unwrap();
+            assert_eq!(
+                LicenseFile::from_cert("unused", &file.certificate)
+                    .unwrap()
+                    .id,
+                "license-1"
+            );
             assert_eq!(decoded.license.id, "license-1");
             let included = decoded.included.unwrap();
             let products = included.resources_by_type("products");
@@ -746,6 +1005,12 @@ mod tests {
             };
 
             assert_eq!(file.decrypt(secret).unwrap().license.id, "license-1");
+            assert_eq!(
+                LicenseFile::from_cert(secret, &file.certificate)
+                    .unwrap()
+                    .id,
+                "license-1"
+            );
         }
     }
 }

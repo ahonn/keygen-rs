@@ -13,10 +13,10 @@ use keygen_rs::{
     entitlement::Entitlement,
     errors::Error as KeygenError,
     license::{License, LicenseCheckoutOpts},
-    license_file::{IncludedResources, LicenseFile},
+    license_file::{IncludedResources, LicenseFile, LicenseFileDataset},
     machine::Machine,
 };
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 
 #[derive(Debug, Clone, Default)]
 pub struct IncludedData {
@@ -61,22 +61,24 @@ impl LicenseState {
             },
         );
         let validation = keygen_rs::validate_with_config(config.clone(), &request).await?;
-        if validation.meta.valid {
-            let license = validation.into_license()?;
-            self.license = Some(license.clone());
-            Self::save_license_key_cache(app_handle, &license)?;
-            self.set_valid(true).await;
-            Ok(license)
-        } else {
-            self.set_valid(false).await;
-            if let Some(license) = validation.license {
-                self.license = Some(license);
+        // Keep a copy of the license from the response: into_license() consumes
+        // the validation result, and a failed validation still needs the license
+        // so the machine can be activated afterwards.
+        let license_from_response = validation.license.clone();
+        match validation.into_license() {
+            Ok(license) => {
+                self.license = Some(license.clone());
+                Self::save_license_key_cache(app_handle, &license)?;
+                self.set_valid(true).await;
+                Ok(license)
             }
-            Err(KeygenError::LicenseKeyInvalid {
-                code: validation.meta.code,
-                detail: validation.meta.detail,
+            Err(err) => {
+                self.set_valid(false).await;
+                if let Some(license) = license_from_response {
+                    self.license = Some(license);
+                }
+                Err(err.into())
             }
-            .into())
         }
     }
 
@@ -151,9 +153,19 @@ impl LicenseState {
                 .with_config(config.clone())
                 .checkout(options)
                 .await?;
-            if let Ok(dataset) = &license_file.decrypt(&license.key) {
-                self.included = dataset.included.clone();
-            }
+            let certificate_key = app_handle.try_state::<crate::LicenseFilePublicKey>();
+            let public_key = certificate_key
+                .as_ref()
+                .map(|key| key.0.as_str())
+                .or(config.public_key.as_deref())
+                .ok_or(KeygenError::PublicKeyMissing)?;
+            let verified_file = LicenseFile::from_cert_verified(
+                &license.key,
+                &license_file.certificate,
+                public_key,
+            )?;
+            let dataset = Self::unpack_license_file(&verified_file, &license.key)?;
+            self.included = dataset.included;
 
             Self::save_license_file(app_handle, &license_file)?;
             Ok(license_file)
@@ -162,12 +174,15 @@ impl LicenseState {
         }
     }
 
-    pub(crate) fn load<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Self> {
+    pub(crate) fn load<R: Runtime>(app_handle: &AppHandle<R>, public_key: &str) -> Result<Self> {
         if let Some(license_key) = Self::load_license_key_cache(app_handle)? {
             log::info!("License key found in cache: {}", license_key);
             // attempt to load the license file
-            if let Some(license_file) = Self::load_license_file(app_handle, &license_key)? {
-                let dataset = license_file.decrypt(&license_key)?;
+            if let Some(content) = Self::read_license_file(app_handle)? {
+                // Verify before parsing expiry so even expired datasets are trusted.
+                let license_file =
+                    LicenseFile::from_cert_verified(&license_key, &content, public_key)?;
+                let dataset = Self::unpack_license_file(&license_file, &license_key)?;
                 log::info!("License file found in cache: {:?}", dataset);
                 return Ok(Self {
                     key: Some(license_key),
@@ -207,17 +222,35 @@ impl LicenseState {
         })
     }
 
+    /// Read a cached certificate without verifying its signature.
+    /// Plugin startup uses a verified loading path before restoring license state.
     pub fn load_license_file<R: Runtime>(
         app_handle: &AppHandle<R>,
         key: &str,
     ) -> Result<Option<LicenseFile>> {
+        let Some(content) = Self::read_license_file(app_handle)? else {
+            return Ok(None);
+        };
+        let license_file = LicenseFile::from_cert(key, &content)?;
+        Ok(Some(license_file))
+    }
+
+    fn read_license_file<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Option<String>> {
         let path = Self::get_license_file_path(app_handle)?;
         if !path.exists() {
             return Ok(None);
         }
-        let content = fs::read_to_string(path)?;
-        let license_file = LicenseFile::from_cert(key, &content)?;
-        Ok(Some(license_file))
+        Ok(Some(fs::read_to_string(path)?))
+    }
+
+    /// Turn a license file into its contents, decrypting it if it is encrypted.
+    fn unpack_license_file(license_file: &LicenseFile, key: &str) -> Result<LicenseFileDataset> {
+        let dataset = if license_file.algorithm()?.is_encrypted() {
+            license_file.decrypt(key)?
+        } else {
+            license_file.decode()?
+        };
+        Ok(dataset)
     }
 
     pub fn remove_license_file<R: Runtime>(app_handle: &AppHandle<R>) -> Result<()> {
@@ -269,3 +302,6 @@ impl LicenseState {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests;
