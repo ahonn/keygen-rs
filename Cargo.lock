@@ -4815,6 +4815,7 @@ dependencies = [
  "lazy_static",
  "log",
  "machine-uid",
+ "mockito",
  "serde",
  "serde_json",
  "sys-locale",

@@ -37,3 +37,7 @@ machine-uid = { version = "0.5.3" }
 
 [build-dependencies]
 tauri-plugin = { version = "2.0.1", features = ["build"] }
+
+[dev-dependencies]
+tauri = { version = "2.0.1", default-features = false, features = ["test"] }
+mockito = "0.31"

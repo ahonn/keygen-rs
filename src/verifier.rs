@@ -59,7 +59,11 @@ impl Verifier {
     #[must_use = "verification result should be checked"]
     pub fn verify_license_file(&self, lic: &LicenseFile) -> Result<(), Error> {
         let cert = lic.certificate()?;
-        if let Err(e) = self.verify_certificate(&cert, "license") {
+        self.verify_license_certificate(&cert)
+    }
+
+    pub(crate) fn verify_license_certificate(&self, cert: &Certificate) -> Result<(), Error> {
+        if let Err(e) = self.verify_certificate(cert, "license") {
             match e {
                 Error::CertificateFileNotGenuine(msg) => {
                     return Err(Error::LicenseFileNotGenuine(msg))
