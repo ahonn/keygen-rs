@@ -42,6 +42,22 @@ jobs:
       - name: Build documentation
         run: cargo doc --no-deps --all-features
 
+  tauri-plugin:
+    name: Tauri Plugin (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build and test Tauri plugin with locked dependencies
+        run: cargo test --locked -p tauri-plugin-keygen-rs2 --lib
+
   wasm-build:
     name: WASM Build
     runs-on: ubuntu-latest
