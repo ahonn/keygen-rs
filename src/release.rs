@@ -14,10 +14,7 @@ use reqwest::{header::HeaderMap, redirect::Policy, Client as ReqwestClient};
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{path::Path, time::Duration};
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
@@ -350,28 +347,38 @@ pub(crate) async fn download_with_client(
     path: &Path,
     options: Option<ArtifactDownloadOptions>,
 ) -> Result<Artifact, Error> {
-    let mut part = path.as_os_str().to_owned();
-    part.push(".part");
-    let part = PathBuf::from(part);
+    let io_error =
+        |e: std::io::Error| Error::UnexpectedError(format!("Failed to write artifact: {e}"));
+    let directory = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
+        .to_owned();
+    // Exclusive creation isolates concurrent downloads and avoids existing symlinks.
+    // If cancelled during creation, the blocking task's result still owns cleanup.
+    let temporary = tokio::task::spawn_blocking(move || {
+        tempfile::Builder::new()
+            .prefix(".keygen-")
+            .suffix(".part")
+            .tempfile_in(directory)
+    })
+    .await
+    .map_err(|e| Error::UnexpectedError(format!("Failed to create artifact temporary file: {e}")))?
+    .map_err(io_error)?;
+    let (file, temporary_path) = temporary.into_parts();
+    // Keep the path guard alive across every await so errors and cancellation clean up.
+    let mut file = tokio::fs::File::from_std(file);
+    let artifact =
+        download_to_writer_with_client(client, config, release, artifact, &mut file, options)
+            .await?;
+    file.sync_all().await.map_err(io_error)?;
+    drop(file);
 
-    let result = async {
-        let io_error =
-            |e: std::io::Error| Error::UnexpectedError(format!("Failed to write artifact: {e}"));
-        let mut file = tokio::fs::File::create(&part).await.map_err(io_error)?;
-        let artifact =
-            download_to_writer_with_client(client, config, release, artifact, &mut file, options)
-                .await?;
-        file.sync_all().await.map_err(io_error)?;
-        drop(file);
-        tokio::fs::rename(&part, path).await.map_err(io_error)?;
-        Ok(artifact)
-    }
-    .await;
-
-    if result.is_err() {
-        let _ = tokio::fs::remove_file(&part).await;
-    }
-    result
+    // Publish without an await: cancellation must not detach a pending rename.
+    temporary_path
+        .persist(path)
+        .map_err(|e| io_error(e.error))?;
+    Ok(artifact)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -549,10 +556,12 @@ impl Release {
 
     /// Download an artifact by ID or filename to `path` and verify it.
     ///
-    /// The file is written to `<path>.part` and renamed to `path` only after it was
-    /// verified; on error nothing is left behind. With [`ArtifactDownloadOptions::public_key`]
-    /// the signature is required (it covers the SHA-512 of the file) and the checksum is
-    /// checked if present; without it the checksum is required.
+    /// The file is written to a unique temporary file in the destination directory.
+    /// Verification must succeed before the file atomically replaces `path`.
+    /// On error or cancellation, the temporary file is removed and `path` is unchanged.
+    /// With [`ArtifactDownloadOptions::public_key`], the signature is required and
+    /// covers the SHA-512 of the file. The checksum is also checked if present.
+    /// Without a public key, the checksum is required.
     ///
     /// The signature context is the release's product, falling back to
     /// [`KeygenConfig::product`]. Replacing the running executable is left to the application.

@@ -2218,6 +2218,7 @@ dependencies = [
  "specta-serde",
  "specta-typescript",
  "subtle",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "url",
