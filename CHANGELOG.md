@@ -6,6 +6,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-02
+
+### Added
+
+- Download artifacts with checksum and signature verification ([6d13515](https://github.com/ahonn/keygen-rs/commit/6d1351564d1f35390cd7a92a8e3fb9d0c9fa0eb9))
+- Check for upgrade by current version ([6f4574e](https://github.com/ahonn/keygen-rs/commit/6f4574e4d9084c1fd7e6a51326a5bf70d6d64bfa))
+
+### Fixed
+
+- Restore NAPI and Tauri JavaScript builds ([3007c28](https://github.com/ahonn/keygen-rs/commit/3007c28f6bc107bdc1648efdeec78e84696cdd23))
+- Isolate artifact temporary files and clean up cancelled downloads ([9b0e223](https://github.com/ahonn/keygen-rs/commit/9b0e2237e0263bbd2caef46aa917f7a9efb24a8c))
+- Align Tauri runtime dependencies and check plugin builds in CI ([53ff25c](https://github.com/ahonn/keygen-rs/commit/53ff25c4c1e72e0e2702c90b44a68895161d018b))
+- Verify and reload encrypted and plaintext license caches ([ddaa238](https://github.com/ahonn/keygen-rs/commit/ddaa2389015107fce2f6eaf32aa5bd1ec7be3955))
+- Do not follow redirects automatically ([1ea1dc7](https://github.com/ahonn/keygen-rs/commit/1ea1dc7102a0ac1a3e75e9e9bafb7a1405154b6e))
+- Restore typed validation errors and checkout defaults ([#130](https://github.com/ahonn/keygen-rs/pull/130)) ([48324ad](https://github.com/ahonn/keygen-rs/commit/48324ade99f981e902bb389f0319097509b97fc6))
+
+### Other
+
+- Merge pull request #140 from Djjanks/feat/release-download ([8747bda](https://github.com/ahonn/keygen-rs/commit/8747bdabdfa70f677e7334309161c41c88e4133e))
+- Merge pull request #136 from mtantaoui/fix/validation-errors-checkout-defaults ([972ac31](https://github.com/ahonn/keygen-rs/commit/972ac312671a1f1c6131119843a898373e28b0d4))
+- Bump the minor-updates group across 1 directory with 9 updates ([8085d75](https://github.com/ahonn/keygen-rs/commit/8085d7536c19a32663aa1ea6f6801469a4ddd07c))
+
+
 ## [0.14.0] - 2026-10-26
 
 ### Added

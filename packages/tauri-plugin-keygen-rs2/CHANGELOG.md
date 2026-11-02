@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-11-02
+
+### Fixed
+
+- Restore NAPI and Tauri JavaScript builds ([3007c28](https://github.com/ahonn/keygen-rs/commit/3007c28f6bc107bdc1648efdeec78e84696cdd23))
+- Verify and reload encrypted and plaintext license caches ([ddaa238](https://github.com/ahonn/keygen-rs/commit/ddaa2389015107fce2f6eaf32aa5bd1ec7be3955))
+- Restore typed validation errors and checkout defaults ([#130](https://github.com/ahonn/keygen-rs/pull/130)) ([48324ad](https://github.com/ahonn/keygen-rs/commit/48324ade99f981e902bb389f0319097509b97fc6))
+
+### Other
+
+- Bump the tauri-plugin-deps group ([737e76d](https://github.com/ahonn/keygen-rs/commit/737e76d732e100cdc1e814bf651fe62f5a6fc365))
+
+
 ## [0.12.1] - 2026-09-14
 
 ### Other
