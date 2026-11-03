@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-11-03
+
 ### Fixed
 
 - Include the generated JavaScript entry point and TypeScript declarations in the NAPI npm package.
