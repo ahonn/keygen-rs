@@ -142,7 +142,10 @@ jobs:
 
       - name: Build
         working-directory: ${{ env.NAPI_WORKING_DIR }}
-        run: npx napi build --platform --release --target ${{ matrix.target }} ${{ matrix.use-zig && '--cross-compile' || '' }}
+        run: |
+          VERSION=$(grep -A1 '^\[workspace.package\]' ../../Cargo.toml | grep version | sed 's/.*"\(.*\)".*/\1/')
+          npm version "$VERSION" --no-git-tag-version --allow-same-version --ignore-scripts
+          npx napi build --platform --release --target ${{ matrix.target }} ${{ matrix.use-zig && '--cross-compile' || '' }} -- --locked
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
@@ -202,7 +205,10 @@ jobs:
 
       - name: Move artifacts
         working-directory: ${{ env.NAPI_WORKING_DIR }}
-        run: npx napi artifacts
+        run: |
+          npx napi artifacts
+          cp artifacts/bindings-aarch64-apple-darwin/index.js .
+          cp artifacts/bindings-aarch64-apple-darwin/index.d.ts .
 
       - name: Sync version from Cargo.toml
         working-directory: ${{ env.NAPI_WORKING_DIR }}
@@ -215,6 +221,10 @@ jobs:
       - name: List packages
         working-directory: ${{ env.NAPI_WORKING_DIR }}
         run: ls -R npm/
+
+      - name: Check npm package contents
+        working-directory: ${{ env.NAPI_WORKING_DIR }}
+        run: npm run check:package
 
       # npm trusted publishing (OIDC) needs npm >= 11.5.1; Node 22 bundles npm 10.
       - name: Upgrade npm for trusted publishing

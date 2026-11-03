@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Include the generated JavaScript entry point and TypeScript declarations in the NAPI npm package.
+- Synchronize the NAPI npm version before generating its loader, and check package contents before publishing.
+
+### Upgrade notes
+
+- `@keygen-rs/napi@0.14.1` omitted its JavaScript entry point and cannot be loaded. Upgrade to 0.14.2.
+  The Rust crates, WASM npm package, and native binaries from 0.14.1 are not affected by this packaging issue.
+
 ## [0.14.1] - 2026-11-02
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "@keygen-rs/napi",
-  "version": "0.9.1",
+  "version": "0.14.1",
   "description": "Node.js bindings for keygen-rs - Unofficial SDK for keygen.sh licensing service",
   "main": "index.js",
   "types": "index.d.ts",
@@ -27,7 +27,8 @@
     "prepublishOnly": "napi prepublish -t npm --skip-optional-publish",
     "artifacts": "napi artifacts",
     "version": "napi version",
-    "test": "node --test __test__/index.test.mjs"
+    "test": "node --test __test__/index.test.mjs",
+    "check:package": "node scripts/check-package.mjs"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.5.1"
