@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-11-02
+
+### Fixed
+
+- Update locked `crossbeam-channel` to 0.5.17 and `tray-icon` to 0.21.3, replacing yanked versions.
+
+- Restore NAPI and Tauri JavaScript builds ([3007c28](https://github.com/ahonn/keygen-rs/commit/3007c28f6bc107bdc1648efdeec78e84696cdd23))
+- Verify and reload encrypted and plaintext license caches ([ddaa238](https://github.com/ahonn/keygen-rs/commit/ddaa2389015107fce2f6eaf32aa5bd1ec7be3955))
+- Restore typed validation errors and checkout defaults ([#130](https://github.com/ahonn/keygen-rs/issues/130)) ([48324ad](https://github.com/ahonn/keygen-rs/commit/48324ade99f981e902bb389f0319097509b97fc6))
+
+### Upgrade notes
+
+- Invalid license validation returns specific error variants again. Match `LicenseNotActivated` to continue the activation flow.
+- Checkout includes entitlements and encrypts by default. The plugin can restore both encrypted and plaintext certificates.
+- Cached certificates must pass signature verification and match the cached license key.
+  For RSA or ECDSA certificates, set `Builder::license_file_public_key` to the matching PEM public key.
+  The default remains the Ed25519 key passed to `Builder::new` for HTTP response verification.
+
+
 ## [0.12.1] - 2026-09-14
 
 ### Other
