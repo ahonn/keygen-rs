@@ -142,6 +142,7 @@ jobs:
 
       - name: Build
         working-directory: ${{ env.NAPI_WORKING_DIR }}
+        shell: bash
         run: |
           VERSION=$(grep -A1 '^\[workspace.package\]' ../../Cargo.toml | grep version | sed 's/.*"\(.*\)".*/\1/')
           npm version "$VERSION" --no-git-tag-version --allow-same-version --ignore-scripts
