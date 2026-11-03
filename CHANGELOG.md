@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-11-03
+
+### Fixed
+
+- Use Bash for NAPI version sync on Windows ([bc10bf8](https://github.com/ahonn/keygen-rs/commit/bc10bf84eda9d89956397fa8bbfabbee0cc12432))
+
+
 ## [0.14.2] - 2026-11-03
 
 ### Fixed

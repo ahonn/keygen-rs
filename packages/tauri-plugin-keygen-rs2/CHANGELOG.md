@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.3] - 2026-11-03
+
+### Other
+
+- Clarify the 0.14.2 NAPI packaging fix ([ce7b64b](https://github.com/ahonn/keygen-rs/commit/ce7b64b961701897717c465acf949bf3fe8e5fa3))
+
+
 ## [0.14.2] - 2026-11-03
 
 ### Changed
