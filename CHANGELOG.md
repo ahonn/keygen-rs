@@ -10,11 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Include NAPI entry files and validate npm package contents ([bfdc48a](https://github.com/ahonn/keygen-rs/commit/bfdc48a834bab6f08807156bf857420448194ec6))
-
-
-### Fixed
-
 - Include the generated JavaScript entry point and TypeScript declarations in the NAPI npm package.
 - Synchronize the NAPI npm version before generating its loader, and check package contents before publishing.
 
