@@ -4,6 +4,10 @@ use serde_json::Value;
 
 use crate::client::Client;
 use crate::errors::Error;
+#[cfg(feature = "token")]
+use crate::keygen_client::KeygenClient;
+#[cfg(feature = "token")]
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,11 +42,6 @@ pub(crate) struct WebhookEventResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct WebhookEventsResponse {
-    pub data: Vec<KeygenResponseData<WebhookEventAttributes>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhookEventRecord {
     pub id: String,
     pub endpoint: String,
@@ -56,12 +55,20 @@ pub struct WebhookEventRecord {
     pub account_id: Option<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct WebhookEventListOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<i32>,
+    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<i32>,
+    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
     pub page_size: Option<i32>,
+    /// Cursor returned by [`Page::next_cursor`]. Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
+    #[serde(rename = "event", skip_serializing_if = "Option::is_none")]
     pub event_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<WebhookEventStatus>,
 }
 
@@ -90,40 +97,32 @@ impl WebhookEventRecord {
     pub async fn list(
         options: Option<&WebhookEventListOptions>,
     ) -> Result<Vec<WebhookEventRecord>, Error> {
-        let client = Client::from_global_config()?;
-        let mut query = serde_json::json!({});
+        let page = Self::list_with_client(&Client::from_global_config()?, options).await?;
+        Ok(page.into_items())
+    }
 
-        if let Some(opts) = options {
-            if let Some(limit) = opts.limit {
-                query["limit"] = serde_json::json!(limit);
-            }
-            if let Some(page_number) = opts.page_number {
-                query["page[number]"] = serde_json::json!(page_number);
-            }
-            if let Some(page_size) = opts.page_size {
-                query["page[size]"] = serde_json::json!(page_size);
-            }
-            if let Some(ref event_type) = opts.event_type {
-                query["event"] = serde_json::json!(event_type);
-            }
-            if let Some(ref status) = opts.status {
-                query["status"] = serde_json::to_value(status).unwrap_or_default();
-            }
-        }
-
-        let response = client.get("webhook-events", Some(&query)).await?;
-        let events_response: WebhookEventsResponse = serde_json::from_value(response.body)?;
-        Ok(events_response
-            .data
-            .into_iter()
-            .map(WebhookEventRecord::from)
-            .collect())
+    #[cfg(feature = "token")]
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&WebhookEventListOptions>,
+    ) -> Result<Page<WebhookEventRecord>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("webhook-events", query.as_ref()).await?;
+        let document: ListDocument<WebhookEventAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(WebhookEventRecord::from))
     }
 
     /// Get a webhook event by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<WebhookEventRecord, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn get_with_client(
+        client: &Client,
+        id: &str,
+    ) -> Result<WebhookEventRecord, Error> {
         let endpoint = format!("webhook-events/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let event_response: WebhookEventResponse = serde_json::from_value(response.body)?;
@@ -133,8 +132,15 @@ impl WebhookEventRecord {
     /// Retry this webhook event
     #[cfg(feature = "token")]
     pub async fn retry(&self) -> Result<WebhookEventRecord, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("webhook-events/{}/actions/retry", self.id);
+        Self::retry_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn retry_with_client(
+        client: &Client,
+        id: &str,
+    ) -> Result<WebhookEventRecord, Error> {
+        let endpoint = format!("webhook-events/{id}/actions/retry");
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let event_response: WebhookEventResponse = serde_json::from_value(response.body)?;
         Ok(WebhookEventRecord::from(event_response.data))
@@ -143,8 +149,12 @@ impl WebhookEventRecord {
     /// Delete this webhook event
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("webhook-events/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("webhook-events/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
@@ -165,6 +175,38 @@ impl WebhookEventRecord {
             self.status,
             WebhookEventStatus::Delivering | WebhookEventStatus::Failing
         )
+    }
+}
+
+/// Webhook event operations bound to one [`KeygenClient`].
+#[cfg(feature = "token")]
+pub struct WebhookEventService<'a> {
+    client: &'a KeygenClient,
+}
+
+#[cfg(feature = "token")]
+impl<'a> WebhookEventService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn list(
+        &self,
+        options: Option<&WebhookEventListOptions>,
+    ) -> Result<Page<WebhookEventRecord>, Error> {
+        WebhookEventRecord::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<WebhookEventRecord, Error> {
+        WebhookEventRecord::get_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn retry(&self, id: &str) -> Result<WebhookEventRecord, Error> {
+        WebhookEventRecord::retry_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        WebhookEventRecord::delete_with_client(&self.client.transport, id).await
     }
 }
 

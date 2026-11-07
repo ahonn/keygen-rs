@@ -1,5 +1,7 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::keygen_client::KeygenClient;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 
@@ -17,11 +19,6 @@ pub(crate) struct PlatformResponse {
     pub data: KeygenResponseData<PlatformAttributes>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct PlatformsResponse {
-    pub data: Vec<KeygenResponseData<PlatformAttributes>>,
-}
-
 /// Options for listing platforms
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListPlatformsOptions {
@@ -31,6 +28,10 @@ pub struct ListPlatformsOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
 }
 
 /// A platform represents a target operating system for artifacts
@@ -67,23 +68,52 @@ impl Platform {
     ///
     /// Platforms are automatically populated based on releases and artifacts.
     pub async fn list(options: Option<ListPlatformsOptions>) -> Result<Vec<Platform>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("platforms", options.as_ref()).await?;
-        let platforms_response: PlatformsResponse = serde_json::from_value(response.body)?;
-        Ok(platforms_response
-            .data
-            .into_iter()
-            .map(Platform::from)
-            .collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListPlatformsOptions>,
+    ) -> Result<Page<Platform>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("platforms", query.as_ref()).await?;
+        let document: ListDocument<PlatformAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Platform::from))
     }
 
     /// Get a platform by ID
     pub async fn get(id: &str) -> Result<Platform, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Platform, Error> {
         let endpoint = format!("platforms/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let platform_response: PlatformResponse = serde_json::from_value(response.body)?;
         Ok(Platform::from(platform_response.data))
+    }
+}
+
+/// Platform operations bound to one [`KeygenClient`].
+pub struct PlatformService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> PlatformService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn list(
+        &self,
+        options: Option<&ListPlatformsOptions>,
+    ) -> Result<Page<Platform>, Error> {
+        Platform::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Platform, Error> {
+        Platform::get_with_client(&self.client.transport, id).await
     }
 }
 

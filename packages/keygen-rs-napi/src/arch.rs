@@ -41,6 +41,7 @@ pub async fn list_arches(options: Option<ListArchesOptions>) -> Result<Vec<Arch>
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        page_cursor: None,
     });
     keygen_rs::arch::Arch::list(opts)
         .await

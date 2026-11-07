@@ -82,7 +82,10 @@ pub fn supports_api_contract(
 
 /// Ping the Keygen service and get basic information
 pub async fn ping() -> Result<PingResponse, Error> {
-    let client = Client::from_global_config()?;
+    ping_with_client(&Client::from_global_config()?).await
+}
+
+pub(crate) async fn ping_with_client(client: &Client) -> Result<PingResponse, Error> {
     let response = client.get_text("ping").await?;
 
     // The ping endpoint returns plain text (usually "ok")

@@ -174,6 +174,7 @@ pub async fn list_webhook_endpoints(options: JsValue) -> Result<JsValue, JsError
             limit: o.limit.map(|v| v as i32),
             page_size: o.page_size.map(|v| v as i32),
             page_number: o.page_number.map(|v| v as i32),
+            page_cursor: None,
         },
     );
 
@@ -266,6 +267,7 @@ pub async fn list_webhook_events(options: JsValue) -> Result<JsValue, JsError> {
             page_size: o.page_size.map(|v| v as i32),
             event_type: o.event_type,
             status,
+            page_cursor: None,
         }
     });
 

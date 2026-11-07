@@ -34,12 +34,14 @@ pub mod license;
 pub mod license_file;
 pub mod machine;
 pub mod machine_file;
+pub mod pagination;
 pub mod service;
 #[cfg(feature = "specta")]
 pub mod specta_support;
 
 pub use api_version::ApiContractVersion;
 pub use keygen_client::{KeygenClient, KeygenClientBuilder};
+pub use pagination::{Page, PageLinks};
 
 // Management features only available with "token" feature flag
 #[cfg(feature = "token")]

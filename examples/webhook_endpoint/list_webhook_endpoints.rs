@@ -23,6 +23,7 @@ async fn main() -> Result<(), Error> {
         limit: Some(10),
         page_size: Some(10),
         page_number: Some(1),
+        page_cursor: None,
     };
 
     match WebhookEndpoint::list(Some(&options)).await {

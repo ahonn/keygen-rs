@@ -1,6 +1,8 @@
 use crate::client::Client;
 use crate::errors::Error;
 use crate::insert_optional;
+use crate::keygen_client::KeygenClient;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize, Serializer};
@@ -95,17 +97,20 @@ pub(crate) struct UserResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct UsersResponse {
-    pub data: Vec<KeygenResponseData<UserAttributes>>,
-    pub meta: Option<serde_json::Value>,
-    pub links: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsersListResult {
     pub users: Vec<User>,
     pub meta: Option<serde_json::Value>,
     pub links: Option<serde_json::Value>,
+}
+
+impl From<Page<User>> for UsersListResult {
+    fn from(page: Page<User>) -> Self {
+        Self {
+            users: page.data,
+            meta: page.meta,
+            links: page.links,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,6 +160,10 @@ pub struct ListUsersOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<UserStatus>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -198,8 +207,13 @@ impl User {
 
     /// Create a new user
     pub async fn create(request: CreateUserRequest) -> Result<User, Error> {
-        let client = Client::from_global_config()?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
 
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: CreateUserRequest,
+    ) -> Result<User, Error> {
         let mut attributes = serde_json::Map::new();
         attributes.insert("email".to_string(), serde_json::json!(request.email));
         insert_optional(&mut attributes, "firstName", request.first_name)?;
@@ -222,19 +236,26 @@ impl User {
 
     /// List users with optional filtering and pagination, returning pagination metadata
     pub async fn list(options: Option<ListUsersOptions>) -> Result<UsersListResult, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("users", options.as_ref()).await?;
-        let users_response: UsersResponse = serde_json::from_value(response.body)?;
-        Ok(UsersListResult {
-            users: users_response.data.into_iter().map(User::from).collect(),
-            meta: users_response.meta,
-            links: users_response.links,
-        })
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListUsersOptions>,
+    ) -> Result<Page<User>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("users", query.as_ref()).await?;
+        let document: ListDocument<UserAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(User::from))
     }
 
     /// Get a specific user by ID
     pub async fn get(user_id: &str) -> Result<User, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, user_id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, user_id: &str) -> Result<User, Error> {
         let endpoint = format!("users/{user_id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let user_response: UserResponse = serde_json::from_value(response.body)?;
@@ -243,8 +264,15 @@ impl User {
 
     /// Update this user
     pub async fn update(&self, request: UpdateUserRequest) -> Result<User, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("users/{}", self.id);
+        Self::update_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: UpdateUserRequest,
+    ) -> Result<User, Error> {
+        let endpoint = format!("users/{id}");
         let mut attributes = serde_json::Map::new();
         insert_optional(&mut attributes, "email", request.email)?;
         insert_optional(&mut attributes, "firstName", request.first_name)?;
@@ -255,7 +283,7 @@ impl User {
         let body = serde_json::json!({
             "data": {
                 "type": "users",
-                "id": self.id,
+                "id": id,
                 "attributes": attributes
             }
         });
@@ -266,16 +294,22 @@ impl User {
 
     /// Delete this user
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("users/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("users/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
 
     /// Ban this user
     pub async fn ban(&self) -> Result<User, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("users/{}/actions/ban", self.id);
+        Self::ban_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn ban_with_client(client: &Client, id: &str) -> Result<User, Error> {
+        let endpoint = format!("users/{id}/actions/ban");
         let body = serde_json::json!({ "meta": {} });
         let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
         let user_response: UserResponse = serde_json::from_value(response.body)?;
@@ -284,8 +318,11 @@ impl User {
 
     /// Unban this user
     pub async fn unban(&self) -> Result<User, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("users/{}/actions/unban", self.id);
+        Self::unban_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn unban_with_client(client: &Client, id: &str) -> Result<User, Error> {
+        let endpoint = format!("users/{id}/actions/unban");
         let body = serde_json::json!({ "meta": {} });
         let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
         let user_response: UserResponse = serde_json::from_value(response.body)?;
@@ -297,8 +334,15 @@ impl User {
         &self,
         request: Option<CreateTokenRequest>,
     ) -> Result<Token, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("users/{}/tokens", self.id);
+        Self::generate_token_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn generate_token_with_client(
+        client: &Client,
+        id: &str,
+        request: Option<CreateTokenRequest>,
+    ) -> Result<Token, Error> {
+        let endpoint = format!("users/{id}/tokens");
         let attributes = token_request_attributes(request.as_ref())?;
         let body = serde_json::json!({
             "data": {
@@ -313,8 +357,15 @@ impl User {
 
     /// Change or assign this user's group.
     pub async fn change_group(&self, group_id: &str) -> Result<User, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("users/{}/group", self.id);
+        Self::change_group_with_client(&Client::from_global_config()?, &self.id, group_id).await
+    }
+
+    pub(crate) async fn change_group_with_client(
+        client: &Client,
+        id: &str,
+        group_id: &str,
+    ) -> Result<User, Error> {
+        let endpoint = format!("users/{id}/group");
         let body = serde_json::json!({
             "data": {
                 "type": "groups",
@@ -328,8 +379,15 @@ impl User {
 
     /// Update this user's password.
     pub async fn update_password(&self, request: UpdatePasswordRequest) -> Result<User, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("users/{}/actions/update-password", self.id);
+        Self::update_password_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn update_password_with_client(
+        client: &Client,
+        id: &str,
+        request: UpdatePasswordRequest,
+    ) -> Result<User, Error> {
+        let endpoint = format!("users/{id}/actions/update-password");
         let mut meta = serde_json::Map::new();
         insert_optional(&mut meta, "oldPassword", request.old_password)?;
         meta.insert(
@@ -344,8 +402,15 @@ impl User {
 
     /// Reset this user's password using a reset token.
     pub async fn reset_password(&self, request: ResetPasswordRequest) -> Result<User, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("users/{}/actions/reset-password", self.id);
+        Self::reset_password_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn reset_password_with_client(
+        client: &Client,
+        id: &str,
+        request: ResetPasswordRequest,
+    ) -> Result<User, Error> {
+        let endpoint = format!("users/{id}/actions/reset-password");
         let body = serde_json::json!({
             "meta": {
                 "passwordResetToken": request.password_reset_token,
@@ -355,5 +420,72 @@ impl User {
         let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
         let user_response: UserResponse = serde_json::from_value(response.body)?;
         Ok(User::from(user_response.data))
+    }
+}
+
+/// User operations bound to one [`KeygenClient`].
+pub struct UserService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> UserService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn create(&self, request: CreateUserRequest) -> Result<User, Error> {
+        User::create_with_client(&self.client.transport, request).await
+    }
+
+    pub async fn list(&self, options: Option<&ListUsersOptions>) -> Result<Page<User>, Error> {
+        User::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<User, Error> {
+        User::get_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn update(&self, id: &str, request: UpdateUserRequest) -> Result<User, Error> {
+        User::update_with_client(&self.client.transport, id, request).await
+    }
+
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        User::delete_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn ban(&self, id: &str) -> Result<User, Error> {
+        User::ban_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn unban(&self, id: &str) -> Result<User, Error> {
+        User::unban_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn generate_token(
+        &self,
+        id: &str,
+        request: Option<CreateTokenRequest>,
+    ) -> Result<Token, Error> {
+        User::generate_token_with_client(&self.client.transport, id, request).await
+    }
+
+    pub async fn change_group(&self, id: &str, group_id: &str) -> Result<User, Error> {
+        User::change_group_with_client(&self.client.transport, id, group_id).await
+    }
+
+    pub async fn update_password(
+        &self,
+        id: &str,
+        request: UpdatePasswordRequest,
+    ) -> Result<User, Error> {
+        User::update_password_with_client(&self.client.transport, id, request).await
+    }
+
+    pub async fn reset_password(
+        &self,
+        id: &str,
+        request: ResetPasswordRequest,
+    ) -> Result<User, Error> {
+        User::reset_password_with_client(&self.client.transport, id, request).await
     }
 }

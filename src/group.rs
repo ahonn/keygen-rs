@@ -5,9 +5,13 @@ use crate::errors::Error;
 #[cfg(feature = "token")]
 use crate::insert_optional;
 #[cfg(feature = "token")]
+use crate::keygen_client::KeygenClient;
+#[cfg(feature = "token")]
 use crate::license::{License, LicenseAttributes, PaginationOptions};
 #[cfg(feature = "token")]
 use crate::machine::{Machine, MachineAttributes};
+#[cfg(feature = "token")]
+use crate::pagination::{list_query, ListDocument, Page};
 #[cfg(feature = "token")]
 use crate::user::{User, UserAttributes};
 use crate::KeygenResponseData;
@@ -37,30 +41,6 @@ pub(crate) struct GroupResponse {
 
 #[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct GroupsResponse {
-    pub data: Vec<KeygenResponseData<GroupAttributes>>,
-}
-
-#[cfg(feature = "token")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct GroupUsersResponse {
-    data: Vec<KeygenResponseData<UserAttributes>>,
-}
-
-#[cfg(feature = "token")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct GroupLicensesResponse {
-    data: Vec<KeygenResponseData<LicenseAttributes>>,
-}
-
-#[cfg(feature = "token")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct GroupMachinesResponse {
-    data: Vec<KeygenResponseData<MachineAttributes>>,
-}
-
-#[cfg(feature = "token")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateGroupRequest {
     pub name: String,
     #[serde(rename = "maxUsers")]
@@ -81,6 +61,10 @@ pub struct ListGroupsOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
 }
 
 #[cfg(feature = "token")]
@@ -162,8 +146,14 @@ impl Group {
     /// Create a new group
     #[cfg(feature = "token")]
     pub async fn create(request: CreateGroupRequest) -> Result<Group, Error> {
-        let client = Client::from_global_config()?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
 
+    #[cfg(feature = "token")]
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: CreateGroupRequest,
+    ) -> Result<Group, Error> {
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
 
@@ -187,16 +177,29 @@ impl Group {
     /// List groups with optional pagination and filtering
     #[cfg(feature = "token")]
     pub async fn list(options: Option<ListGroupsOptions>) -> Result<Vec<Group>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("groups", options.as_ref()).await?;
-        let groups_response: GroupsResponse = serde_json::from_value(response.body)?;
-        Ok(groups_response.data.into_iter().map(Group::from).collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListGroupsOptions>,
+    ) -> Result<Page<Group>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("groups", query.as_ref()).await?;
+        let document: ListDocument<GroupAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Group::from))
     }
 
     /// Get a group by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<Group, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Group, Error> {
         let endpoint = format!("groups/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let group_response: GroupResponse = serde_json::from_value(response.body)?;
@@ -206,8 +209,16 @@ impl Group {
     /// Update a group
     #[cfg(feature = "token")]
     pub async fn update(&self, request: UpdateGroupRequest) -> Result<Group, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("groups/{}", self.id);
+        Self::update_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: UpdateGroupRequest,
+    ) -> Result<Group, Error> {
+        let endpoint = format!("groups/{id}");
 
         let mut attributes = serde_json::Map::new();
         insert_optional(&mut attributes, "name", request.name)?;
@@ -231,68 +242,106 @@ impl Group {
     /// Delete a group
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("groups/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("groups/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
 
     #[cfg(feature = "token")]
-    async fn list_related_users(
-        &self,
+    async fn list_related<A, T>(
+        client: &Client,
         path: &str,
         options: Option<&PaginationOptions>,
-    ) -> Result<Vec<User>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get(path, options).await?;
-        let users_response: GroupUsersResponse = serde_json::from_value(response.body)?;
-        Ok(users_response.data.into_iter().map(User::from).collect())
+        convert: impl FnMut(KeygenResponseData<A>) -> T,
+    ) -> Result<Page<T>, Error>
+    where
+        A: serde::de::DeserializeOwned,
+    {
+        let query = list_query(options)?;
+        let response = client.get(path, query.as_ref()).await?;
+        let document: ListDocument<A> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(convert))
     }
 
     #[cfg(feature = "token")]
-    async fn list_related_licenses(
-        &self,
-        path: &str,
+    pub(crate) async fn owners_with_client(
+        client: &Client,
+        id: &str,
         options: Option<&PaginationOptions>,
-    ) -> Result<Vec<License>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get(path, options).await?;
-        let licenses_response: GroupLicensesResponse = serde_json::from_value(response.body)?;
-        Ok(licenses_response
-            .data
-            .into_iter()
-            .map(License::from)
-            .collect())
+    ) -> Result<Page<User>, Error> {
+        Self::list_related::<UserAttributes, _>(
+            client,
+            &format!("groups/{id}/owners"),
+            options,
+            User::from,
+        )
+        .await
     }
 
     #[cfg(feature = "token")]
-    async fn list_related_machines(
-        &self,
-        path: &str,
+    pub(crate) async fn users_with_client(
+        client: &Client,
+        id: &str,
         options: Option<&PaginationOptions>,
-    ) -> Result<Vec<Machine>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get(path, options).await?;
-        let machines_response: GroupMachinesResponse = serde_json::from_value(response.body)?;
-        Ok(machines_response
-            .data
-            .into_iter()
-            .map(Machine::from)
-            .collect())
+    ) -> Result<Page<User>, Error> {
+        Self::list_related::<UserAttributes, _>(
+            client,
+            &format!("groups/{id}/users"),
+            options,
+            User::from,
+        )
+        .await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn licenses_with_client(
+        client: &Client,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<License>, Error> {
+        Self::list_related::<LicenseAttributes, _>(
+            client,
+            &format!("groups/{id}/licenses"),
+            options,
+            License::from,
+        )
+        .await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn machines_with_client(
+        client: &Client,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<Machine>, Error> {
+        Self::list_related::<MachineAttributes, _>(
+            client,
+            &format!("groups/{id}/machines"),
+            options,
+            Machine::from,
+        )
+        .await
     }
 
     /// List group owners.
     #[cfg(feature = "token")]
     pub async fn owners(&self, options: Option<&PaginationOptions>) -> Result<Vec<User>, Error> {
-        self.list_related_users(&format!("groups/{}/owners", self.id), options)
-            .await
+        let page =
+            Self::owners_with_client(&Client::from_global_config()?, &self.id, options).await?;
+        Ok(page.into_items())
     }
 
     /// List group users.
     #[cfg(feature = "token")]
     pub async fn users(&self, options: Option<&PaginationOptions>) -> Result<Vec<User>, Error> {
-        self.list_related_users(&format!("groups/{}/users", self.id), options)
-            .await
+        let page =
+            Self::users_with_client(&Client::from_global_config()?, &self.id, options).await?;
+        Ok(page.into_items())
     }
 
     /// List group licenses.
@@ -301,8 +350,9 @@ impl Group {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<Vec<License>, Error> {
-        self.list_related_licenses(&format!("groups/{}/licenses", self.id), options)
-            .await
+        let page =
+            Self::licenses_with_client(&Client::from_global_config()?, &self.id, options).await?;
+        Ok(page.into_items())
     }
 
     /// List group machines.
@@ -311,8 +361,80 @@ impl Group {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<Vec<Machine>, Error> {
-        self.list_related_machines(&format!("groups/{}/machines", self.id), options)
-            .await
+        let page =
+            Self::machines_with_client(&Client::from_global_config()?, &self.id, options).await?;
+        Ok(page.into_items())
+    }
+}
+
+/// Group operations bound to one [`KeygenClient`].
+#[cfg(feature = "token")]
+pub struct GroupService<'a> {
+    client: &'a KeygenClient,
+}
+
+#[cfg(feature = "token")]
+impl<'a> GroupService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn create(&self, request: CreateGroupRequest) -> Result<Group, Error> {
+        Group::create_with_client(&self.client.transport, request).await
+    }
+
+    pub async fn list(&self, options: Option<&ListGroupsOptions>) -> Result<Page<Group>, Error> {
+        Group::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Group, Error> {
+        Group::get_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn update(&self, id: &str, request: UpdateGroupRequest) -> Result<Group, Error> {
+        Group::update_with_client(&self.client.transport, id, request).await
+    }
+
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        Group::delete_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn owners(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<User>, Error> {
+        Group::owners_with_client(&self.client.transport, id, options).await
+    }
+
+    pub async fn users(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<User>, Error> {
+        Group::users_with_client(&self.client.transport, id, options).await
+    }
+
+    /// Licenses of the group. Each license is bound to this client.
+    pub async fn licenses(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<License>, Error> {
+        let page = Group::licenses_with_client(&self.client.transport, id, options).await?;
+        Ok(page.map(|license| {
+            license.with_client(self.client.transport_arc(), self.client.config_arc())
+        }))
+    }
+
+    /// Machines of the group. Each machine carries this client's configuration.
+    pub async fn machines(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<Machine>, Error> {
+        let page = Group::machines_with_client(&self.client.transport, id, options).await?;
+        Ok(page.map(|machine| machine.with_config_arc(self.client.config_arc())))
     }
 }
 
@@ -452,6 +574,7 @@ mod tests {
             limit: Some(20),
             page_size: Some(10),
             page_number: Some(3),
+            page_cursor: None,
         };
 
         let serialized = serde_json::to_string(&options).unwrap();

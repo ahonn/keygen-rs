@@ -178,6 +178,7 @@ pub async fn list_releases(options: JsValue) -> Result<JsValue, JsError> {
                 package: o.package,
                 engine: o.engine,
                 entitlements: o.entitlements,
+                page_cursor: None,
             })
         }
         None => None,
@@ -378,6 +379,7 @@ pub async fn release_artifacts(id: String, options: JsValue) -> Result<JsValue, 
             )
             .ok()
         }),
+        page_cursor: None,
     });
 
     #[derive(Clone, Serialize)]

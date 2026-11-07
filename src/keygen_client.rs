@@ -13,6 +13,18 @@ use crate::service::ServiceInfo;
 use crate::{artifact::Artifact, release::ArtifactDownloadOptions};
 use std::sync::Arc;
 
+/// A Keygen API client with its own configuration.
+///
+/// Every request made through this client or one of its services (for example
+/// [`KeygenClient::products`] or [`KeygenClient::machines`]) uses this client's account,
+/// credentials, API version and `Keygen-Environment` header, never the global
+/// configuration. Several clients can be used at the same time in one process.
+///
+/// Licenses and machines returned by a service keep the client, so follow-up calls on
+/// them (for example [`Machine::deactivate`](crate::machine::Machine::deactivate)) use the
+/// same account. Other resource types do not keep a client: their instance methods
+/// (for example `Product::delete`) use the global configuration. Use the service methods
+/// that take an ID (for example `client.products().delete(id)`) for those resources.
 #[derive(Clone, Debug)]
 pub struct KeygenClient {
     pub(crate) transport: Arc<Client>,
@@ -56,8 +68,91 @@ impl KeygenClient {
         LicenseService::new(self)
     }
 
+    #[cfg(feature = "token")]
+    pub fn products(&self) -> crate::product::ProductService<'_> {
+        crate::product::ProductService::new(self)
+    }
+
+    #[cfg(feature = "token")]
+    pub fn policies(&self) -> crate::policy::PolicyService<'_> {
+        crate::policy::PolicyService::new(self)
+    }
+
+    pub fn machines(&self) -> crate::machine::MachineService<'_> {
+        crate::machine::MachineService::new(self)
+    }
+
+    #[cfg(feature = "token")]
+    pub fn users(&self) -> crate::user::UserService<'_> {
+        crate::user::UserService::new(self)
+    }
+
+    #[cfg(feature = "token")]
+    pub fn groups(&self) -> crate::group::GroupService<'_> {
+        crate::group::GroupService::new(self)
+    }
+
+    #[cfg(feature = "token")]
+    pub fn entitlements(&self) -> crate::entitlement::EntitlementService<'_> {
+        crate::entitlement::EntitlementService::new(self)
+    }
+
+    #[cfg(feature = "token")]
+    pub fn tokens(&self) -> crate::token::TokenService<'_> {
+        crate::token::TokenService::new(self)
+    }
+
+    #[cfg(feature = "token")]
+    pub fn environments(&self) -> crate::environment::EnvironmentService<'_> {
+        crate::environment::EnvironmentService::new(self)
+    }
+
+    #[cfg(feature = "token")]
+    pub fn components(&self) -> crate::component::ComponentService<'_> {
+        crate::component::ComponentService::new(self)
+    }
+
+    pub fn releases(&self) -> crate::release::ReleaseService<'_> {
+        crate::release::ReleaseService::new(self)
+    }
+
+    pub fn packages(&self) -> crate::package::PackageService<'_> {
+        crate::package::PackageService::new(self)
+    }
+
+    pub fn artifacts(&self) -> crate::artifact::ArtifactService<'_> {
+        crate::artifact::ArtifactService::new(self)
+    }
+
+    pub fn platforms(&self) -> crate::platform::PlatformService<'_> {
+        crate::platform::PlatformService::new(self)
+    }
+
+    pub fn arches(&self) -> crate::arch::ArchService<'_> {
+        crate::arch::ArchService::new(self)
+    }
+
+    pub fn channels(&self) -> crate::channel::ChannelService<'_> {
+        crate::channel::ChannelService::new(self)
+    }
+
+    #[cfg(feature = "token")]
+    pub fn webhook_endpoints(&self) -> crate::webhook::endpoint::WebhookEndpointService<'_> {
+        crate::webhook::endpoint::WebhookEndpointService::new(self)
+    }
+
+    #[cfg(feature = "token")]
+    pub fn webhook_events(&self) -> crate::webhook::event::WebhookEventService<'_> {
+        crate::webhook::event::WebhookEventService::new(self)
+    }
+
     pub async fn service_info(&self) -> Result<ServiceInfo, Error> {
         crate::service::get_service_info_with_client(&self.transport).await
+    }
+
+    /// Ping the Keygen service. See [`crate::service::ping`].
+    pub async fn ping(&self) -> Result<crate::service::PingResponse, Error> {
+        crate::service::ping_with_client(&self.transport).await
     }
 
     /// Check whether an upgrade is available. See [`Release::upgrade_from`].

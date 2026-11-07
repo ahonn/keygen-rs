@@ -6,7 +6,9 @@ use crate::config::{get_config, KeygenConfig};
 use crate::errors::{ApiErrorKind, Error};
 #[cfg(feature = "token")]
 use crate::insert_optional;
+use crate::keygen_client::KeygenClient;
 use crate::license::PaginationOptions;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenRelationship;
 use crate::KeygenResponseData;
 #[cfg(not(target_arch = "wasm32"))]
@@ -80,11 +82,6 @@ pub(crate) struct ReleaseResponse {
     pub data: KeygenResponseData<ReleaseAttributes>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ReleasesResponse {
-    pub data: Vec<KeygenResponseData<ReleaseAttributes>>,
-}
-
 /// Request to create a new release
 #[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,6 +124,10 @@ pub struct ListReleasesOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
     /// Filter by channel
     #[serde(skip_serializing_if = "Option::is_none")]
     pub channel: Option<ReleaseChannel>,
@@ -397,6 +398,7 @@ pub struct Constraint {
     pub release_id: Option<String>,
 }
 
+#[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConstraintsResponse {
     pub data: Vec<KeygenResponseData<ConstraintAttributes>>,
@@ -458,19 +460,26 @@ impl Release {
 
     /// List releases with optional filtering and pagination
     pub async fn list(options: Option<ListReleasesOptions>) -> Result<Vec<Release>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("releases", options.as_ref()).await?;
-        let releases_response: ReleasesResponse = serde_json::from_value(response.body)?;
-        Ok(releases_response
-            .data
-            .into_iter()
-            .map(Release::from)
-            .collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListReleasesOptions>,
+    ) -> Result<Page<Release>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("releases", query.as_ref()).await?;
+        let document: ListDocument<ReleaseAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Release::from))
     }
 
     /// Get a release by ID
     pub async fn get(id: &str) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Release, Error> {
         let endpoint = format!("releases/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
@@ -479,8 +488,15 @@ impl Release {
 
     /// Upgrade a release according to the provided constraints.
     pub async fn upgrade(&self, request: Option<&ReleaseUpgradeRequest>) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/upgrade", self.id);
+        Self::upgrade_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn upgrade_with_client(
+        client: &Client,
+        id: &str,
+        request: Option<&ReleaseUpgradeRequest>,
+    ) -> Result<Release, Error> {
+        let endpoint = format!("releases/{id}/upgrade");
         let response = client.get(&endpoint, request).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
         Ok(Release::from(release_response.data))
@@ -509,8 +525,15 @@ impl Release {
     /// On WASM targets, use this URL directly from JavaScript with appropriate
     /// auth headers — the server will respond with a redirect to the actual file.
     pub fn artifact_download_url(&self, artifact: &str) -> Result<String, Error> {
-        let client = Client::from_global_config()?;
-        let path = format!("releases/{}/artifacts/{}", self.id, artifact);
+        Self::artifact_download_url_with_client(&Client::from_global_config()?, &self.id, artifact)
+    }
+
+    pub(crate) fn artifact_download_url_with_client(
+        client: &Client,
+        id: &str,
+        artifact: &str,
+    ) -> Result<String, Error> {
+        let path = format!("releases/{id}/artifacts/{artifact}");
         let url = client.build_url(&path)?;
         Ok(url.to_string())
     }
@@ -524,8 +547,17 @@ impl Release {
         &self,
         artifact: &str,
     ) -> Result<ReleaseArtifactDownload, Error> {
-        let client = Client::from_global_config()?;
-        let path = format!("releases/{}/artifacts/{}", self.id, artifact);
+        Self::download_artifact_with_client(&Client::from_global_config()?, &self.id, artifact)
+            .await
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) async fn download_artifact_with_client(
+        client: &Client,
+        id: &str,
+        artifact: &str,
+    ) -> Result<ReleaseArtifactDownload, Error> {
+        let path = format!("releases/{id}/artifacts/{artifact}");
         let request = client.build_request(reqwest::Method::GET, &path, None::<&()>, true)?;
 
         let no_redirect = ReqwestClient::builder()
@@ -582,9 +614,20 @@ impl Release {
         &self,
         options: Option<ListArtifactsOptions>,
     ) -> Result<Vec<Artifact>, Error> {
-        let mut options = options.unwrap_or_default();
-        options.release = Some(self.id.clone());
-        Artifact::list(Some(options)).await
+        let page =
+            Self::artifacts_with_client(&Client::from_global_config()?, &self.id, options.as_ref())
+                .await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn artifacts_with_client(
+        client: &Client,
+        id: &str,
+        options: Option<&ListArtifactsOptions>,
+    ) -> Result<Page<Artifact>, Error> {
+        let mut options = options.cloned().unwrap_or_default();
+        options.release = Some(id.to_string());
+        Artifact::list_with_client(client, Some(&options)).await
     }
 
     /// List entitlement constraints for this release.
@@ -592,15 +635,21 @@ impl Release {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<Vec<Constraint>, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/constraints", self.id);
-        let response = client.get(&endpoint, options).await?;
-        let constraints_response: ConstraintsResponse = serde_json::from_value(response.body)?;
-        Ok(constraints_response
-            .data
-            .into_iter()
-            .map(Constraint::from)
-            .collect())
+        let page = Self::constraints_with_client(&Client::from_global_config()?, &self.id, options)
+            .await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn constraints_with_client(
+        client: &Client,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<Constraint>, Error> {
+        let endpoint = format!("releases/{id}/constraints");
+        let query = list_query(options)?;
+        let response = client.get(&endpoint, query.as_ref()).await?;
+        let document: ListDocument<ConstraintAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Constraint::from))
     }
 }
 
@@ -608,8 +657,13 @@ impl Release {
 impl Release {
     /// Create a new release
     pub async fn create(request: CreateReleaseRequest) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
 
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: CreateReleaseRequest,
+    ) -> Result<Release, Error> {
         let mut attributes = serde_json::Map::new();
         attributes.insert(
             "version".to_string(),
@@ -648,8 +702,15 @@ impl Release {
 
     /// Update an existing release
     pub async fn update(&self, request: UpdateReleaseRequest) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}", self.id);
+        Self::update_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: UpdateReleaseRequest,
+    ) -> Result<Release, Error> {
+        let endpoint = format!("releases/{id}");
 
         let mut attributes = serde_json::Map::new();
         insert_optional(&mut attributes, "name", request.name)?;
@@ -672,8 +733,11 @@ impl Release {
 
     /// Delete a release
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("releases/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
@@ -682,8 +746,11 @@ impl Release {
     ///
     /// Makes the release visible to customers
     pub async fn publish(&self) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/actions/publish", self.id);
+        Self::publish_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn publish_with_client(client: &Client, id: &str) -> Result<Release, Error> {
+        let endpoint = format!("releases/{id}/actions/publish");
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
         Ok(Release::from(release_response.data))
@@ -693,8 +760,11 @@ impl Release {
     ///
     /// Makes the release unavailable for distribution
     pub async fn yank(&self) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/actions/yank", self.id);
+        Self::yank_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn yank_with_client(client: &Client, id: &str) -> Result<Release, Error> {
+        let endpoint = format!("releases/{id}/actions/yank");
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let release_response: ReleaseResponse = serde_json::from_value(response.body)?;
         Ok(Release::from(release_response.data))
@@ -705,8 +775,20 @@ impl Release {
         &self,
         entitlement_ids: &[String],
     ) -> Result<Vec<Constraint>, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/constraints", self.id);
+        Self::attach_constraints_with_client(
+            &Client::from_global_config()?,
+            &self.id,
+            entitlement_ids,
+        )
+        .await
+    }
+
+    pub(crate) async fn attach_constraints_with_client(
+        client: &Client,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<Vec<Constraint>, Error> {
+        let endpoint = format!("releases/{id}/constraints");
         let data: Vec<serde_json::Value> = entitlement_ids
             .iter()
             .map(|id| {
@@ -735,8 +817,20 @@ impl Release {
 
     /// Detach constraints from this release by constraint ID.
     pub async fn detach_constraints(&self, constraint_ids: &[String]) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/constraints", self.id);
+        Self::detach_constraints_with_client(
+            &Client::from_global_config()?,
+            &self.id,
+            constraint_ids,
+        )
+        .await
+    }
+
+    pub(crate) async fn detach_constraints_with_client(
+        client: &Client,
+        id: &str,
+        constraint_ids: &[String],
+    ) -> Result<(), Error> {
+        let endpoint = format!("releases/{id}/constraints");
         let data: Vec<serde_json::Value> = constraint_ids
             .iter()
             .map(|id| {
@@ -755,8 +849,15 @@ impl Release {
 
     /// Change the package associated with this release.
     pub async fn change_package(&self, package_id: &str) -> Result<Release, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("releases/{}/package", self.id);
+        Self::change_package_with_client(&Client::from_global_config()?, &self.id, package_id).await
+    }
+
+    pub(crate) async fn change_package_with_client(
+        client: &Client,
+        id: &str,
+        package_id: &str,
+    ) -> Result<Release, Error> {
+        let endpoint = format!("releases/{id}/package");
         let body = serde_json::json!({
             "data": {
                 "type": "packages",
@@ -790,6 +891,151 @@ impl Constraint {
                 .as_ref()
                 .and_then(|rel| rel.data.as_ref().map(|d| d.id.clone())),
         }
+    }
+}
+
+/// Release operations bound to one [`KeygenClient`].
+pub struct ReleaseService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> ReleaseService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn list(
+        &self,
+        options: Option<&ListReleasesOptions>,
+    ) -> Result<Page<Release>, Error> {
+        Release::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Release, Error> {
+        Release::get_with_client(&self.client.transport, id).await
+    }
+
+    /// Upgrade a release according to the provided constraints. See [`Release::upgrade`].
+    pub async fn upgrade(
+        &self,
+        id: &str,
+        request: Option<&ReleaseUpgradeRequest>,
+    ) -> Result<Release, Error> {
+        Release::upgrade_with_client(&self.client.transport, id, request).await
+    }
+
+    /// Check whether an upgrade is available. See [`Release::upgrade_from`].
+    pub async fn upgrade_from(
+        &self,
+        current_version: &str,
+        request: Option<&ReleaseUpgradeRequest>,
+    ) -> Result<Option<Release>, Error> {
+        upgrade_from_with_client(
+            &self.client.transport,
+            self.client.config(),
+            current_version,
+            request,
+        )
+        .await
+    }
+
+    /// Build the download URL of an artifact. See [`Release::artifact_download_url`].
+    pub fn artifact_download_url(&self, id: &str, artifact: &str) -> Result<String, Error> {
+        Release::artifact_download_url_with_client(&self.client.transport, id, artifact)
+    }
+
+    /// Request an artifact download and return the redirect. See [`Release::download_artifact`].
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn download_artifact(
+        &self,
+        id: &str,
+        artifact: &str,
+    ) -> Result<ReleaseArtifactDownload, Error> {
+        Release::download_artifact_with_client(&self.client.transport, id, artifact).await
+    }
+
+    /// Download and verify an artifact. See [`Release::download_artifact_to`].
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn download_artifact_to(
+        &self,
+        release: &Release,
+        artifact: &str,
+        path: impl AsRef<Path>,
+        options: Option<ArtifactDownloadOptions>,
+    ) -> Result<Artifact, Error> {
+        download_with_client(
+            &self.client.transport,
+            self.client.config(),
+            release,
+            artifact,
+            path.as_ref(),
+            options,
+        )
+        .await
+    }
+
+    pub async fn artifacts(
+        &self,
+        id: &str,
+        options: Option<&ListArtifactsOptions>,
+    ) -> Result<Page<Artifact>, Error> {
+        Release::artifacts_with_client(&self.client.transport, id, options).await
+    }
+
+    pub async fn constraints(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<Constraint>, Error> {
+        Release::constraints_with_client(&self.client.transport, id, options).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn create(&self, request: CreateReleaseRequest) -> Result<Release, Error> {
+        Release::create_with_client(&self.client.transport, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn update(&self, id: &str, request: UpdateReleaseRequest) -> Result<Release, Error> {
+        Release::update_with_client(&self.client.transport, id, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        Release::delete_with_client(&self.client.transport, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn publish(&self, id: &str) -> Result<Release, Error> {
+        Release::publish_with_client(&self.client.transport, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn yank(&self, id: &str) -> Result<Release, Error> {
+        Release::yank_with_client(&self.client.transport, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn attach_constraints(
+        &self,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<Vec<Constraint>, Error> {
+        Release::attach_constraints_with_client(&self.client.transport, id, entitlement_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn detach_constraints(
+        &self,
+        id: &str,
+        constraint_ids: &[String],
+    ) -> Result<(), Error> {
+        Release::detach_constraints_with_client(&self.client.transport, id, constraint_ids).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn change_package(&self, id: &str, package_id: &str) -> Result<Release, Error> {
+        Release::change_package_with_client(&self.client.transport, id, package_id).await
     }
 }
 

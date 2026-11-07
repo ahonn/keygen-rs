@@ -127,6 +127,7 @@ pub async fn list_environments(options: JsValue) -> Result<JsValue, JsError> {
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        page_cursor: None,
     });
 
     let environments: Vec<Environment> = keygen_rs::environment::Environment::list(list_opts)

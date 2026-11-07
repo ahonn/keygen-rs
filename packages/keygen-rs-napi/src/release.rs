@@ -158,6 +158,7 @@ pub async fn list_releases(options: Option<ListReleasesOptions>) -> Result<Vec<R
                 package: o.package,
                 engine: o.engine,
                 entitlements: o.entitlements,
+                page_cursor: None,
             })
         }
         None => None,
@@ -331,6 +332,7 @@ pub async fn release_artifacts(
             )
             .ok()
         }),
+        page_cursor: None,
     });
     rel.artifacts(opts)
         .await

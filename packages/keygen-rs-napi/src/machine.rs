@@ -185,6 +185,7 @@ pub async fn list_machines(options: Option<ListMachinesOptions>) -> Result<Vec<M
             page_number: o.page_number,
             page_size: o.page_size,
             limit: o.limit,
+            page_cursor: None,
         }
     });
 

@@ -141,6 +141,7 @@ pub async fn list_products(options: JsValue) -> Result<JsValue, JsError> {
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        page_cursor: None,
     });
 
     let products: Vec<Product> = keygen_rs::product::Product::list(list_opts)

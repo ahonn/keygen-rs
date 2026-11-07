@@ -254,6 +254,9 @@ pub enum Error {
     #[error("Invalid URL")]
     InvalidUrl,
 
+    #[error("Invalid page size {0}: must be between 1 and 100")]
+    InvalidPageSize(i64),
+
     #[error("System clock is out of sync")]
     SystemClockUnsynced,
 

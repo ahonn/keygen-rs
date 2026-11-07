@@ -25,6 +25,7 @@ async fn main() -> Result<(), Error> {
         page_number: Some(1),
         event_type: None,
         status: None,
+        page_cursor: None,
     };
 
     match WebhookEventRecord::list(Some(&options)).await {

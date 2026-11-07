@@ -8,7 +8,7 @@ use std::env;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use crate::certificate::CertificateFileResponse;
@@ -21,6 +21,8 @@ use crate::insert_optional;
 use crate::keygen_client::KeygenClient;
 use crate::license_file::LicenseFile;
 use crate::machine::{Machine, MachineResponse, MachinesResponse};
+use crate::pagination::cursor_pagination_query;
+pub use crate::pagination::{Page, PageLinks, PaginationOptions};
 #[cfg(feature = "token")]
 use crate::token::{Token, TokenResponse};
 #[cfg(feature = "token")]
@@ -702,35 +704,6 @@ impl LicenseCheckoutOpts {
     }
 }
 
-#[derive(Debug, Default, Serialize)]
-pub struct PaginationOptions {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub limit: Option<i32>,
-    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
-    pub page_size: Option<i32>,
-    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
-    pub page_cursor: Option<String>,
-}
-
-fn cursor_pagination_query(
-    limit: Option<i32>,
-    page_size: Option<i32>,
-    page_cursor: Option<&str>,
-    default_limit: Option<i32>,
-) -> Value {
-    let mut query = json!({});
-    if let Some(limit) = limit.or(default_limit) {
-        query["limit"] = json!(limit);
-    }
-    if page_size.is_some() || page_cursor.is_some() {
-        query["page[cursor]"] = json!(page_cursor.unwrap_or_default());
-    }
-    if let Some(page_size) = page_size {
-        query["page[size]"] = json!(page_size);
-    }
-    query
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct NumericFilter {
     pub eq: Option<i32>,
@@ -781,76 +754,10 @@ pub struct LicenseListOptions {
     pub activity: Option<LicenseActivityFilter>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResourcePage<T> {
-    pub data: Vec<T>,
-    pub meta: Option<Value>,
-    pub links: Option<Value>,
-}
+/// Former name of [`Page`], kept for compatibility.
+pub type ResourcePage<T> = Page<T>;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
-pub struct PageLinks {
-    #[serde(rename = "self", default, skip_serializing_if = "Option::is_none")]
-    self_url: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    next: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    previous: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    first: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    last: Option<String>,
-    #[serde(flatten)]
-    extensions: Map<String, Value>,
-}
-
-impl PageLinks {
-    pub fn self_url(&self) -> Option<&str> {
-        self.self_url.as_deref()
-    }
-
-    pub fn next_url(&self) -> Option<&str> {
-        self.next.as_deref()
-    }
-
-    pub fn previous_url(&self) -> Option<&str> {
-        self.previous.as_deref()
-    }
-
-    pub fn first_url(&self) -> Option<&str> {
-        self.first.as_deref()
-    }
-
-    pub fn last_url(&self) -> Option<&str> {
-        self.last.as_deref()
-    }
-
-    pub fn extensions(&self) -> &Map<String, Value> {
-        &self.extensions
-    }
-
-    pub fn has_next_page(&self) -> bool {
-        self.next.is_some()
-    }
-
-    pub fn next_cursor(&self) -> Option<String> {
-        let query = self.next.as_deref()?.split_once('?')?.1;
-        url::form_urlencoded::parse(query.as_bytes())
-            .find_map(|(key, value)| (key == "page[cursor]").then(|| value.into_owned()))
-    }
-}
-
-impl<T> ResourcePage<T> {
-    pub fn typed_links(&self) -> Result<Option<PageLinks>, serde_json::Error> {
-        self.links.clone().map(serde_json::from_value).transpose()
-    }
-
-    pub fn next_cursor(&self) -> Option<String> {
-        self.typed_links().ok().flatten()?.next_cursor()
-    }
-}
-
-pub type LicensePage = ResourcePage<License>;
+pub type LicensePage = Page<License>;
 
 /// Attributes and relationships accepted when creating a license.
 #[derive(Debug, Default)]
@@ -1594,7 +1501,7 @@ impl License {
                     Some(100),
                 )
             },
-        );
+        )?;
 
         let client = self.get_client()?;
         let response = client
@@ -1633,7 +1540,7 @@ impl License {
                     Some(100),
                 )
             },
-        );
+        )?;
 
         let client = self.get_client()?;
         let response = client
@@ -1736,7 +1643,7 @@ impl License {
                     None,
                 )
             },
-        );
+        )?;
 
         if let Some(opts) = options {
             // Simple filters
@@ -2131,14 +2038,16 @@ impl License {
     ) -> Result<ResourcePage<User>, Error> {
         let client = self.get_client()?;
         let endpoint = format!("licenses/{}/users", self.id);
-        let query = options.map(|options| {
-            cursor_pagination_query(
-                options.limit,
-                options.page_size,
-                options.page_cursor.as_deref(),
-                None,
-            )
-        });
+        let query = options
+            .map(|options| {
+                cursor_pagination_query(
+                    options.limit,
+                    options.page_size,
+                    options.page_cursor.as_deref(),
+                    None,
+                )
+            })
+            .transpose()?;
         let response = client.get(&endpoint, query.as_ref()).await?;
         let users_response: LicenseUsersResponse = serde_json::from_value(response.body)?;
         Ok(ResourcePage {
