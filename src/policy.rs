@@ -1,8 +1,10 @@
 use crate::client::Client;
-use crate::entitlement::{Entitlement, EntitlementsResponse};
+use crate::entitlement::{Entitlement, EntitlementAttributes};
 use crate::errors::Error;
 use crate::insert_optional;
+use crate::keygen_client::KeygenClient;
 use crate::license::PaginationOptions;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -164,11 +166,6 @@ pub struct PolicyAttributes {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct PolicyResponse {
     pub data: KeygenResponseData<PolicyAttributes>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct PoliciesResponse {
-    pub data: Vec<KeygenResponseData<PolicyAttributes>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -352,6 +349,10 @@ pub struct ListPoliciesOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub product: Option<String>,
 }
@@ -412,8 +413,13 @@ impl Policy {
 
     /// Create a new policy
     pub async fn create(request: CreatePolicyRequest) -> Result<Policy, Error> {
-        let client = Client::from_global_config()?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
 
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: CreatePolicyRequest,
+    ) -> Result<Policy, Error> {
         // Build attributes dynamically, only including non-None values
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
@@ -535,19 +541,26 @@ impl Policy {
 
     /// List policies with optional pagination and filtering
     pub async fn list(options: Option<ListPoliciesOptions>) -> Result<Vec<Policy>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("policies", options.as_ref()).await?;
-        let policies_response: PoliciesResponse = serde_json::from_value(response.body)?;
-        Ok(policies_response
-            .data
-            .into_iter()
-            .map(Policy::from)
-            .collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListPoliciesOptions>,
+    ) -> Result<Page<Policy>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("policies", query.as_ref()).await?;
+        let document: ListDocument<PolicyAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Policy::from))
     }
 
     /// Get a policy by ID
     pub async fn get(id: &str) -> Result<Policy, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Policy, Error> {
         let endpoint = format!("policies/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let policy_response: PolicyResponse = serde_json::from_value(response.body)?;
@@ -556,8 +569,15 @@ impl Policy {
 
     /// Update a policy
     pub async fn update(&self, request: UpdatePolicyRequest) -> Result<Policy, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("policies/{}", self.id);
+        Self::update_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: UpdatePolicyRequest,
+    ) -> Result<Policy, Error> {
+        let endpoint = format!("policies/{id}");
 
         let mut attributes = serde_json::Map::new();
         insert_optional(&mut attributes, "name", request.name)?;
@@ -667,16 +687,31 @@ impl Policy {
 
     /// Delete a policy
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("policies/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("policies/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
 
     /// Attach entitlements to a policy.
     pub async fn attach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("policies/{}/entitlements", self.id);
+        Self::attach_entitlements_with_client(
+            &Client::from_global_config()?,
+            &self.id,
+            entitlement_ids,
+        )
+        .await
+    }
+
+    pub(crate) async fn attach_entitlements_with_client(
+        client: &Client,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<(), Error> {
+        let endpoint = format!("policies/{id}/entitlements");
         let data: Vec<serde_json::Value> = entitlement_ids
             .iter()
             .map(|id| {
@@ -695,8 +730,20 @@ impl Policy {
 
     /// Detach entitlements from a policy.
     pub async fn detach_entitlements(&self, entitlement_ids: &[String]) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("policies/{}/entitlements", self.id);
+        Self::detach_entitlements_with_client(
+            &Client::from_global_config()?,
+            &self.id,
+            entitlement_ids,
+        )
+        .await
+    }
+
+    pub(crate) async fn detach_entitlements_with_client(
+        client: &Client,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<(), Error> {
+        let endpoint = format!("policies/{id}/entitlements");
         let data: Vec<serde_json::Value> = entitlement_ids
             .iter()
             .map(|id| {
@@ -718,21 +765,31 @@ impl Policy {
         &self,
         options: Option<&PaginationOptions>,
     ) -> Result<Vec<Entitlement>, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("policies/{}/entitlements", self.id);
-        let response = client.get(&endpoint, options).await?;
-        let entitlements_response: EntitlementsResponse = serde_json::from_value(response.body)?;
-        Ok(entitlements_response
-            .data
-            .into_iter()
-            .map(Entitlement::from)
-            .collect())
+        let page =
+            Self::entitlements_with_client(&Client::from_global_config()?, &self.id, options)
+                .await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn entitlements_with_client(
+        client: &Client,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<Entitlement>, Error> {
+        let endpoint = format!("policies/{id}/entitlements");
+        let query = list_query(options)?;
+        let response = client.get(&endpoint, query.as_ref()).await?;
+        let document: ListDocument<EntitlementAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Entitlement::from))
     }
 
     /// Pop a key from policy pool
     pub async fn pop_key(&self) -> Result<String, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("policies/{}/pool", self.id);
+        Self::pop_key_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn pop_key_with_client(client: &Client, id: &str) -> Result<String, Error> {
+        let endpoint = format!("policies/{id}/pool");
         let response: crate::client::Response<serde_json::Value> =
             client.delete(&endpoint, None::<&()>).await?;
 
@@ -746,6 +803,65 @@ impl Policy {
             })?;
 
         Ok(key_data.to_string())
+    }
+}
+
+/// Policy operations bound to one [`KeygenClient`].
+pub struct PolicyService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> PolicyService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn create(&self, request: CreatePolicyRequest) -> Result<Policy, Error> {
+        Policy::create_with_client(&self.client.transport, request).await
+    }
+
+    pub async fn list(&self, options: Option<&ListPoliciesOptions>) -> Result<Page<Policy>, Error> {
+        Policy::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Policy, Error> {
+        Policy::get_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn update(&self, id: &str, request: UpdatePolicyRequest) -> Result<Policy, Error> {
+        Policy::update_with_client(&self.client.transport, id, request).await
+    }
+
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        Policy::delete_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn attach_entitlements(
+        &self,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<(), Error> {
+        Policy::attach_entitlements_with_client(&self.client.transport, id, entitlement_ids).await
+    }
+
+    pub async fn detach_entitlements(
+        &self,
+        id: &str,
+        entitlement_ids: &[String],
+    ) -> Result<(), Error> {
+        Policy::detach_entitlements_with_client(&self.client.transport, id, entitlement_ids).await
+    }
+
+    pub async fn entitlements(
+        &self,
+        id: &str,
+        options: Option<&PaginationOptions>,
+    ) -> Result<Page<Entitlement>, Error> {
+        Policy::entitlements_with_client(&self.client.transport, id, options).await
+    }
+
+    pub async fn pop_key(&self, id: &str) -> Result<String, Error> {
+        Policy::pop_key_with_client(&self.client.transport, id).await
     }
 }
 

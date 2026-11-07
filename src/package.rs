@@ -1,5 +1,7 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::keygen_client::KeygenClient;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -30,11 +32,6 @@ pub struct PackageAttributes {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct PackageResponse {
     pub data: KeygenResponseData<PackageAttributes>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct PackagesResponse {
-    pub data: Vec<KeygenResponseData<PackageAttributes>>,
 }
 
 /// Request to create a new package
@@ -71,6 +68,10 @@ pub struct ListPackagesOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
     /// Filter by product ID
     #[serde(skip_serializing_if = "Option::is_none")]
     pub product: Option<String>,
@@ -124,19 +125,26 @@ impl Package {
 
     /// List packages with optional filtering and pagination
     pub async fn list(options: Option<ListPackagesOptions>) -> Result<Vec<Package>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("packages", options.as_ref()).await?;
-        let packages_response: PackagesResponse = serde_json::from_value(response.body)?;
-        Ok(packages_response
-            .data
-            .into_iter()
-            .map(Package::from)
-            .collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListPackagesOptions>,
+    ) -> Result<Page<Package>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("packages", query.as_ref()).await?;
+        let document: ListDocument<PackageAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Package::from))
     }
 
     /// Get a package by ID or key
     pub async fn get(id: &str) -> Result<Package, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Package, Error> {
         let endpoint = format!("packages/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let package_response: PackageResponse = serde_json::from_value(response.body)?;
@@ -148,8 +156,13 @@ impl Package {
 impl Package {
     /// Create a new package
     pub async fn create(request: CreatePackageRequest) -> Result<Package, Error> {
-        let client = Client::from_global_config()?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
 
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: CreatePackageRequest,
+    ) -> Result<Package, Error> {
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::Value::String(request.name));
         attributes.insert("key".to_string(), serde_json::Value::String(request.key));
@@ -183,8 +196,15 @@ impl Package {
 
     /// Update an existing package
     pub async fn update(&self, request: UpdatePackageRequest) -> Result<Package, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("packages/{}", self.id);
+        Self::update_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: UpdatePackageRequest,
+    ) -> Result<Package, Error> {
+        let endpoint = format!("packages/{id}");
 
         let mut attributes = serde_json::Map::new();
         if let Some(name) = request.name {
@@ -211,10 +231,50 @@ impl Package {
 
     /// Delete a package
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("packages/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("packages/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
+    }
+}
+
+/// Package operations bound to one [`KeygenClient`].
+pub struct PackageService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> PackageService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn create(&self, request: CreatePackageRequest) -> Result<Package, Error> {
+        Package::create_with_client(&self.client.transport, request).await
+    }
+
+    pub async fn list(
+        &self,
+        options: Option<&ListPackagesOptions>,
+    ) -> Result<Page<Package>, Error> {
+        Package::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Package, Error> {
+        Package::get_with_client(&self.client.transport, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn update(&self, id: &str, request: UpdatePackageRequest) -> Result<Package, Error> {
+        Package::update_with_client(&self.client.transport, id, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        Package::delete_with_client(&self.client.transport, id).await
     }
 }
 

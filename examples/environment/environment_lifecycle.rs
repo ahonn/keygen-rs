@@ -65,6 +65,7 @@ async fn main() -> Result<(), Error> {
         limit: Some(5),
         page_size: Some(3),
         page_number: Some(1),
+        page_cursor: None,
     };
 
     match Environment::list(Some(list_options)).await {

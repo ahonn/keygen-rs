@@ -1,5 +1,7 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::keygen_client::KeygenClient;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 
@@ -17,11 +19,6 @@ pub(crate) struct ArchResponse {
     pub data: KeygenResponseData<ArchAttributes>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ArchesResponse {
-    pub data: Vec<KeygenResponseData<ArchAttributes>>,
-}
-
 /// Options for listing architectures
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListArchesOptions {
@@ -31,6 +28,10 @@ pub struct ListArchesOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
 }
 
 /// An architecture represents a target CPU architecture for artifacts
@@ -67,19 +68,49 @@ impl Arch {
     ///
     /// Architectures are automatically populated based on releases and artifacts.
     pub async fn list(options: Option<ListArchesOptions>) -> Result<Vec<Arch>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("arches", options.as_ref()).await?;
-        let arches_response: ArchesResponse = serde_json::from_value(response.body)?;
-        Ok(arches_response.data.into_iter().map(Arch::from).collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListArchesOptions>,
+    ) -> Result<Page<Arch>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("arches", query.as_ref()).await?;
+        let document: ListDocument<ArchAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Arch::from))
     }
 
     /// Get an architecture by ID
     pub async fn get(id: &str) -> Result<Arch, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Arch, Error> {
         let endpoint = format!("arches/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let arch_response: ArchResponse = serde_json::from_value(response.body)?;
         Ok(Arch::from(arch_response.data))
+    }
+}
+
+/// Arch operations bound to one [`KeygenClient`].
+pub struct ArchService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> ArchService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn list(&self, options: Option<&ListArchesOptions>) -> Result<Page<Arch>, Error> {
+        Arch::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Arch, Error> {
+        Arch::get_with_client(&self.client.transport, id).await
     }
 }
 

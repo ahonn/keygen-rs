@@ -87,6 +87,7 @@ pub async fn list_tokens(options: Option<ListTokensOptions>) -> Result<Vec<Token
         page_number: o.page_number,
         bearer_type: o.bearer_type,
         bearer_id: o.bearer_id,
+        page_cursor: None,
     });
 
     keygen_rs::token::Token::list(opts)

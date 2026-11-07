@@ -337,6 +337,7 @@ pub async fn list_policies(options: Option<ListPoliciesOptions>) -> Result<Vec<P
         page_size: o.page_size,
         page_number: o.page_number,
         product: o.product,
+        page_cursor: None,
     });
 
     keygen_rs::policy::Policy::list(opts)

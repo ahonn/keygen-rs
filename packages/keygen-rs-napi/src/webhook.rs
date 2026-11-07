@@ -188,6 +188,7 @@ pub async fn list_webhook_endpoints(
             limit: o.limit.map(|v| v as i32),
             page_size: o.page_size.map(|v| v as i32),
             page_number: o.page_number.map(|v| v as i32),
+            page_cursor: None,
         },
     );
     keygen_rs::webhook::endpoint::WebhookEndpoint::list(opts.as_ref())
@@ -249,6 +250,7 @@ pub async fn list_webhook_events(
             page_size: o.page_size.map(|v| v as i32),
             event_type: o.event_type,
             status,
+            page_cursor: None,
         }
     });
     keygen_rs::webhook::event::WebhookEventRecord::list(opts.as_ref())

@@ -121,6 +121,7 @@ pub async fn list_packages(options: Option<ListPackagesOptions>) -> Result<Vec<P
                 page_number: o.page_number,
                 product: o.product,
                 engine,
+                page_cursor: None,
             })
         }
         None => None,

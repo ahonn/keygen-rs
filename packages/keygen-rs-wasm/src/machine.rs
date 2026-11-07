@@ -174,6 +174,7 @@ pub async fn list_machines(options: JsValue) -> Result<JsValue, JsError> {
             page_number: o.page_number,
             page_size: o.page_size,
             limit: o.limit,
+            page_cursor: None,
         }
     });
 

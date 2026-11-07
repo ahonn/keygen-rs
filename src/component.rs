@@ -2,6 +2,10 @@
 use crate::client::Client;
 #[cfg(feature = "token")]
 use crate::errors::Error;
+#[cfg(feature = "token")]
+use crate::keygen_client::KeygenClient;
+#[cfg(feature = "token")]
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -25,12 +29,6 @@ pub(crate) struct ComponentResponse {
 
 #[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ComponentsResponse {
-    pub data: Vec<KeygenResponseData<ComponentAttributes>>,
-}
-
-#[cfg(feature = "token")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateComponentRequest {
     pub fingerprint: String,
     pub name: String,
@@ -47,6 +45,10 @@ pub struct ListComponentsOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
     // Filters as per API documentation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub machine: Option<String>,
@@ -163,8 +165,14 @@ impl Component {
     /// Create a new component
     #[cfg(feature = "token")]
     pub async fn create(request: CreateComponentRequest) -> Result<Component, Error> {
-        let client = Client::from_global_config()?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
 
+    #[cfg(feature = "token")]
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: CreateComponentRequest,
+    ) -> Result<Component, Error> {
         let mut attributes = serde_json::Map::new();
         attributes.insert(
             "fingerprint".to_string(),
@@ -199,56 +207,29 @@ impl Component {
     /// List all components with optional filtering
     #[cfg(feature = "token")]
     pub async fn list(options: Option<ListComponentsOptions>) -> Result<Vec<Component>, Error> {
-        let client = Client::from_global_config()?;
-        let mut query_params = HashMap::new();
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
 
-        if let Some(opts) = options {
-            if let Some(limit) = opts.limit {
-                query_params.insert("limit".to_string(), limit.to_string());
-            }
-            if let Some(page_size) = opts.page_size {
-                query_params.insert("page[size]".to_string(), page_size.to_string());
-            }
-            if let Some(page_number) = opts.page_number {
-                query_params.insert("page[number]".to_string(), page_number.to_string());
-            }
-            // API documented filters
-            if let Some(machine) = opts.machine {
-                query_params.insert("machine".to_string(), machine);
-            }
-            if let Some(license) = opts.license {
-                query_params.insert("license".to_string(), license);
-            }
-            if let Some(owner) = opts.owner {
-                query_params.insert("owner".to_string(), owner);
-            }
-            if let Some(user) = opts.user {
-                query_params.insert("user".to_string(), user);
-            }
-            if let Some(product) = opts.product {
-                query_params.insert("product".to_string(), product);
-            }
-        }
-
-        let query = if query_params.is_empty() {
-            None
-        } else {
-            Some(query_params)
-        };
-
+    #[cfg(feature = "token")]
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListComponentsOptions>,
+    ) -> Result<Page<Component>, Error> {
+        let query = list_query(options)?;
         let response = client.get("components", query.as_ref()).await?;
-        let components_response: ComponentsResponse = serde_json::from_value(response.body)?;
-        Ok(components_response
-            .data
-            .into_iter()
-            .map(Component::from)
-            .collect())
+        let document: ListDocument<ComponentAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Component::from))
     }
 
     /// Get a component by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<Component, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Component, Error> {
         let endpoint = format!("components/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let component_response: ComponentResponse = serde_json::from_value(response.body)?;
@@ -258,8 +239,16 @@ impl Component {
     /// Update a component (only name and metadata are updatable per API docs)
     #[cfg(feature = "token")]
     pub async fn update(&self, request: UpdateComponentRequest) -> Result<Component, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("components/{}", self.id);
+        Self::update_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: UpdateComponentRequest,
+    ) -> Result<Component, Error> {
+        let endpoint = format!("components/{id}");
 
         let mut attributes = serde_json::Map::new();
         if let Some(name) = request.name {
@@ -284,8 +273,12 @@ impl Component {
     /// Delete a component
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("components/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("components/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
@@ -382,6 +375,46 @@ impl ListComponentsOptions {
     pub fn with_product(mut self, product: String) -> Self {
         self.product = Some(product);
         self
+    }
+}
+
+/// Component operations bound to one [`KeygenClient`].
+#[cfg(feature = "token")]
+pub struct ComponentService<'a> {
+    client: &'a KeygenClient,
+}
+
+#[cfg(feature = "token")]
+impl<'a> ComponentService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn create(&self, request: CreateComponentRequest) -> Result<Component, Error> {
+        Component::create_with_client(&self.client.transport, request).await
+    }
+
+    pub async fn list(
+        &self,
+        options: Option<&ListComponentsOptions>,
+    ) -> Result<Page<Component>, Error> {
+        Component::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Component, Error> {
+        Component::get_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn update(
+        &self,
+        id: &str,
+        request: UpdateComponentRequest,
+    ) -> Result<Component, Error> {
+        Component::update_with_client(&self.client.transport, id, request).await
+    }
+
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        Component::delete_with_client(&self.client.transport, id).await
     }
 }
 

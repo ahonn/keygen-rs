@@ -88,6 +88,7 @@ pub async fn list_groups(options: JsValue) -> Result<JsValue, JsError> {
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        page_cursor: None,
     });
 
     let groups: Vec<Group> = keygen_rs::group::Group::list(list_opts)

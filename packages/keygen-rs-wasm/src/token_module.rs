@@ -84,6 +84,7 @@ pub async fn list_tokens(options: JsValue) -> Result<JsValue, JsError> {
         page_number: o.page_number,
         bearer_type: o.bearer_type,
         bearer_id: o.bearer_id,
+        page_cursor: None,
     });
 
     let tokens: Vec<Token> = keygen_rs::token::Token::list(keygen_opts)

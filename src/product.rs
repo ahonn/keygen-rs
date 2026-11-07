@@ -1,6 +1,8 @@
 use crate::client::Client;
 use crate::errors::Error;
 use crate::insert_optional;
+use crate::keygen_client::KeygenClient;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::token::{token_request_attributes, CreateTokenRequest, Token, TokenResponse};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
@@ -84,11 +86,6 @@ pub(crate) struct ProductResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ProductsResponse {
-    pub data: Vec<KeygenResponseData<ProductAttributes>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateProductRequest {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -109,6 +106,9 @@ pub struct ListProductsOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`]. Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,8 +161,13 @@ impl Product {
 
     /// Create a new product
     pub async fn create(request: CreateProductRequest) -> Result<Product, Error> {
-        let client = Client::from_global_config()?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
 
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: CreateProductRequest,
+    ) -> Result<Product, Error> {
         let mut attributes = serde_json::Map::new();
         attributes.insert("name".to_string(), serde_json::json!(request.name));
         if let Some(code) = &request.code {
@@ -195,19 +200,26 @@ impl Product {
 
     /// List products with optional pagination and filtering
     pub async fn list(options: Option<ListProductsOptions>) -> Result<Vec<Product>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("products", options.as_ref()).await?;
-        let products_response: ProductsResponse = serde_json::from_value(response.body)?;
-        Ok(products_response
-            .data
-            .into_iter()
-            .map(Product::from)
-            .collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListProductsOptions>,
+    ) -> Result<Page<Product>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("products", query.as_ref()).await?;
+        let document: ListDocument<ProductAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Product::from))
     }
 
     /// Get a product by ID
     pub async fn get(id: &str) -> Result<Product, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Product, Error> {
         let endpoint = format!("products/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let product_response: ProductResponse = serde_json::from_value(response.body)?;
@@ -216,8 +228,15 @@ impl Product {
 
     /// Update a product
     pub async fn update(&self, request: UpdateProductRequest) -> Result<Product, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("products/{}", self.id);
+        Self::update_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: UpdateProductRequest,
+    ) -> Result<Product, Error> {
+        let endpoint = format!("products/{id}");
 
         let mut attributes = serde_json::Map::new();
         insert_optional(&mut attributes, "name", request.name)?;
@@ -246,8 +265,11 @@ impl Product {
 
     /// Delete a product
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("products/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("products/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
@@ -267,8 +289,15 @@ impl Product {
         &self,
         request: Option<CreateTokenRequest>,
     ) -> Result<Token, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("products/{}/tokens", self.id);
+        Self::generate_token_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn generate_token_with_client(
+        client: &Client,
+        id: &str,
+        request: Option<CreateTokenRequest>,
+    ) -> Result<Token, Error> {
+        let endpoint = format!("products/{id}/tokens");
         let attributes = token_request_attributes(request.as_ref())?;
         let body = serde_json::json!({
             "data": {
@@ -280,6 +309,49 @@ impl Product {
         let response = client.post(&endpoint, Some(&body), None::<&()>).await?;
         let token_response: TokenResponse = serde_json::from_value(response.body)?;
         Ok(Token::from(token_response.data))
+    }
+}
+
+/// Product operations bound to one [`KeygenClient`].
+pub struct ProductService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> ProductService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn create(&self, request: CreateProductRequest) -> Result<Product, Error> {
+        Product::create_with_client(&self.client.transport, request).await
+    }
+
+    pub async fn list(
+        &self,
+        options: Option<&ListProductsOptions>,
+    ) -> Result<Page<Product>, Error> {
+        Product::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Product, Error> {
+        Product::get_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn update(&self, id: &str, request: UpdateProductRequest) -> Result<Product, Error> {
+        Product::update_with_client(&self.client.transport, id, request).await
+    }
+
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        Product::delete_with_client(&self.client.transport, id).await
+    }
+
+    /// Generate a product token with optional attributes.
+    pub async fn generate_token(
+        &self,
+        id: &str,
+        request: Option<CreateTokenRequest>,
+    ) -> Result<Token, Error> {
+        Product::generate_token_with_client(&self.client.transport, id, request).await
     }
 }
 

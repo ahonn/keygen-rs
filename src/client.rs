@@ -6,17 +6,21 @@
 use crate::api_version::ApiContractVersion;
 use crate::config::get_config;
 use crate::errors::Error;
+use crate::rate_limit::RateLimit;
 use crate::verifier::Verifier;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client as ReqwestClient, Request, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
+use std::sync::{Arc, Mutex};
 use url::Url;
 
 #[derive(Clone, Debug)]
 pub struct Client {
     inner: ReqwestClient,
     options: ClientOptions,
+    /// Rate limit headers of the most recent response that carried them.
+    last_rate_limit: Arc<Mutex<Option<RateLimit>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -101,6 +105,7 @@ impl Client {
         Ok(Self {
             inner: client,
             options,
+            last_rate_limit: Arc::default(),
         })
     }
 
@@ -317,6 +322,7 @@ impl Client {
 
         let status = response.status();
         let headers = response.headers().clone();
+        self.record_rate_limit(&headers);
         let bytes = response.bytes().await?;
 
         self.verify_response_signature(&headers, &bytes, &method, &url, &host)?;
@@ -353,6 +359,7 @@ impl Client {
 
         let status = response.status();
         let headers = response.headers().clone();
+        self.record_rate_limit(&headers);
         let bytes = response.bytes().await?;
 
         self.verify_response_signature(&headers, &bytes, &method, &url, &host)?;
@@ -370,6 +377,24 @@ impl Client {
             headers,
             body: text,
         })
+    }
+
+    /// The rate limit headers of the most recent response that carried them.
+    pub(crate) fn last_rate_limit(&self) -> Option<RateLimit> {
+        self.last_rate_limit
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_else(|poisoned| poisoned.into_inner().clone())
+    }
+
+    fn record_rate_limit(&self, headers: &HeaderMap) {
+        if let Some(rate_limit) = RateLimit::from_headers(headers) {
+            let mut guard = self
+                .last_rate_limit
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            *guard = Some(rate_limit);
+        }
     }
 
     fn verify_response_signature(
@@ -409,43 +434,16 @@ impl Client {
     }
 
     fn handle_rate_limit_error(&self, headers: &HeaderMap) -> Error {
-        let window = headers
-            .get("X-RateLimit-Window")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("");
-        let retry_after = headers
-            .get("Retry-After")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0);
-        let count = headers
-            .get("X-RateLimit-Count")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0);
-        let limit = headers
-            .get("X-RateLimit-Limit")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0);
-        let remaining = headers
-            .get("X-RateLimit-Remaining")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0);
-        let reset = headers
-            .get("X-RateLimit-Reset")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0);
+        let rate_limit = RateLimit::from_headers(headers).unwrap_or_default();
+        let small = |value: Option<u64>| value.and_then(|v| u32::try_from(v).ok()).unwrap_or(0);
 
         Error::RateLimitExceeded {
-            window: window.to_string(),
-            count,
-            limit,
-            remaining,
-            reset,
-            retry_after,
+            window: rate_limit.window.unwrap_or_default(),
+            count: small(rate_limit.count),
+            limit: small(rate_limit.limit),
+            remaining: small(rate_limit.remaining),
+            reset: rate_limit.reset.unwrap_or(0),
+            retry_after: rate_limit.retry_after.unwrap_or(0),
         }
     }
 }

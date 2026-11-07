@@ -35,6 +35,9 @@ native-tls = ["reqwest/native-tls"]
 license-key = []
 # Token Authentication (Environment/Product/License/Admin tokens)
 token = []
+# `KeygenClient::search()` on Keygen's undocumented search endpoint. The endpoint
+# can change without notice, so this API is exempt from semver guarantees.
+unstable-search = ["token"]
 # Derive `specta::Type` on the end-user data types, for TypeScript export
 specta = ["dep:specta"]
 

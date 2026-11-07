@@ -1,5 +1,7 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::keygen_client::KeygenClient;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 
@@ -17,11 +19,6 @@ pub(crate) struct ChannelResponse {
     pub data: KeygenResponseData<ChannelAttributes>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ChannelsResponse {
-    pub data: Vec<KeygenResponseData<ChannelAttributes>>,
-}
-
 /// Options for listing channels
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListChannelsOptions {
@@ -31,6 +28,10 @@ pub struct ListChannelsOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
 }
 
 /// A channel represents a release track for software distribution
@@ -67,23 +68,52 @@ impl Channel {
     ///
     /// Channels are automatically populated based on releases.
     pub async fn list(options: Option<ListChannelsOptions>) -> Result<Vec<Channel>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("channels", options.as_ref()).await?;
-        let channels_response: ChannelsResponse = serde_json::from_value(response.body)?;
-        Ok(channels_response
-            .data
-            .into_iter()
-            .map(Channel::from)
-            .collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListChannelsOptions>,
+    ) -> Result<Page<Channel>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("channels", query.as_ref()).await?;
+        let document: ListDocument<ChannelAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Channel::from))
     }
 
     /// Get a channel by ID
     pub async fn get(id: &str) -> Result<Channel, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Channel, Error> {
         let endpoint = format!("channels/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let channel_response: ChannelResponse = serde_json::from_value(response.body)?;
         Ok(Channel::from(channel_response.data))
+    }
+}
+
+/// Channel operations bound to one [`KeygenClient`].
+pub struct ChannelService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> ChannelService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn list(
+        &self,
+        options: Option<&ListChannelsOptions>,
+    ) -> Result<Page<Channel>, Error> {
+        Channel::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Channel, Error> {
+        Channel::get_with_client(&self.client.transport, id).await
     }
 }
 

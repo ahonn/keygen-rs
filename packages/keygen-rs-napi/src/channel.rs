@@ -41,6 +41,7 @@ pub async fn list_channels(options: Option<ListChannelsOptions>) -> Result<Vec<C
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        page_cursor: None,
     });
     keygen_rs::channel::Channel::list(opts)
         .await

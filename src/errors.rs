@@ -7,6 +7,7 @@ use std::fmt;
 use thiserror::Error;
 use url::ParseError;
 
+use crate::rate_limit::RateLimit;
 use crate::{license::License, license_file::LicenseFileDataset, machine_file::MachineFileDataset};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -254,6 +255,9 @@ pub enum Error {
     #[error("Invalid URL")]
     InvalidUrl,
 
+    #[error("Invalid page size {0}: must be between 1 and 100")]
+    InvalidPageSize(i64),
+
     #[error("System clock is out of sync")]
     SystemClockUnsynced,
 
@@ -284,6 +288,9 @@ pub enum Error {
     #[error("{0}")]
     Api(ApiErrorDocument),
 
+    /// The API answered `429 Too Many Requests`. The fields hold the rate limit
+    /// headers, or `0` / an empty string when a header is missing. Use
+    /// [`Error::rate_limit`] to read them as a [`RateLimit`]. The SDK does not retry.
     #[error("Rate limit exceeded")]
     RateLimitExceeded {
         window: String,
@@ -484,6 +491,42 @@ pub enum Error {
 }
 
 impl Error {
+    /// The rate limit headers of a `429 Too Many Requests` response.
+    ///
+    /// Returns `None` for every other error. A header that was missing reads as
+    /// `Some(0)` (or an empty window name, which reads as `None`).
+    pub fn rate_limit(&self) -> Option<RateLimit> {
+        match self {
+            Self::RateLimitExceeded {
+                window,
+                count,
+                limit,
+                remaining,
+                reset,
+                retry_after,
+            } => Some(RateLimit {
+                window: (!window.is_empty()).then(|| window.clone()),
+                count: Some(u64::from(*count)),
+                limit: Some(u64::from(*limit)),
+                remaining: Some(u64::from(*remaining)),
+                reset: Some(*reset),
+                retry_after: Some(*retry_after),
+            }),
+            _ => None,
+        }
+    }
+
+    /// How long to wait before the next request, from the `Retry-After` header of a
+    /// `429 Too Many Requests` response. Returns `None` for every other error.
+    pub fn retry_after(&self) -> Option<std::time::Duration> {
+        match self {
+            Self::RateLimitExceeded { retry_after, .. } => {
+                Some(std::time::Duration::from_secs(*retry_after))
+            }
+            _ => None,
+        }
+    }
+
     pub fn api_error(&self) -> Option<&ApiErrorDocument> {
         match self {
             Self::Api(document) => Some(document),

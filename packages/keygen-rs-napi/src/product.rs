@@ -158,6 +158,7 @@ pub async fn list_products(options: Option<ListProductsOptions>) -> Result<Vec<P
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        page_cursor: None,
     });
 
     keygen_rs::product::Product::list(opts)

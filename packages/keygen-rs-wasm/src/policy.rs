@@ -318,6 +318,7 @@ pub async fn list_policies(options: JsValue) -> Result<JsValue, JsError> {
         page_size: o.page_size,
         page_number: o.page_number,
         product: o.product,
+        page_cursor: None,
     });
 
     let policies: Vec<Policy> = keygen_rs::policy::Policy::list(list_opts)
