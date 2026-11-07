@@ -155,6 +155,7 @@ pub async fn list_artifacts(options: Option<ListArtifactsOptions>) -> Result<Vec
                 arch: o.arch,
                 filetype: o.filetype,
                 status,
+                page_cursor: None,
             })
         }
         None => None,

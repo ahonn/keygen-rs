@@ -93,6 +93,7 @@ pub async fn list_components(options: Option<ListComponentsOptions>) -> Result<V
         owner: o.owner,
         user: o.user,
         product: o.product,
+        page_cursor: None,
     });
     keygen_rs::component::Component::list(opts)
         .await

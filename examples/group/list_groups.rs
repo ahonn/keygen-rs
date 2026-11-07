@@ -43,6 +43,7 @@ async fn main() -> Result<(), Error> {
         limit: Some(5),
         page_size: Some(5),
         page_number: Some(1),
+        page_cursor: None,
     };
 
     match Group::list(Some(options)).await {

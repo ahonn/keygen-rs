@@ -119,6 +119,7 @@ pub async fn list_environments(
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        page_cursor: None,
     });
 
     keygen_rs::environment::Environment::list(opts)

@@ -95,6 +95,7 @@ pub async fn list_components(options: JsValue) -> Result<JsValue, JsError> {
         owner: o.owner,
         user: o.user,
         product: o.product,
+        page_cursor: None,
     });
 
     let components: Vec<Component> = keygen_rs::component::Component::list(list_opts)

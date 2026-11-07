@@ -87,6 +87,7 @@ pub async fn list_entitlements(options: JsValue) -> Result<JsValue, JsError> {
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        page_cursor: None,
     });
 
     let entitlements: Vec<Entitlement> = keygen_rs::entitlement::Entitlement::list(list_opts)

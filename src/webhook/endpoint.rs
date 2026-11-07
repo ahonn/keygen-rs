@@ -4,9 +4,13 @@ use serde_json::{json, Value};
 
 use crate::client::Client;
 use crate::errors::Error;
+#[cfg(feature = "token")]
+use crate::keygen_client::KeygenClient;
+#[cfg(feature = "token")]
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 
-use super::event::{WebhookEventRecord, WebhookEventResponse, WebhookEventsResponse};
+use super::event::{WebhookEventAttributes, WebhookEventRecord};
 use super::event_types::WebhookEvent;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -51,11 +55,17 @@ pub struct WebhookEndpoint {
 }
 
 /// Options for listing webhook endpoints
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct WebhookEndpointListOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<i32>,
+    #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<i32>,
+    #[serde(rename = "page[size]", skip_serializing_if = "Option::is_none")]
     pub page_size: Option<i32>,
+    /// Cursor returned by [`Page::next_cursor`]. Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
 }
 
 /// Request for creating a webhook endpoint
@@ -237,7 +247,14 @@ impl WebhookEndpoint {
     /// Create a new webhook endpoint
     #[cfg(feature = "token")]
     pub async fn create(request: WebhookEndpointCreateRequest) -> Result<WebhookEndpoint, Error> {
-        let client = Client::from_global_config()?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: WebhookEndpointCreateRequest,
+    ) -> Result<WebhookEndpoint, Error> {
         let body = request.to_json_body();
         let response = client
             .post("webhook-endpoints", Some(&body), None::<&()>)
@@ -251,40 +268,33 @@ impl WebhookEndpoint {
     pub async fn list(
         options: Option<&WebhookEndpointListOptions>,
     ) -> Result<Vec<WebhookEndpoint>, Error> {
-        let client = Client::from_global_config()?;
-        let mut query = json!({});
+        let page = Self::list_with_client(&Client::from_global_config()?, options).await?;
+        Ok(page.into_items())
+    }
 
-        if let Some(opts) = options {
-            if let Some(limit) = opts.limit {
-                query["limit"] = json!(limit);
-            }
-            if let Some(page_number) = opts.page_number {
-                query["page[number]"] = json!(page_number);
-            }
-            if let Some(page_size) = opts.page_size {
-                query["page[size]"] = json!(page_size);
-            }
-        }
-
-        let response = client.get("webhook-endpoints", Some(&query)).await?;
-
-        #[derive(Debug, Clone, Serialize, Deserialize)]
-        struct WebhookEndpointsResponse {
-            pub data: Vec<KeygenResponseData<WebhookEndpointAttributes>>,
-        }
-
-        let endpoints_response: WebhookEndpointsResponse = serde_json::from_value(response.body)?;
-        Ok(endpoints_response
-            .data
-            .into_iter()
-            .map(WebhookEndpoint::from)
-            .collect())
+    #[cfg(feature = "token")]
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&WebhookEndpointListOptions>,
+    ) -> Result<Page<WebhookEndpoint>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("webhook-endpoints", query.as_ref()).await?;
+        let document: ListDocument<WebhookEndpointAttributes> =
+            serde_json::from_value(response.body)?;
+        Ok(document.into_page(WebhookEndpoint::from))
     }
 
     /// Get a webhook endpoint by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<WebhookEndpoint, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn get_with_client(
+        client: &Client,
+        id: &str,
+    ) -> Result<WebhookEndpoint, Error> {
         let endpoint = format!("webhook-endpoints/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let endpoint_response: WebhookEndpointResponse = serde_json::from_value(response.body)?;
@@ -297,8 +307,16 @@ impl WebhookEndpoint {
         &self,
         request: WebhookEndpointUpdateRequest,
     ) -> Result<WebhookEndpoint, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("webhook-endpoints/{}", self.id);
+        Self::update_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: WebhookEndpointUpdateRequest,
+    ) -> Result<WebhookEndpoint, Error> {
+        let endpoint = format!("webhook-endpoints/{id}");
         let body = request.to_json_body();
         let response = client.patch(&endpoint, Some(&body), None::<&()>).await?;
         let endpoint_response: WebhookEndpointResponse = serde_json::from_value(response.body)?;
@@ -308,8 +326,12 @@ impl WebhookEndpoint {
     /// Delete a webhook endpoint
     #[cfg(feature = "token")]
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("webhook-endpoints/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("webhook-endpoints/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
@@ -320,41 +342,83 @@ impl WebhookEndpoint {
         &self,
         options: Option<&WebhookEndpointListOptions>,
     ) -> Result<Vec<WebhookEventRecord>, Error> {
-        let client = Client::from_global_config()?;
-        let mut query = json!({});
+        let page =
+            Self::events_with_client(&Client::from_global_config()?, &self.id, options).await?;
+        Ok(page.into_items())
+    }
 
-        if let Some(opts) = options {
-            if let Some(limit) = opts.limit {
-                query["limit"] = json!(limit);
-            }
-            if let Some(page_number) = opts.page_number {
-                query["page[number]"] = json!(page_number);
-            }
-            if let Some(page_size) = opts.page_size {
-                query["page[size]"] = json!(page_size);
-            }
-        }
-
-        let endpoint = format!("webhook-endpoints/{}/webhook-events", self.id);
-        let response = client.get(&endpoint, Some(&query)).await?;
-
-        let events_response: WebhookEventsResponse = serde_json::from_value(response.body)?;
-        Ok(events_response
-            .data
-            .into_iter()
-            .map(WebhookEventRecord::from)
-            .collect())
+    #[cfg(feature = "token")]
+    pub(crate) async fn events_with_client(
+        client: &Client,
+        id: &str,
+        options: Option<&WebhookEndpointListOptions>,
+    ) -> Result<Page<WebhookEventRecord>, Error> {
+        let query = list_query(options)?;
+        let endpoint = format!("webhook-endpoints/{id}/webhook-events");
+        let response = client.get(&endpoint, query.as_ref()).await?;
+        let document: ListDocument<WebhookEventAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(WebhookEventRecord::from))
     }
 
     /// Retry a specific webhook event
     #[cfg(feature = "token")]
     pub async fn retry_event(&self, event_id: &str) -> Result<WebhookEventRecord, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("webhook-events/{}/actions/retry", event_id);
-        let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
+        WebhookEventRecord::retry_with_client(&Client::from_global_config()?, event_id).await
+    }
+}
 
-        let event_response: WebhookEventResponse = serde_json::from_value(response.body)?;
-        Ok(WebhookEventRecord::from(event_response.data))
+/// Webhook endpoint operations bound to one [`KeygenClient`].
+#[cfg(feature = "token")]
+pub struct WebhookEndpointService<'a> {
+    client: &'a KeygenClient,
+}
+
+#[cfg(feature = "token")]
+impl<'a> WebhookEndpointService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn create(
+        &self,
+        request: WebhookEndpointCreateRequest,
+    ) -> Result<WebhookEndpoint, Error> {
+        WebhookEndpoint::create_with_client(&self.client.transport, request).await
+    }
+
+    pub async fn list(
+        &self,
+        options: Option<&WebhookEndpointListOptions>,
+    ) -> Result<Page<WebhookEndpoint>, Error> {
+        WebhookEndpoint::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<WebhookEndpoint, Error> {
+        WebhookEndpoint::get_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn update(
+        &self,
+        id: &str,
+        request: WebhookEndpointUpdateRequest,
+    ) -> Result<WebhookEndpoint, Error> {
+        WebhookEndpoint::update_with_client(&self.client.transport, id, request).await
+    }
+
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        WebhookEndpoint::delete_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn events(
+        &self,
+        id: &str,
+        options: Option<&WebhookEndpointListOptions>,
+    ) -> Result<Page<WebhookEventRecord>, Error> {
+        WebhookEndpoint::events_with_client(&self.client.transport, id, options).await
+    }
+
+    pub async fn retry_event(&self, event_id: &str) -> Result<WebhookEventRecord, Error> {
+        WebhookEventRecord::retry_with_client(&self.client.transport, event_id).await
     }
 }
 

@@ -10,7 +10,10 @@ use crate::config::KeygenConfig;
 use crate::errors::Error;
 #[cfg(feature = "token")]
 use crate::insert_optional;
+use crate::keygen_client::KeygenClient;
 use crate::machine_file::MachineFile;
+#[cfg(feature = "token")]
+use crate::pagination::{cursor_pagination_query, validate_page_size, ListDocument, Page};
 use crate::KeygenResponseData;
 use chrono::{DateTime, Utc};
 #[cfg(not(target_arch = "wasm32"))]
@@ -156,6 +159,8 @@ pub struct MachineListFilters {
     pub page_number: Option<i32>,
     pub page_size: Option<i32>,
     pub limit: Option<i32>,
+    /// Cursor returned by [`Page::next_cursor`]. Ignored when `page_number` is set.
+    pub page_cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -212,6 +217,18 @@ impl Machine {
         self
     }
 
+    pub(crate) fn with_config_arc(mut self, config: Arc<KeygenConfig>) -> Self {
+        self.config = Some(config);
+        self
+    }
+
+    /// Gives a machine returned by a call on `self` the same configuration.
+    #[cfg(feature = "token")]
+    fn inherit_config(&self, mut machine: Machine) -> Machine {
+        machine.config = self.config.clone();
+        machine
+    }
+
     /// Gets a client for this machine, using the associated config or global config
     fn get_client(&self) -> Result<Client, Error> {
         let config = if let Some(ref cfg) = self.config {
@@ -223,14 +240,25 @@ impl Machine {
     }
 
     pub async fn deactivate(&self) -> Result<(), Error> {
-        let client = self.get_client()?;
-        let _response = client
-            .delete::<(), serde_json::Value>(&format!("machines/{}", self.id), None::<&()>)
+        Self::deactivate_with_client(&self.get_client()?, &self.id).await
+    }
+
+    pub(crate) async fn deactivate_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        client
+            .delete::<(), serde_json::Value>(&format!("machines/{id}"), None::<&()>)
             .await?;
         Ok(())
     }
 
     pub async fn checkout(&self, options: &MachineCheckoutOpts) -> Result<MachineFile, Error> {
+        Self::checkout_with_client(&self.get_client()?, &self.id, options).await
+    }
+
+    pub(crate) async fn checkout_with_client(
+        client: &Client,
+        id: &str,
+        options: &MachineCheckoutOpts,
+    ) -> Result<MachineFile, Error> {
         let mut query = json!({
             "encrypt": 1
         });
@@ -245,10 +273,9 @@ impl Machine {
             query["include"] = "license.entitlements".into();
         }
 
-        let client = self.get_client()?;
         let response = client
             .post(
-                &format!("machines/{}/actions/check-out", self.id),
+                &format!("machines/{id}/actions/check-out"),
                 None::<&()>,
                 Some(&query),
             )
@@ -260,22 +287,20 @@ impl Machine {
     }
 
     pub async fn ping(&self) -> Result<Machine, Error> {
-        let client = self.get_client()?;
+        let config = self.config.as_ref().ok_or(Error::MissingConfiguration)?;
+        let machine = Self::ping_with_client(&self.get_client()?, &self.id).await?;
+        Ok(machine.with_config_arc(Arc::clone(config)))
+    }
+
+    pub(crate) async fn ping_with_client(client: &Client, id: &str) -> Result<Machine, Error> {
         let response: Response<MachineResponse> = client
             .post(
-                &format!("machines/{}/actions/ping", self.id),
+                &format!("machines/{id}/actions/ping"),
                 None::<&()>,
                 None::<&()>,
             )
             .await?;
-        let machine = Machine::from(response.body.data).with_config(
-            self.config
-                .as_ref()
-                .ok_or(Error::MissingConfiguration)?
-                .as_ref()
-                .clone(),
-        );
-        Ok(machine)
+        Ok(Machine::from(response.body.data))
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -323,8 +348,14 @@ impl Machine {
     /// Create a new machine
     #[cfg(feature = "token")]
     pub async fn create(request: MachineCreateRequest) -> Result<Machine, Error> {
-        let config = get_config()?;
-        let client = Client::new(ClientOptions::from(config))?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: MachineCreateRequest,
+    ) -> Result<Machine, Error> {
         let mut attributes = serde_json::Map::new();
         attributes.insert("fingerprint".to_string(), json!(request.fingerprint));
 
@@ -358,60 +389,63 @@ impl Machine {
     /// List machines with optional filters
     #[cfg(feature = "token")]
     pub async fn list(filters: Option<MachineListFilters>) -> Result<Vec<Machine>, Error> {
-        let config = get_config()?;
-        let client = Client::new(ClientOptions::from(config))?;
+        let page = Self::list_with_client(&Client::from_global_config()?, filters.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        filters: Option<&MachineListFilters>,
+    ) -> Result<Page<Machine>, Error> {
         let mut query_params = Vec::new();
         if let Some(filters) = filters {
-            if let Some(license) = filters.license {
-                query_params.push(("license".to_string(), license));
-            }
-            if let Some(user) = filters.user {
-                query_params.push(("user".to_string(), user));
-            }
-            if let Some(platform) = filters.platform {
-                query_params.push(("platform".to_string(), platform));
-            }
-            if let Some(name) = filters.name {
-                query_params.push(("name".to_string(), name));
-            }
-            if let Some(fingerprint) = filters.fingerprint {
-                query_params.push(("fingerprint".to_string(), fingerprint));
-            }
-            if let Some(ip) = filters.ip {
-                query_params.push(("ip".to_string(), ip));
-            }
-            if let Some(hostname) = filters.hostname {
-                query_params.push(("hostname".to_string(), hostname));
-            }
-            if let Some(product) = filters.product {
-                query_params.push(("product".to_string(), product));
-            }
-            if let Some(owner) = filters.owner {
-                query_params.push(("owner".to_string(), owner));
-            }
-            if let Some(group) = filters.group {
-                query_params.push(("group".to_string(), group));
-            }
-            if let Some(policy) = filters.policy {
-                query_params.push(("policy".to_string(), policy));
-            }
-            if let Some(key) = filters.key {
-                query_params.push(("key".to_string(), key));
-            }
-            if let Some(metadata) = filters.metadata {
+            let mut push = |key: &str, value: &Option<String>| {
+                if let Some(value) = value {
+                    query_params.push((key.to_string(), value.clone()));
+                }
+            };
+            push("license", &filters.license);
+            push("user", &filters.user);
+            push("platform", &filters.platform);
+            push("name", &filters.name);
+            push("fingerprint", &filters.fingerprint);
+            push("ip", &filters.ip);
+            push("hostname", &filters.hostname);
+            push("product", &filters.product);
+            push("owner", &filters.owner);
+            push("group", &filters.group);
+            push("policy", &filters.policy);
+            push("key", &filters.key);
+            if let Some(metadata) = &filters.metadata {
                 for (key, value) in metadata {
                     query_params.push((format!("metadata[{key}]"), value.to_string()));
                 }
             }
-            // Add pagination parameters
+
             if let Some(page_number) = filters.page_number {
+                // Page-number pagination, kept for compatibility.
                 query_params.push(("page[number]".to_string(), page_number.to_string()));
-            }
-            if let Some(page_size) = filters.page_size {
-                query_params.push(("page[size]".to_string(), page_size.to_string()));
-            }
-            if let Some(limit) = filters.limit {
-                query_params.push(("limit".to_string(), limit.to_string()));
+                if let Some(page_size) = filters.page_size {
+                    validate_page_size(page_size.into())?;
+                    query_params.push(("page[size]".to_string(), page_size.to_string()));
+                }
+                if let Some(limit) = filters.limit {
+                    query_params.push(("limit".to_string(), limit.to_string()));
+                }
+            } else if let Value::Object(pagination) = cursor_pagination_query(
+                filters.limit,
+                filters.page_size,
+                filters.page_cursor.as_deref(),
+                None,
+            )? {
+                for (key, value) in pagination {
+                    let value = match value {
+                        Value::String(value) => value,
+                        value => value.to_string(),
+                    };
+                    query_params.push((key, value));
+                }
             }
         }
 
@@ -426,19 +460,18 @@ impl Machine {
         };
 
         let response = client.get("machines", query.as_ref()).await?;
-        let machines_response: MachinesResponse = serde_json::from_value(response.body)?;
-        Ok(machines_response
-            .data
-            .into_iter()
-            .map(Machine::from)
-            .collect())
+        let document: ListDocument<MachineAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Machine::from))
     }
 
     /// Get a machine by ID
     #[cfg(feature = "token")]
     pub async fn get(id: &str) -> Result<Machine, Error> {
-        let config = get_config()?;
-        let client = Client::new(ClientOptions::from(config))?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Machine, Error> {
         let endpoint = format!("machines/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
@@ -448,8 +481,17 @@ impl Machine {
     /// Update a machine
     #[cfg(feature = "token")]
     pub async fn update(&self, request: MachineUpdateRequest) -> Result<Machine, Error> {
-        let client = self.get_client()?;
-        let endpoint = format!("machines/{}", self.id);
+        let machine = Self::update_with_client(&self.get_client()?, &self.id, request).await?;
+        Ok(self.inherit_config(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: MachineUpdateRequest,
+    ) -> Result<Machine, Error> {
+        let endpoint = format!("machines/{id}");
 
         let mut attributes = serde_json::Map::new();
         insert_optional(&mut attributes, "name", request.name)?;
@@ -474,8 +516,13 @@ impl Machine {
     /// Reset machine heartbeat
     #[cfg(feature = "token")]
     pub async fn reset(&self) -> Result<Machine, Error> {
-        let client = self.get_client()?;
-        let endpoint = format!("machines/{}/actions/reset", self.id);
+        let machine = Self::reset_with_client(&self.get_client()?, &self.id).await?;
+        Ok(self.inherit_config(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn reset_with_client(client: &Client, id: &str) -> Result<Machine, Error> {
+        let endpoint = format!("machines/{id}/actions/reset");
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))
@@ -484,8 +531,18 @@ impl Machine {
     /// Change the machine owner.
     #[cfg(feature = "token")]
     pub async fn change_owner(&self, owner_id: &str) -> Result<Machine, Error> {
-        let client = self.get_client()?;
-        let endpoint = format!("machines/{}/owner", self.id);
+        let machine =
+            Self::change_owner_with_client(&self.get_client()?, &self.id, owner_id).await?;
+        Ok(self.inherit_config(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn change_owner_with_client(
+        client: &Client,
+        id: &str,
+        owner_id: &str,
+    ) -> Result<Machine, Error> {
+        let endpoint = format!("machines/{id}/owner");
         let body = json!({
             "data": {
                 "type": "users",
@@ -500,8 +557,18 @@ impl Machine {
     /// Change the machine group.
     #[cfg(feature = "token")]
     pub async fn change_group(&self, group_id: &str) -> Result<Machine, Error> {
-        let client = self.get_client()?;
-        let endpoint = format!("machines/{}/group", self.id);
+        let machine =
+            Self::change_group_with_client(&self.get_client()?, &self.id, group_id).await?;
+        Ok(self.inherit_config(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub(crate) async fn change_group_with_client(
+        client: &Client,
+        id: &str,
+        group_id: &str,
+    ) -> Result<Machine, Error> {
+        let endpoint = format!("machines/{id}/group");
         let body = json!({
             "data": {
                 "type": "groups",
@@ -511,6 +578,86 @@ impl Machine {
         let response = client.put(&endpoint, Some(&body), None::<&()>).await?;
         let machine_response: MachineResponse = serde_json::from_value(response.body)?;
         Ok(Machine::from(machine_response.data))
+    }
+}
+
+/// Machine operations bound to one [`KeygenClient`].
+///
+/// Every machine returned by this service carries the client's configuration, so
+/// follow-up calls such as [`Machine::deactivate`] or [`Machine::ping`] use the
+/// same account and environment.
+pub struct MachineService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> MachineService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    fn bind(&self, machine: Machine) -> Machine {
+        machine.with_config_arc(self.client.config_arc())
+    }
+
+    pub async fn deactivate(&self, id: &str) -> Result<(), Error> {
+        Machine::deactivate_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn checkout(
+        &self,
+        id: &str,
+        options: &MachineCheckoutOpts,
+    ) -> Result<MachineFile, Error> {
+        Machine::checkout_with_client(&self.client.transport, id, options).await
+    }
+
+    pub async fn ping(&self, id: &str) -> Result<Machine, Error> {
+        let machine = Machine::ping_with_client(&self.client.transport, id).await?;
+        Ok(self.bind(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn create(&self, request: MachineCreateRequest) -> Result<Machine, Error> {
+        let machine = Machine::create_with_client(&self.client.transport, request).await?;
+        Ok(self.bind(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn list(&self, filters: Option<&MachineListFilters>) -> Result<Page<Machine>, Error> {
+        let page = Machine::list_with_client(&self.client.transport, filters).await?;
+        Ok(page.map(|machine| self.bind(machine)))
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn get(&self, id: &str) -> Result<Machine, Error> {
+        let machine = Machine::get_with_client(&self.client.transport, id).await?;
+        Ok(self.bind(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn update(&self, id: &str, request: MachineUpdateRequest) -> Result<Machine, Error> {
+        let machine = Machine::update_with_client(&self.client.transport, id, request).await?;
+        Ok(self.bind(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn reset(&self, id: &str) -> Result<Machine, Error> {
+        let machine = Machine::reset_with_client(&self.client.transport, id).await?;
+        Ok(self.bind(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn change_owner(&self, id: &str, owner_id: &str) -> Result<Machine, Error> {
+        let machine =
+            Machine::change_owner_with_client(&self.client.transport, id, owner_id).await?;
+        Ok(self.bind(machine))
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn change_group(&self, id: &str, group_id: &str) -> Result<Machine, Error> {
+        let machine =
+            Machine::change_group_with_client(&self.client.transport, id, group_id).await?;
+        Ok(self.bind(machine))
     }
 }
 

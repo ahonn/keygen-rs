@@ -1,6 +1,8 @@
 use crate::client::Client;
 use crate::errors::Error;
 use crate::insert_optional;
+use crate::keygen_client::KeygenClient;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -47,11 +49,6 @@ pub(crate) struct TokenResponse {
     pub data: KeygenResponseData<TokenAttributes>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct TokensResponse {
-    pub data: Vec<KeygenResponseData<TokenAttributes>>,
-}
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ListTokensOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -60,6 +57,10 @@ pub struct ListTokensOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
     #[serde(rename = "bearer[type]", skip_serializing_if = "Option::is_none")]
     pub bearer_type: Option<String>,
     #[serde(rename = "bearer[id]", skip_serializing_if = "Option::is_none")]
@@ -120,15 +121,26 @@ impl Token {
 
     /// List tokens with optional pagination and filtering
     pub async fn list(options: Option<ListTokensOptions>) -> Result<Vec<Token>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("tokens", options.as_ref()).await?;
-        let tokens_response: TokensResponse = serde_json::from_value(response.body)?;
-        Ok(tokens_response.data.into_iter().map(Token::from).collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListTokensOptions>,
+    ) -> Result<Page<Token>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("tokens", query.as_ref()).await?;
+        let document: ListDocument<TokenAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Token::from))
     }
 
     /// Get a token by ID
     pub async fn get(id: &str) -> Result<Token, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Token, Error> {
         let endpoint = format!("tokens/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let token_response: TokenResponse = serde_json::from_value(response.body)?;
@@ -137,8 +149,15 @@ impl Token {
 
     /// Regenerate a token
     pub async fn regenerate(&self, request: RegenerateTokenRequest) -> Result<Token, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("tokens/{}", self.id);
+        Self::regenerate_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn regenerate_with_client(
+        client: &Client,
+        id: &str,
+        request: RegenerateTokenRequest,
+    ) -> Result<Token, Error> {
+        let endpoint = format!("tokens/{id}");
 
         let mut attributes = serde_json::Map::new();
         insert_optional(&mut attributes, "name", request.name)?;
@@ -160,8 +179,11 @@ impl Token {
 
     /// Revoke a token
     pub async fn revoke(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("tokens/{}", self.id);
+        Self::revoke_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn revoke_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("tokens/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
@@ -204,4 +226,35 @@ pub(crate) fn token_request_attributes(
     }
 
     Ok(attributes)
+}
+
+/// Token operations bound to one [`KeygenClient`].
+pub struct TokenService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> TokenService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn list(&self, options: Option<&ListTokensOptions>) -> Result<Page<Token>, Error> {
+        Token::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Token, Error> {
+        Token::get_with_client(&self.client.transport, id).await
+    }
+
+    pub async fn regenerate(
+        &self,
+        id: &str,
+        request: RegenerateTokenRequest,
+    ) -> Result<Token, Error> {
+        Token::regenerate_with_client(&self.client.transport, id, request).await
+    }
+
+    pub async fn revoke(&self, id: &str) -> Result<(), Error> {
+        Token::revoke_with_client(&self.client.transport, id).await
+    }
 }

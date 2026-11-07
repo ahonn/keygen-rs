@@ -1,5 +1,7 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::keygen_client::KeygenClient;
+use crate::pagination::{list_query, ListDocument, Page};
 use crate::KeygenResponseData;
 #[cfg(not(target_arch = "wasm32"))]
 use base64::{
@@ -59,11 +61,6 @@ pub(crate) struct ArtifactResponse {
     pub data: KeygenResponseData<ArtifactAttributes>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ArtifactsResponse {
-    pub data: Vec<KeygenResponseData<ArtifactAttributes>>,
-}
-
 /// Request to create a new artifact
 #[cfg(feature = "token")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,6 +107,10 @@ pub struct ListArtifactsOptions {
     pub page_size: Option<u32>,
     #[serde(rename = "page[number]", skip_serializing_if = "Option::is_none")]
     pub page_number: Option<u32>,
+    /// Cursor returned by [`Page::next_cursor`](crate::pagination::Page::next_cursor).
+    /// Ignored when `page_number` is set.
+    #[serde(rename = "page[cursor]", skip_serializing_if = "Option::is_none")]
+    pub page_cursor: Option<String>,
     /// Filter by release ID
     #[serde(skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
@@ -190,19 +191,26 @@ impl Artifact {
 
     /// List artifacts with optional filtering and pagination
     pub async fn list(options: Option<ListArtifactsOptions>) -> Result<Vec<Artifact>, Error> {
-        let client = Client::from_global_config()?;
-        let response = client.get("artifacts", options.as_ref()).await?;
-        let artifacts_response: ArtifactsResponse = serde_json::from_value(response.body)?;
-        Ok(artifacts_response
-            .data
-            .into_iter()
-            .map(Artifact::from)
-            .collect())
+        let page = Self::list_with_client(&Client::from_global_config()?, options.as_ref()).await?;
+        Ok(page.into_items())
+    }
+
+    pub(crate) async fn list_with_client(
+        client: &Client,
+        options: Option<&ListArtifactsOptions>,
+    ) -> Result<Page<Artifact>, Error> {
+        let query = list_query(options)?;
+        let response = client.get("artifacts", query.as_ref()).await?;
+        let document: ListDocument<ArtifactAttributes> = serde_json::from_value(response.body)?;
+        Ok(document.into_page(Artifact::from))
     }
 
     /// Get an artifact by ID
     pub async fn get(id: &str) -> Result<Artifact, Error> {
-        let client = Client::from_global_config()?;
+        Self::get_with_client(&Client::from_global_config()?, id).await
+    }
+
+    pub(crate) async fn get_with_client(client: &Client, id: &str) -> Result<Artifact, Error> {
         let endpoint = format!("artifacts/{id}");
         let response = client.get(&endpoint, None::<&()>).await?;
         let artifact_response: ArtifactResponse = serde_json::from_value(response.body)?;
@@ -311,8 +319,13 @@ impl Artifact {
     /// Note: After creating an artifact, you need to upload the actual file
     /// using the upload URL provided in the response links.
     pub async fn create(request: CreateArtifactRequest) -> Result<Artifact, Error> {
-        let client = Client::from_global_config()?;
+        Self::create_with_client(&Client::from_global_config()?, request).await
+    }
 
+    pub(crate) async fn create_with_client(
+        client: &Client,
+        request: CreateArtifactRequest,
+    ) -> Result<Artifact, Error> {
         let mut attributes = serde_json::Map::new();
         attributes.insert(
             "filename".to_string(),
@@ -366,8 +379,15 @@ impl Artifact {
 
     /// Update an existing artifact
     pub async fn update(&self, request: UpdateArtifactRequest) -> Result<Artifact, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("artifacts/{}", self.id);
+        Self::update_with_client(&Client::from_global_config()?, &self.id, request).await
+    }
+
+    pub(crate) async fn update_with_client(
+        client: &Client,
+        id: &str,
+        request: UpdateArtifactRequest,
+    ) -> Result<Artifact, Error> {
+        let endpoint = format!("artifacts/{id}");
 
         let mut attributes = serde_json::Map::new();
         if let Some(filename) = request.filename {
@@ -409,19 +429,71 @@ impl Artifact {
 
     /// Delete an artifact
     pub async fn delete(&self) -> Result<(), Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("artifacts/{}", self.id);
+        Self::delete_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn delete_with_client(client: &Client, id: &str) -> Result<(), Error> {
+        let endpoint = format!("artifacts/{id}");
         client.delete::<(), ()>(&endpoint, None::<&()>).await?;
         Ok(())
     }
 
     /// Yank an artifact (make it unavailable for download)
     pub async fn yank(&self) -> Result<Artifact, Error> {
-        let client = Client::from_global_config()?;
-        let endpoint = format!("artifacts/{}/actions/yank", self.id);
+        Self::yank_with_client(&Client::from_global_config()?, &self.id).await
+    }
+
+    pub(crate) async fn yank_with_client(client: &Client, id: &str) -> Result<Artifact, Error> {
+        let endpoint = format!("artifacts/{id}/actions/yank");
         let response = client.post(&endpoint, None::<&()>, None::<&()>).await?;
         let artifact_response: ArtifactResponse = serde_json::from_value(response.body)?;
         Ok(Artifact::from(artifact_response.data))
+    }
+}
+
+/// Artifact operations bound to one [`KeygenClient`].
+pub struct ArtifactService<'a> {
+    client: &'a KeygenClient,
+}
+
+impl<'a> ArtifactService<'a> {
+    pub(crate) fn new(client: &'a KeygenClient) -> Self {
+        Self { client }
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn create(&self, request: CreateArtifactRequest) -> Result<Artifact, Error> {
+        Artifact::create_with_client(&self.client.transport, request).await
+    }
+
+    pub async fn list(
+        &self,
+        options: Option<&ListArtifactsOptions>,
+    ) -> Result<Page<Artifact>, Error> {
+        Artifact::list_with_client(&self.client.transport, options).await
+    }
+
+    pub async fn get(&self, id: &str) -> Result<Artifact, Error> {
+        Artifact::get_with_client(&self.client.transport, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn update(
+        &self,
+        id: &str,
+        request: UpdateArtifactRequest,
+    ) -> Result<Artifact, Error> {
+        Artifact::update_with_client(&self.client.transport, id, request).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn delete(&self, id: &str) -> Result<(), Error> {
+        Artifact::delete_with_client(&self.client.transport, id).await
+    }
+
+    #[cfg(feature = "token")]
+    pub async fn yank(&self, id: &str) -> Result<Artifact, Error> {
+        Artifact::yank_with_client(&self.client.transport, id).await
     }
 }
 

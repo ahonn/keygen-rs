@@ -89,6 +89,7 @@ pub async fn list_groups(options: Option<ListGroupsOptions>) -> Result<Vec<Group
         limit: o.limit,
         page_size: o.page_size,
         page_number: o.page_number,
+        page_cursor: None,
     });
     keygen_rs::group::Group::list(opts)
         .await
