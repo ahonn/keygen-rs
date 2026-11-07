@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-07
+
+### Added
+
+- Add processes, second factors, logs, search, capabilities and rate limits ([634566e](https://github.com/ahonn/keygen-rs/commit/634566ecd7987e4752181bab0ac29c09cc387d98))
+- [**breaking**] Add instance services and cursor pages for every resource ([e793ea0](https://github.com/ahonn/keygen-rs/commit/e793ea0e8280d70b324bd1e6295d6d7074bf798c))
+
+### Fixed
+
+- Use Bash for NAPI version sync on Windows ([bc10bf8](https://github.com/ahonn/keygen-rs/commit/bc10bf84eda9d89956397fa8bbfabbee0cc12432))
+
+
 ## [0.14.2] - 2026-11-03
 
 ### Fixed
