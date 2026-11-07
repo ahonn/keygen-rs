@@ -7,8 +7,9 @@ use crate::license::LicenseService;
 use crate::license::{LicenseValidationRequest, LicenseValidationResult};
 #[cfg(feature = "token")]
 use crate::profile::CurrentProfile;
+use crate::rate_limit::RateLimit;
 use crate::release::{Release, ReleaseUpgradeRequest};
-use crate::service::ServiceInfo;
+use crate::service::{Capabilities, ServiceInfo};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{artifact::Artifact, release::ArtifactDownloadOptions};
 use std::sync::Arc;
@@ -144,6 +145,54 @@ impl KeygenClient {
     #[cfg(feature = "token")]
     pub fn webhook_events(&self) -> crate::webhook::event::WebhookEventService<'_> {
         crate::webhook::event::WebhookEventService::new(self)
+    }
+
+    /// Process operations. See [`crate::process::ProcessService`].
+    pub fn processes(&self) -> crate::process::ProcessService<'_> {
+        crate::process::ProcessService::new(self)
+    }
+
+    /// Second factor (2FA) operations for users.
+    #[cfg(feature = "token")]
+    pub fn second_factors(&self) -> crate::second_factor::SecondFactorService<'_> {
+        crate::second_factor::SecondFactorService::new(self)
+    }
+
+    /// Event logs. Keygen EE and Keygen Cloud only.
+    #[cfg(feature = "token")]
+    pub fn event_logs(&self) -> crate::event_log::EventLogService<'_> {
+        crate::event_log::EventLogService::new(self)
+    }
+
+    /// Request logs. Keygen EE and Keygen Cloud only.
+    #[cfg(feature = "token")]
+    pub fn request_logs(&self) -> crate::request_log::RequestLogService<'_> {
+        crate::request_log::RequestLogService::new(self)
+    }
+
+    /// Search through Keygen's undocumented search endpoint. See [`crate::search`].
+    ///
+    /// Requires the `unstable-search` feature. The endpoint is not part of Keygen's
+    /// public API and can change without notice.
+    #[cfg(all(feature = "token", feature = "unstable-search"))]
+    pub fn search(&self) -> crate::search::SearchService<'_> {
+        crate::search::SearchService::new(self)
+    }
+
+    /// Reads the edition, mode and API version of the server from a ping response.
+    /// See [`Capabilities`].
+    pub async fn capabilities(&self) -> Result<Capabilities, Error> {
+        Ok(Capabilities::from_service_info(&self.service_info().await?))
+    }
+
+    /// The rate limit headers of the most recent response this client received that
+    /// carried them, or `None` before the first such response.
+    ///
+    /// Requests that run at the same time overwrite each other's status, so treat the
+    /// value as approximate. After a `429` response, prefer
+    /// [`Error::rate_limit`](crate::errors::Error::rate_limit).
+    pub fn last_rate_limit(&self) -> Option<RateLimit> {
+        self.transport.last_rate_limit()
     }
 
     pub async fn service_info(&self) -> Result<ServiceInfo, Error> {

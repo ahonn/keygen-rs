@@ -35,6 +35,8 @@ pub mod license_file;
 pub mod machine;
 pub mod machine_file;
 pub mod pagination;
+pub mod process;
+pub mod rate_limit;
 pub mod service;
 #[cfg(feature = "specta")]
 pub mod specta_support;
@@ -42,16 +44,26 @@ pub mod specta_support;
 pub use api_version::ApiContractVersion;
 pub use keygen_client::{KeygenClient, KeygenClientBuilder};
 pub use pagination::{Page, PageLinks};
+pub use rate_limit::RateLimit;
+pub use service::{Capabilities, KeygenEdition, KeygenMode};
 
 // Management features only available with "token" feature flag
 #[cfg(feature = "token")]
 pub mod environment;
+#[cfg(feature = "token")]
+pub mod event_log;
 #[cfg(feature = "token")]
 pub mod policy;
 #[cfg(feature = "token")]
 pub mod product;
 #[cfg(feature = "token")]
 pub mod profile;
+#[cfg(feature = "token")]
+pub mod request_log;
+#[cfg(all(feature = "token", feature = "unstable-search"))]
+pub mod search;
+#[cfg(feature = "token")]
+pub mod second_factor;
 #[cfg(feature = "token")]
 pub mod token;
 #[cfg(feature = "token")]
@@ -141,6 +153,33 @@ impl KeygenRelationships {
 
     pub(crate) fn license_id(&self) -> Option<String> {
         Self::extract_id(&self.license)
+    }
+
+    /// The linkage of a relationship that has no dedicated field, for example `machine`.
+    pub(crate) fn other_data(&self, name: &str) -> Option<KeygenRelationshipData> {
+        self.other
+            .get(name)
+            .and_then(|value| serde_json::from_value::<KeygenRelationship>(value.clone()).ok())
+            .and_then(|relationship| relationship.data)
+    }
+}
+
+/// The type and ID of a related resource, for example the resource an event log is for.
+#[cfg(feature = "token")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ResourceIdentifier {
+    /// The JSON:API type, for example `licenses` or `users`.
+    pub resource_type: String,
+    pub id: String,
+}
+
+#[cfg(feature = "token")]
+impl From<KeygenRelationshipData> for ResourceIdentifier {
+    fn from(data: KeygenRelationshipData) -> Self {
+        Self {
+            resource_type: data.r#type,
+            id: data.id,
+        }
     }
 }
 

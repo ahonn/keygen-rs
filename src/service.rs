@@ -25,6 +25,141 @@ pub struct ServiceInfo {
     pub headers: HashMap<String, String>,
 }
 
+/// The edition of a Keygen server, from the `Keygen-Edition` response header.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[non_exhaustive]
+pub enum KeygenEdition {
+    /// Keygen CE, the self-hosted Community Edition.
+    #[serde(rename = "CE")]
+    Community,
+    /// Keygen EE, the Enterprise Edition. Keygen Cloud also reports `EE`.
+    #[serde(rename = "EE")]
+    Enterprise,
+}
+
+impl KeygenEdition {
+    fn parse(value: &str) -> Option<Self> {
+        match value.trim() {
+            v if v.eq_ignore_ascii_case("CE") => Some(Self::Community),
+            v if v.eq_ignore_ascii_case("EE") => Some(Self::Enterprise),
+            _ => None,
+        }
+    }
+}
+
+/// The tenancy mode of a Keygen server, from the `Keygen-Mode` response header.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum KeygenMode {
+    /// One account per server.
+    Singleplayer,
+    /// Many accounts per server, as on Keygen Cloud.
+    Multiplayer,
+}
+
+impl KeygenMode {
+    fn parse(value: &str) -> Option<Self> {
+        match value.trim() {
+            v if v.eq_ignore_ascii_case("singleplayer") => Some(Self::Singleplayer),
+            v if v.eq_ignore_ascii_case("multiplayer") => Some(Self::Multiplayer),
+            _ => None,
+        }
+    }
+}
+
+/// What a Keygen server supports, read from the headers of a ping response.
+///
+/// Keygen sends `Keygen-Edition` (`CE` or `EE`), `Keygen-Mode` (`singleplayer` or
+/// `multiplayer`), `Keygen-Version` and `Keygen-Revision` on its API responses.
+/// A field is `None` when the header is missing or has an unknown value, for example
+/// on an old server or behind a proxy that removes headers.
+///
+/// The `supports_*` predicates use the edition only. They return `false` when the
+/// edition is unknown. A self-hosted EE server can still refuse an EE feature when its
+/// license does not include it, or when the feature needs a service (such as ClickHouse
+/// for request and event logs) that the server does not have.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[non_exhaustive]
+pub struct Capabilities {
+    /// `Keygen-Edition`.
+    pub edition: Option<KeygenEdition>,
+    /// `Keygen-Mode`.
+    pub mode: Option<KeygenMode>,
+    /// `Keygen-Version`: the API version the server used for the ping request.
+    pub api_version: Option<String>,
+    /// `Keygen-Revision`: the server build.
+    pub revision: Option<String>,
+}
+
+impl Capabilities {
+    /// Reads the capability headers of a ping response.
+    pub fn from_service_info(service_info: &ServiceInfo) -> Self {
+        let header = |name: &str| {
+            service_info
+                .headers
+                .iter()
+                .find(|(key, _)| key.eq_ignore_ascii_case(name))
+                .map(|(_, value)| value.trim())
+                .filter(|value| !value.is_empty())
+        };
+
+        Self {
+            edition: header("keygen-edition").and_then(KeygenEdition::parse),
+            mode: header("keygen-mode").and_then(KeygenMode::parse),
+            api_version: service_info
+                .api_version
+                .clone()
+                .or_else(|| header("keygen-version").map(str::to_owned)),
+            revision: header("keygen-revision").map(str::to_owned),
+        }
+    }
+
+    /// Whether the server is Keygen EE (self-hosted EE or Keygen Cloud).
+    pub fn is_enterprise(&self) -> bool {
+        self.edition == Some(KeygenEdition::Enterprise)
+    }
+
+    /// Whether the server is Keygen CE.
+    pub fn is_community(&self) -> bool {
+        self.edition == Some(KeygenEdition::Community)
+    }
+
+    /// Whether the server hosts many accounts, as Keygen Cloud does.
+    pub fn is_multiplayer(&self) -> bool {
+        self.mode == Some(KeygenMode::Multiplayer)
+    }
+
+    /// Event logs (`/event-logs`) are EE only.
+    pub fn supports_event_logs(&self) -> bool {
+        self.is_enterprise()
+    }
+
+    /// Request logs (`/request-logs`) are EE only.
+    pub fn supports_request_logs(&self) -> bool {
+        self.is_enterprise()
+    }
+
+    /// Environments (`/environments`) are EE only.
+    pub fn supports_environments(&self) -> bool {
+        self.is_enterprise()
+    }
+
+    /// Token and user `permissions` are EE only. Keygen CE omits them.
+    pub fn supports_permissions(&self) -> bool {
+        self.is_enterprise()
+    }
+}
+
+impl From<&ServiceInfo> for Capabilities {
+    fn from(service_info: &ServiceInfo) -> Self {
+        Self::from_service_info(service_info)
+    }
+}
+
 /// Get service information using the /v1/ping endpoint
 /// This can help determine the Keygen.sh service version and capabilities
 pub async fn get_service_info() -> Result<ServiceInfo, Error> {

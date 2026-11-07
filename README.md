@@ -31,6 +31,7 @@ The SDK uses feature flags to minimize binary size:
 
 - **`license-key`** (default): End-user features for license validation and machine activation
 - **`token`**: Administrative features requiring token authentication
+- **`unstable-search`**: `KeygenClient::search()` on Keygen's undocumented search endpoint. Implies `token`. Keygen can change the endpoint without notice, so this API is exempt from semver guarantees.
 - **`specta`**: Derives `specta::Type` on the end-user data types (`Machine`, `License`, …) for TypeScript export via `tauri-specta`. Requires `specta 2.0.0-rc.22` or newer, resolving to the *same* `specta` as your crate — two copies mean two incompatible `Type` traits.
 
 ```toml
