@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-08
+
+### Added
+
+- [**breaking**] Negotiate the API version and pagination with the server ([9aadd53](https://github.com/ahonn/keygen-rs/commit/9aadd537ab9771d985c2f376001d6c91bdd855c0))
+
+
 ## [0.15.0] - 2026-11-07
 
 ### Added
