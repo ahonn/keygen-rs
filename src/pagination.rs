@@ -1,8 +1,14 @@
-//! Cursor pagination shared by every list endpoint.
+//! Pagination shared by every list endpoint.
 //!
 //! Every list call made through a [`KeygenClient`](crate::KeygenClient) service returns a
 //! [`Page`]. Pass [`Page::next_cursor`] back as the `page_cursor` list option to fetch the
 //! next page.
+//!
+//! Keygen servers page in one of two ways ([`Pagination`]). Keygen Cloud and Keygen CE
+//! 1.7.0 and later page with cursors. Older Keygen CE servers page with page numbers
+//! only. A client made by [`KeygenClient::negotiate`](crate::KeygenClient::negotiate)
+//! knows which way its server pages, and translates the `page_cursor` option, so the
+//! same calls page through both kinds of server.
 
 use crate::errors::Error;
 use crate::KeygenResponseData;
@@ -13,6 +19,53 @@ use serde_json::{json, Map, Value};
 pub const MIN_PAGE_SIZE: u32 = 1;
 /// Largest page size accepted by the Keygen API.
 pub const MAX_PAGE_SIZE: u32 = 100;
+
+/// How a Keygen server pages its lists.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum Pagination {
+    /// `page[cursor]` and `page[size]`: Keygen Cloud, and Keygen CE 1.7.0 and later.
+    #[default]
+    Cursor,
+    /// `page[number]` and `page[size]` only: Keygen CE before 1.7.0. Such a server
+    /// refuses a `page[size]` without a `page[number]`.
+    ///
+    /// A client in this mode sends each `page[cursor]` as a `page[number]`: an empty
+    /// cursor (the first page) as page 1, and a page number from
+    /// [`Page::next_cursor`] as that page.
+    PageNumber,
+}
+
+/// Rewrites the `page[cursor]` of an encoded query string as a `page[number]`, for a
+/// server that pages with page numbers only. A query without a `page[cursor]`, or with a
+/// `page[number]` already, is returned unchanged.
+pub(crate) fn query_for_page_numbers(query: &str) -> String {
+    let pairs: Vec<(String, String)> = url::form_urlencoded::parse(query.as_bytes())
+        .into_owned()
+        .collect();
+    let has_number = pairs.iter().any(|(key, _)| key == "page[number]");
+    let Some(cursor) = pairs
+        .iter()
+        .find_map(|(key, value)| (key == "page[cursor]").then_some(value))
+    else {
+        return query.to_owned();
+    };
+    if has_number {
+        return query.to_owned();
+    }
+    let number = cursor.parse::<u32>().ok().filter(|n| *n > 0).unwrap_or(1);
+    let mut out = url::form_urlencoded::Serializer::new(String::new());
+    for (key, value) in &pairs {
+        if key == "page[cursor]" {
+            out.append_pair("page[number]", &number.to_string());
+        } else {
+            out.append_pair(key, value);
+        }
+    }
+    out.finish()
+}
 
 /// Limit and cursor pagination for relationship lists.
 #[derive(Debug, Default, Serialize)]
@@ -128,10 +181,20 @@ impl PageLinks {
         self.next.is_some()
     }
 
+    /// The token of the next page, read from the `next` link: its `page[cursor]`, or
+    /// its `page[number]` when the server pages with page numbers
+    /// ([`Pagination::PageNumber`]). Pass it back as the `page_cursor` list option.
     pub fn next_cursor(&self) -> Option<String> {
         let query = self.next.as_deref()?.split_once('?')?.1;
-        url::form_urlencoded::parse(query.as_bytes())
-            .find_map(|(key, value)| (key == "page[cursor]").then(|| value.into_owned()))
+        let pairs: Vec<(String, String)> = url::form_urlencoded::parse(query.as_bytes())
+            .into_owned()
+            .collect();
+        let value = |name: &str| {
+            pairs
+                .iter()
+                .find_map(|(key, value)| (key == name).then(|| value.clone()))
+        };
+        value("page[cursor]").or_else(|| value("page[number]"))
     }
 }
 
@@ -230,6 +293,43 @@ pub(crate) fn list_query<O: Serialize>(options: Option<&O>) -> Result<Option<Val
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn page_number_queries_replace_the_cursor() {
+        assert_eq!(
+            query_for_page_numbers("status=ACTIVE&page%5Bcursor%5D=&page%5Bsize%5D=10"),
+            "status=ACTIVE&page%5Bnumber%5D=1&page%5Bsize%5D=10"
+        );
+        assert_eq!(
+            query_for_page_numbers("page%5Bcursor%5D=3&page%5Bsize%5D=10"),
+            "page%5Bnumber%5D=3&page%5Bsize%5D=10"
+        );
+        // A cursor from a cursor server cannot be a page number: start over.
+        assert_eq!(
+            query_for_page_numbers("page%5Bcursor%5D=0b7b2c8e-5f4f-4c1a-9a51-0f4a8a3b1e2d"),
+            "page%5Bnumber%5D=1"
+        );
+        assert_eq!(query_for_page_numbers("limit=5"), "limit=5");
+        assert_eq!(
+            query_for_page_numbers("page%5Bnumber%5D=2&page%5Bcursor%5D=x"),
+            "page%5Bnumber%5D=2&page%5Bcursor%5D=x"
+        );
+    }
+
+    #[test]
+    fn the_next_cursor_is_a_page_number_on_page_number_servers() {
+        let links: PageLinks = serde_json::from_value(json!({
+            "next": "https://keygen.example/v1/licenses?page%5Bnumber%5D=2&page%5Bsize%5D=10"
+        }))
+        .unwrap();
+        assert_eq!(links.next_cursor().as_deref(), Some("2"));
+
+        let links: PageLinks = serde_json::from_value(json!({
+            "next": "https://api.keygen.sh/v1/licenses?page[cursor]=abc&page[size]=10"
+        }))
+        .unwrap();
+        assert_eq!(links.next_cursor().as_deref(), Some("abc"));
+    }
 
     #[derive(Serialize)]
     struct Options {

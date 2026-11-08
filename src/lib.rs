@@ -43,9 +43,9 @@ pub mod specta_support;
 
 pub use api_version::ApiContractVersion;
 pub use keygen_client::{KeygenClient, KeygenClientBuilder};
-pub use pagination::{Page, PageLinks};
+pub use pagination::{Page, PageLinks, Pagination};
 pub use rate_limit::RateLimit;
-pub use service::{Capabilities, KeygenEdition, KeygenMode};
+pub use service::{Capabilities, KeygenEdition, KeygenMode, ServerProfile};
 
 // Management features only available with "token" feature flag
 #[cfg(feature = "token")]
