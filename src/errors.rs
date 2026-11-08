@@ -534,6 +534,26 @@ impl Error {
         }
     }
 
+    /// Whether the server refused the requested `Keygen-Version`
+    /// (`INVALID_API_VERSION`): it serves an older API.
+    pub fn is_unsupported_api_version(&self) -> bool {
+        self.is_api_code("INVALID_API_VERSION")
+    }
+
+    /// Whether the server refused a list request for its missing page number: it
+    /// pages with page numbers only ([`Pagination::PageNumber`](crate::pagination::Pagination::PageNumber)).
+    /// Keygen CE before 1.7.0 answers a `page[cursor]` this way.
+    pub fn requires_page_number(&self) -> bool {
+        self.api_error().is_some_and(|document| {
+            document.status() == reqwest::StatusCode::BAD_REQUEST
+                && document.errors().iter().any(|error| {
+                    let parameter = error.source().and_then(|s| s.parameter.as_deref());
+                    matches!(parameter, Some("page" | "page[number]"))
+                        || error.detail().is_some_and(|d| d.starts_with("page number"))
+                })
+        })
+    }
+
     pub fn is_api_code(&self, expected: &str) -> bool {
         self.api_error()
             .is_some_and(|document| document.has_code(expected))

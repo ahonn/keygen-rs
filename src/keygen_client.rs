@@ -5,11 +5,12 @@ use crate::errors::Error;
 use crate::license::LicenseService;
 #[cfg(feature = "license-key")]
 use crate::license::{LicenseValidationRequest, LicenseValidationResult};
+use crate::pagination::Pagination;
 #[cfg(feature = "token")]
 use crate::profile::CurrentProfile;
 use crate::rate_limit::RateLimit;
 use crate::release::{Release, ReleaseUpgradeRequest};
-use crate::service::{Capabilities, ServiceInfo};
+use crate::service::{Capabilities, ServerProfile, ServiceInfo};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{artifact::Artifact, release::ArtifactDownloadOptions};
 use std::sync::Arc;
@@ -30,6 +31,8 @@ use std::sync::Arc;
 pub struct KeygenClient {
     pub(crate) transport: Arc<Client>,
     config: Arc<KeygenConfig>,
+    /// What [`KeygenClient::negotiate`] found the server supports.
+    profile: Option<Arc<ServerProfile>>,
 }
 
 impl KeygenClient {
@@ -42,7 +45,73 @@ impl KeygenClient {
         Ok(Self {
             transport,
             config: Arc::new(config),
+            profile: None,
         })
+    }
+
+    /// Asks the server what it supports, and returns a client that matches it.
+    ///
+    /// Servers differ: Keygen Cloud serves the current API version and pages with
+    /// cursors, while a self-hosted Keygen CE can serve an older API version
+    /// (`INVALID_API_VERSION` for a newer `Keygen-Version`) or page with page numbers
+    /// only. A server's version does not tell how it pages, so this asks twice:
+    ///
+    /// 1. A ping without `Keygen-Version` returns the server's own version. The client
+    ///    requests that version, or its own when its own is older.
+    /// 2. A one-row license list with a cursor tells whether the server pages with
+    ///    cursors ([`Error::requires_page_number`] when it does not). A token that may
+    ///    not list licenses leaves cursor pagination, the current default.
+    ///
+    /// Fails with the server's answer when it refuses the credentials, so a successful
+    /// negotiation also checks them. The returned client keeps the result in
+    /// [`KeygenClient::server_profile`]; the client this is called on is unchanged.
+    #[cfg(feature = "token")]
+    pub async fn negotiate(&self) -> Result<KeygenClient, Error> {
+        let service_info = self.service_info().await?;
+        let capabilities = Capabilities::from_service_info(&service_info);
+        let api_version = capabilities
+            .api_version
+            .as_deref()
+            .and_then(|observed| ApiContractVersion::resolve_observed(observed).ok())
+            .map_or(self.config.api_version, |served| {
+                served.min(self.config.api_version)
+            });
+
+        let mut config = KeygenConfig::clone(&self.config);
+        config.api_version = api_version;
+        config.pagination = Pagination::Cursor;
+        let probe = KeygenClient::new(config.clone())?;
+        let query = serde_json::json!({ "page[size]": 1, "page[cursor]": "" });
+        let pagination = match probe
+            .transport
+            .get::<_, serde_json::Value>("licenses", Some(&query))
+            .await
+        {
+            Ok(_) => Pagination::Cursor,
+            Err(error) if error.requires_page_number() => Pagination::PageNumber,
+            Err(error)
+                if error.api_error().is_some_and(|document| {
+                    document.status() == reqwest::StatusCode::FORBIDDEN
+                }) =>
+            {
+                Pagination::Cursor
+            }
+            Err(error) => return Err(error),
+        };
+
+        config.pagination = pagination;
+        let mut negotiated = KeygenClient::new(config)?;
+        negotiated.profile = Some(Arc::new(ServerProfile {
+            capabilities,
+            api_version,
+            pagination,
+        }));
+        Ok(negotiated)
+    }
+
+    /// What the server supports, when this client came from [`KeygenClient::negotiate`].
+    pub fn server_profile(&self) -> Option<&ServerProfile> {
+        self.profile.as_deref()
     }
 
     pub fn from_global_config() -> Result<Self, Error> {
@@ -294,6 +363,13 @@ impl KeygenClientBuilder {
 
     pub fn api_contract_version(mut self, api_version: ApiContractVersion) -> Self {
         self.config.api_version = api_version;
+        self
+    }
+
+    /// How the server pages its lists. [`KeygenClient::negotiate`] finds it out; set it
+    /// here only when it is known already, for example from a saved [`ServerProfile`].
+    pub fn pagination(mut self, pagination: Pagination) -> Self {
+        self.config.pagination = pagination;
         self
     }
 

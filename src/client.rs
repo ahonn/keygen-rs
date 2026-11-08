@@ -6,6 +6,7 @@
 use crate::api_version::ApiContractVersion;
 use crate::config::get_config;
 use crate::errors::Error;
+use crate::pagination::{query_for_page_numbers, Pagination};
 use crate::rate_limit::RateLimit;
 use crate::verifier::Verifier;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
@@ -32,6 +33,7 @@ pub struct ClientOptions {
     pub user_agent: Option<String>,
     pub api_url: String,
     pub api_version: ApiContractVersion,
+    pub pagination: Pagination,
     pub api_prefix: String,
     pub verify_keygen_signature: bool,
     pub public_key: Option<String>,
@@ -67,6 +69,7 @@ impl From<crate::config::KeygenConfig> for ClientOptions {
             user_agent: config.user_agent,
             api_url: config.api_url,
             api_version: config.api_version,
+            pagination: config.pagination,
             api_prefix: config.api_prefix,
             #[cfg(feature = "license-key")]
             verify_keygen_signature: config.verify_keygen_signature.unwrap_or(true),
@@ -259,7 +262,10 @@ impl Client {
 
         if method == reqwest::Method::GET {
             if let Some(params) = params {
-                let query = serde_urlencoded::to_string(params)?;
+                let mut query = serde_urlencoded::to_string(params)?;
+                if self.options.pagination == Pagination::PageNumber {
+                    query = query_for_page_numbers(&query);
+                }
                 url.set_query(Some(&query));
             }
         }
@@ -464,6 +470,7 @@ mod tests {
             user_agent: Some("test_user_agent".to_string()),
             api_url: server_url(),
             api_version: ApiContractVersion::V1_8,
+            pagination: Pagination::Cursor,
             api_prefix: "v1".to_string(),
             public_key: None,
             verify_keygen_signature: true,

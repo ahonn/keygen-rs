@@ -16,7 +16,7 @@
 //! }).expect("Failed to set config");
 //! ```
 
-use crate::{api_version::ApiContractVersion, errors::Error};
+use crate::{api_version::ApiContractVersion, errors::Error, pagination::Pagination};
 use lazy_static::lazy_static;
 use std::sync::RwLock;
 
@@ -25,6 +25,9 @@ pub struct KeygenConfig {
     // Common configuration
     pub api_url: String,
     pub api_version: ApiContractVersion,
+    /// How the server pages its lists. [`KeygenClient::negotiate`](crate::KeygenClient::negotiate)
+    /// sets it from the server; the default is cursor pagination.
+    pub pagination: Pagination,
     pub api_prefix: String,
     pub account: String,
     pub environment: Option<String>,
@@ -50,6 +53,7 @@ impl Default for KeygenConfig {
             // Common defaults
             api_url: "https://api.keygen.sh".to_string(),
             api_version: ApiContractVersion::CURRENT,
+            pagination: Pagination::Cursor,
             api_prefix: "v1".to_string(),
             account: String::new(),
             environment: None,

@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::errors::Error;
+use crate::pagination::Pagination;
 use crate::ApiContractVersion;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -158,6 +159,20 @@ impl From<&ServiceInfo> for Capabilities {
     fn from(service_info: &ServiceInfo) -> Self {
         Self::from_service_info(service_info)
     }
+}
+
+/// What a Keygen server supports, as [`KeygenClient::negotiate`](crate::KeygenClient::negotiate)
+/// found it. A negotiated client sends every request to match it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ServerProfile {
+    /// The edition, mode, API version and revision headers of the server's ping.
+    pub capabilities: Capabilities,
+    /// The API version the client requests: the server's, or the client's when the
+    /// client asked for an older one.
+    pub api_version: ApiContractVersion,
+    /// How the server pages its lists.
+    pub pagination: Pagination,
 }
 
 /// Get service information using the /v1/ping endpoint
