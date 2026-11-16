@@ -5,7 +5,7 @@ authors = ["ahonn"]
 description = "Tauri plugin for Keygen.sh licensing, based on keygen-rs"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.77.2"
+rust-version = "1.87"
 exclude = ["/examples", "/webview-dist", "/webview-src", "/node_modules"]
 links = "tauri-plugin-keygen-rs2"
 

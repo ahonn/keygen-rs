@@ -5,12 +5,17 @@
 
 use base64::{engine::general_purpose, Engine};
 use ed25519_dalek::{Signature, Verifier as Ed25519Verifier, VerifyingKey};
+use p256::ecdsa::signature::Verifier as P256Verifier;
 use p256::ecdsa::Signature as P256Signature;
 use p256::ecdsa::VerifyingKey as P256VerifyingKey;
 use p256::pkcs8::DecodePublicKey;
 use reqwest::header::HeaderMap;
+// `rsa` 0.10 is built on `digest` 0.11, so its padding schemes need the
+// `sha2` 0.11 it re-exports. The crate's own `sha2` stays on 0.10 because
+// `ed25519-dalek` 2.x (prehashed Ed25519 in `artifact.rs`) needs `digest` 0.10.
+use rsa::sha2::{Digest as RsaDigest, Sha256 as RsaSha256};
 use rsa::traits::PublicKeyParts;
-use rsa::{Pkcs1v15Sign, Pss, RsaPublicKey};
+use rsa::{Pkcs1v15Sign, Pss, PublicKey as RsaPublicKey};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -282,14 +287,14 @@ impl Verifier {
                     .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
                 let max_salt_len = public_key
                     .size()
-                    .checked_sub(Sha256::output_size() + 2)
+                    .checked_sub(<RsaSha256 as RsaDigest>::output_size() + 2)
                     .ok_or_else(|| {
                         Error::CertificateFileNotGenuine("RSA public key is too small".to_string())
                     })?;
                 public_key
                     .verify(
-                        Pss::new_with_salt::<Sha256>(max_salt_len),
-                        &Sha256::digest(msg.as_bytes()),
+                        Pss::<RsaSha256>::new_with_salt(max_salt_len),
+                        &RsaSha256::digest(msg.as_bytes()),
                         &sig,
                     )
                     .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))
@@ -299,8 +304,8 @@ impl Verifier {
                     .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))?;
                 public_key
                     .verify(
-                        Pkcs1v15Sign::new::<Sha256>(),
-                        &Sha256::digest(msg.as_bytes()),
+                        Pkcs1v15Sign::new::<RsaSha256>(),
+                        &RsaSha256::digest(msg.as_bytes()),
                         &sig,
                     )
                     .map_err(|e| Error::CertificateFileNotGenuine(e.to_string()))
@@ -370,13 +375,16 @@ mod tests {
     use crate::license::SchemeCode;
     use base64::engine::general_purpose;
     use ed25519_dalek::{Signer, SigningKey};
+    use p256::ecdsa::signature::Signer as P256Signer;
     use p256::ecdsa::{Signature as P256Signature, SigningKey as P256SigningKey};
+    use p256::elliptic_curve::Generate;
     use p256::pkcs8::{EncodePublicKey, LineEnding};
     use rand::rngs::OsRng;
     use reqwest::header::{HeaderMap, HeaderValue};
     use rsa::traits::PublicKeyParts;
-    use rsa::{Pss, RsaPrivateKey};
+    use rsa::{PrivateKey as RsaPrivateKey, Pss};
     use serde_json::json;
+    use sys_rng::SysRng;
 
     fn generate_valid_keys() -> (String, String) {
         let mut csprng = OsRng;
@@ -435,7 +443,8 @@ mod tests {
                 .unwrap();
         }
 
-        let p256_key = P256SigningKey::random(&mut rng);
+        // `rsa` 0.10 and `p256` 0.14 take rand_core 0.10 RNGs, not rand 0.8's `OsRng`.
+        let p256_key = P256SigningKey::try_generate_from_rng(&mut SysRng).unwrap();
         let p256_public_key = p256_key
             .verifying_key()
             .to_public_key_pem(LineEnding::LF)
@@ -450,17 +459,17 @@ mod tests {
                 .unwrap();
         }
 
-        let rsa_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let rsa_key = RsaPrivateKey::new(&mut SysRng, 2048).unwrap();
         let rsa_public_key = rsa_key
             .to_public_key()
             .to_public_key_pem(LineEnding::LF)
             .unwrap();
-        let digest = Sha256::digest(message);
-        let max_salt_len = rsa_key.size() - Sha256::output_size() - 2;
+        let digest = RsaSha256::digest(message);
+        let max_salt_len = rsa_key.size() - <RsaSha256 as RsaDigest>::output_size() - 2;
         let pss_signature = rsa_key
             .sign_with_rng(
-                &mut rng,
-                Pss::new_with_salt::<Sha256>(max_salt_len),
+                &mut SysRng,
+                Pss::<RsaSha256>::new_with_salt(max_salt_len),
                 &digest,
             )
             .unwrap();
@@ -471,7 +480,7 @@ mod tests {
         }
 
         let pkcs1_signature = rsa_key
-            .sign(rsa::Pkcs1v15Sign::new::<Sha256>(), &digest)
+            .sign(rsa::Pkcs1v15Sign::new::<RsaSha256>(), &digest)
             .unwrap();
         for algorithm in ["aes-256-gcm+rsa-sha256", "base64+rsa-sha256"] {
             Verifier::new(rsa_public_key.clone())
