@@ -69,7 +69,10 @@ specta = { version = "2.0.0-rc.22", optional = true, features = [
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+http-body = "1"
+http-body-util = "0.1"
 tokio = { version = "1.0", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io-util"] }
 tempfile = "3.19"
 hostname = "0.4.0"
 num_cpus = "1.16.0"
@@ -483,6 +486,10 @@ name = "release_lifecycle"
 path = "examples/release/release_lifecycle.rs"
 
 [[example]]
+name = "release_with_artifacts"
+path = "examples/release/release_with_artifacts.rs"
+
+[[example]]
 name = "create_package"
 path = "examples/package/create_package.rs"
 
@@ -501,6 +508,10 @@ path = "examples/artifact/get_artifact.rs"
 [[example]]
 name = "list_artifacts"
 path = "examples/artifact/list_artifacts.rs"
+
+[[example]]
+name = "upload_artifact"
+path = "examples/artifact/upload_artifact.rs"
 
 [[example]]
 name = "list_platforms"
